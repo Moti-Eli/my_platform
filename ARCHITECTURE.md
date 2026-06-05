@@ -74,6 +74,46 @@ This document records key architectural decisions and the reasoning behind them.
 
 ---
 
+## 10. Multi-Tenant RBAC with Roles on the Membership
+
+**Decision:** Model tenancy around `organizations`, link users to orgs via a
+`memberships` table, and attach a user's roles to that membership (not to the
+user). Roles are per-organization, editable *data*; permissions are global,
+code-defined, seeded values. Effective access = union of permissions across a
+membership's roles (admin role implies all). Every org-scoped table carries
+`organization_id`.
+
+**Reasoning:** Putting roles on the membership lets one person be an admin in
+org A and read-only in org B without duplicating identities, which is essential
+for a platform serving many independent tenants. Separating editable roles
+(data) from fixed permissions (code) lets each org's admins manage their own
+roles safely while engineers retain control over the atomic actions the app
+enforces. A uniform `organization_id` column is the key RLS will later use to
+guarantee tenant isolation at the database level.
+
+**Same-organization integrity enforced in the schema.** The
+`membership_roles` join carries its own `organization_id` and references both
+parents through composite foreign keys (`(membership_id, organization_id)` and
+`(role_id, organization_id)`). Sharing one `organization_id` value across both
+keys makes it physically impossible to attach one org's role to another org's
+membership — a cross-tenant privilege leak. We deliberately enforce this in the
+database rather than trusting application code.
+
+**Multiple admin roles allowed.** `is_admin` may be true on more than one role
+per organization; a generic platform should not cap admin roles. The "never
+leave an org with zero admins" guard belongs in application logic, not a schema
+restriction.
+
+**Status / sequencing:** Delivered in steps. Step 1 (this milestone) adds the
+core tables, indexes, and seed permissions with **no RLS**, and was applied to
+the Supabase cloud project on 2026-06-05 (migration `20260605000001`). Row
+Level Security is deliberately deferred to a separate, individually-reviewed
+migration so the access-control rules can be audited in isolation. Until RLS
+lands, tenant isolation is not enforced by the database. See
+`packages/db/SCHEMA.md`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

@@ -13,10 +13,18 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 - Placeholder apps (Next.js web, Expo mobile)
 - Conventional Commits readiness
 
+**Phase 1: Database — Multi-Tenant RBAC** 🚧 (in progress)
+- ✅ Step 1: Core RBAC schema migration (organizations, users, memberships,
+  roles, permissions, and join tables) with DB-level same-organization
+  integrity on role assignments — **applied to the Supabase cloud project**
+  (migration `20260605000001`) — see `packages/db/SCHEMA.md`
+- ⏳ Step 2: Row Level Security (RLS) policies — separate reviewed migration
+- ⏳ Step 3: Seed full permission catalog + generated TypeScript schema types
+
 **Coming Next:**
+- Row Level Security policies for tenant isolation
 - Next.js web app scaffolding
 - Expo mobile app scaffolding
-- Database schema and migrations
 - API implementation
 - Feature development
 
@@ -115,8 +123,9 @@ Shared UI component library:
 ### `@platform/db`
 Database layer:
 - Supabase client wrapper
-- Schema definitions
-- Migration management
+- Schema definitions — see [`packages/db/SCHEMA.md`](./packages/db/SCHEMA.md)
+- Migration management — multi-tenant RBAC core schema (Step 1) lives in
+  `packages/db/supabase/migrations/`
 
 ### `@platform/web`
 Web application placeholder (Next.js coming soon):
@@ -135,8 +144,10 @@ Mobile application placeholder (Expo coming soon):
 ### `.env.example`
 Template for environment variables. Copy to `.env` and fill in your values:
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` - Supabase publishable key
+  (`sb_publishable_...`; formerly the "anon" key) — safe for client use
+- `SUPABASE_SECRET_KEY` - Supabase secret key (`sb_secret_...`; formerly the
+  "service_role" key) — server-side only, never exposed to the client
 - Additional API and feature flag configuration
 
 **Note:** `.env` is gitignored and never committed.
@@ -218,10 +229,12 @@ pnpm build --graph
 ## 📖 Next Steps
 
 1. ✅ Monorepo infrastructure
-2. 📦 Scaffold Next.js web app
-3. 📱 Scaffold Expo mobile app
-4. 🗄️ Set up Supabase database
-5. 🔐 Implement authentication
+2. 🚧 Set up Supabase database
+   - ✅ Core multi-tenant RBAC schema applied to cloud (Step 1, no RLS yet)
+   - ⏳ Row Level Security policies (Step 2)
+3. 🔐 Implement authentication & permission checks (`@platform/auth`)
+4. 📦 Scaffold Next.js web app
+5. 📱 Scaffold Expo mobile app
 6. 🌍 Add first feature domain
 
 ## 📝 License
