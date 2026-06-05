@@ -1,0 +1,7 @@
+{
+  "common": {
+    "appName": "Platform",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  }
+}

@@ -1,0 +1,229 @@
+# my-platform
+
+Multi-domain business management platform built with Turborepo + pnpm.
+
+A production-ready monorepo skeleton designed to scale across multiple business domains with shared infrastructure, authentication, and design systems.
+
+## 📋 Current Status
+
+**Phase 0: Infrastructure Setup** ✅
+- Monorepo structure with Turborepo + pnpm workspaces
+- Shared configuration and design tokens
+- TypeScript strict mode everywhere
+- Placeholder apps (Next.js web, Expo mobile)
+- Conventional Commits readiness
+
+**Coming Next:**
+- Next.js web app scaffolding
+- Expo mobile app scaffolding
+- Database schema and migrations
+- API implementation
+- Feature development
+
+## 🏗️ Project Structure
+
+```
+my-platform/
+├── apps/
+│   ├── web/          (Next.js web app - placeholder)
+│   └── mobile/       (Expo mobile app - placeholder)
+├── packages/
+│   ├── config/       (ESLint, TS configs, design tokens, Prettier)
+│   ├── core/         (Business logic, types, API client)
+│   ├── auth/         (RBAC, permissions, Supabase wrapper)
+│   ├── i18n/         (Translations: English, Hebrew)
+│   ├── ui/           (Shared UI components)
+│   └── db/           (Supabase client, schema, migrations)
+├── turbo.json        (Turborepo pipeline configuration)
+├── pnpm-workspace.yaml
+├── package.json
+└── docs/             (Documentation)
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js >= 18.17.0
+- pnpm >= 9.0.0
+
+### Installation
+
+```bash
+# Install dependencies
+pnpm install
+
+# Start development servers (all packages in parallel)
+pnpm dev
+
+# Run linting across all packages
+pnpm lint
+
+# Run TypeScript type checking
+pnpm typecheck
+
+# Build all packages
+pnpm build
+```
+
+### Project Commands
+
+| Command | Description |
+|---------|-------------|
+| `pnpm install` | Install all dependencies |
+| `pnpm dev` | Start all dev servers in parallel |
+| `pnpm build` | Build all packages |
+| `pnpm lint` | Run ESLint across all packages |
+| `pnpm typecheck` | Run TypeScript type checking |
+| `pnpm format` | Format code with Prettier |
+| `pnpm clean` | Remove node_modules and lock file |
+
+## 📦 Package Guide
+
+### `@platform/config`
+Shared configuration for the entire platform:
+- Design tokens (colors, spacing, radii, fonts)
+- TypeScript configurations (strict mode enabled)
+- ESLint rules
+- Prettier formatting
+
+### `@platform/core`
+Core business logic and types:
+- Shared TypeScript interfaces
+- Business entities
+- API client utilities
+- Data transformations
+
+### `@platform/auth`
+Authentication and authorization:
+- Role-based access control (RBAC)
+- Permission system
+- Supabase authentication wrapper
+- Session management
+
+### `@platform/i18n`
+Internationalization and translations:
+- English (en)
+- Hebrew (he)
+- Built-in language support structure
+
+### `@platform/ui`
+Shared UI component library:
+- Platform-agnostic components
+- Accessible by default
+- Design token integration
+
+### `@platform/db`
+Database layer:
+- Supabase client wrapper
+- Schema definitions
+- Migration management
+
+### `@platform/web`
+Web application placeholder (Next.js coming soon):
+- Server-side rendering
+- API routes
+- Environment configuration
+
+### `@platform/mobile`
+Mobile application placeholder (Expo coming soon):
+- React Native components
+- Native module bridges
+- Platform-specific code
+
+## 🔧 Configuration Files
+
+### `.env.example`
+Template for environment variables. Copy to `.env` and fill in your values:
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key
+- Additional API and feature flag configuration
+
+**Note:** `.env` is gitignored and never committed.
+
+### `turbo.json`
+Defines build pipeline:
+- `build` - Builds all packages
+- `lint` - Lints all packages
+- `typecheck` - Type-checks all packages
+- `dev` - Runs dev servers
+
+### `pnpm-workspace.yaml`
+Workspace configuration for all packages and apps.
+
+## 🔐 Secrets & Environment
+
+All secrets go in `.env` (gitignored):
+- Never commit `.env`
+- Use `.env.example` as a template
+- Deploy secrets via CI/CD platform (GitHub Actions, etc.)
+
+## 🎯 Development Workflow
+
+### Conventional Commits
+
+This project uses Conventional Commits with commitlint and husky:
+
+```bash
+# Examples of valid commits:
+git commit -m "feat: add user authentication"
+git commit -m "fix: resolve login redirect issue"
+git commit -m "refactor: optimize database queries"
+git commit -m "docs: update README"
+```
+
+Pre-commit hooks run:
+- ESLint (linting)
+- TypeScript (type checking)
+
+### Making Changes
+
+1. Create a feature branch: `git checkout -b feature/my-feature`
+2. Make changes across packages as needed
+3. Test locally: `pnpm dev`, `pnpm lint`, `pnpm typecheck`
+4. Commit with conventional commit message
+5. Push and open a PR
+
+### Working with Turborepo
+
+Turborepo caches build outputs and intelligently runs only affected packages:
+
+```bash
+# Run tasks only on changed packages
+pnpm dev
+
+# Force rebuild all
+pnpm build --force
+
+# View task graph
+pnpm build --graph
+```
+
+## 📚 Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Key architectural decisions and reasoning
+- [CLAUDE.md](./CLAUDE.md) - Instructions for AI sessions
+
+## 🛠️ Tech Stack
+
+- **Monorepo**: Turborepo + pnpm
+- **Language**: TypeScript (strict mode)
+- **Linting**: ESLint
+- **Formatting**: Prettier
+- **Git Hooks**: Husky
+- **Commit Linting**: Commitlint
+- **Package Manager**: pnpm
+- **Node**: 18.17.0+
+
+## 📖 Next Steps
+
+1. ✅ Monorepo infrastructure
+2. 📦 Scaffold Next.js web app
+3. 📱 Scaffold Expo mobile app
+4. 🗄️ Set up Supabase database
+5. 🔐 Implement authentication
+6. 🌍 Add first feature domain
+
+## 📝 License
+
+Private project. All rights reserved.

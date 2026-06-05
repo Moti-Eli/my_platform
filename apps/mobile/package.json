@@ -1,0 +1,12 @@
+{
+  "name": "@platform/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mobile application (Expo)",
+  "scripts": {
+    "dev": "echo 'Expo will be scaffolded here'",
+    "build": "echo 'Expo will be scaffolded here'",
+    "typecheck": "echo 'Typechecking will run after Expo setup'",
+    "lint": "echo 'Linting will run after Expo setup'"
+  }
+}

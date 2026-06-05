@@ -1,0 +1,12 @@
+{
+  "name": "@platform/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web application (Next.js)",
+  "scripts": {
+    "dev": "echo 'Next.js will be scaffolded here'",
+    "build": "echo 'Next.js will be scaffolded here'",
+    "typecheck": "echo 'Typechecking will run after Next.js setup'",
+    "lint": "echo 'Linting will run after Next.js setup'"
+  }
+}
