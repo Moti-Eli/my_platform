@@ -18,7 +18,9 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   roles, permissions, and join tables) with DB-level same-organization
   integrity on role assignments — **applied to the Supabase cloud project**
   (migration `20260605000001`) — see `packages/db/SCHEMA.md`
-- ⏳ Step 2: Row Level Security (RLS) policies — separate reviewed migration
+- ✅ Step 2: Row Level Security enabled on all 7 tables with org-membership
+  tenant-isolation policies (read-only for now) — **applied to the Supabase
+  cloud project** (migration `20260605000002`)
 - ⏳ Step 3: Seed full permission catalog + generated TypeScript schema types
 
 **Coming Next:**
@@ -230,8 +232,8 @@ pnpm build --graph
 
 1. ✅ Monorepo infrastructure
 2. 🚧 Set up Supabase database
-   - ✅ Core multi-tenant RBAC schema applied to cloud (Step 1, no RLS yet)
-   - ⏳ Row Level Security policies (Step 2)
+   - ✅ Core multi-tenant RBAC schema applied to cloud (Step 1)
+   - ✅ Row Level Security tenant-isolation policies applied to cloud (Step 2)
 3. 🔐 Implement authentication & permission checks (`@platform/auth`)
 4. 📦 Scaffold Next.js web app
 5. 📱 Scaffold Expo mobile app

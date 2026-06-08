@@ -3,8 +3,9 @@
 This document explains the core data model in plain English. It is the
 companion to the SQL migrations in [`supabase/migrations/`](./supabase/migrations/).
 
-> **Status:** STEP 1 — core tables only. Row Level Security (RLS) is **not**
-> enabled yet and will be added in a separate, individually-reviewed migration.
+> **Status:** STEP 2 complete. Core tables (Step 1) plus Row Level Security for
+> org-membership tenant isolation (Step 2) are applied to the Supabase cloud
+> project. See "RLS / Tenant Isolation" below.
 
 ---
 
@@ -143,17 +144,79 @@ This logic will live in `@platform/auth`.
 
 ---
 
+## RLS / Tenant Isolation
+
+Row Level Security (RLS) is **enabled on all seven tables**. RLS enforces a
+single, narrow job: **tenant isolation** — making sure a user can only see rows
+belonging to organizations they are a member of. It is the database-level
+guarantee that org A can never read org B's data, even if the application code
+has a bug.
+
+### What RLS does *not* do
+
+RLS here is **only about which organization** a row belongs to. It does **not**
+decide *who may do what* inside an org (who can invite users, edit roles, delete
+records). Those **action-level permission checks belong to `@platform/auth`**,
+layered on top later. Keeping the two separate means tenant isolation stays
+simple and auditable, and business rules can evolve without touching RLS.
+
+### The rule, table by table
+
+- **organizations** — you can read an org only if you're a member of it.
+- **memberships** — you can read memberships of any org you belong to (so you
+  can see your co-members), and always your own membership rows.
+- **users** — you can read your own profile, plus the profiles of people who
+  share at least one organization with you. The global user list is never
+  exposed.
+- **roles** — readable when the role's organization is one you belong to.
+- **role_permissions** — readable when the parent role's organization is one you
+  belong to.
+- **membership_roles** — readable when the row's organization is one you belong
+  to.
+- **permissions** — global, code-defined reference data; any authenticated user
+  may read the whole catalog.
+
+### Reads only, for now
+
+Only **SELECT** policies exist. There are deliberately **no INSERT / UPDATE /
+DELETE policies yet** — and because RLS denies anything without a matching
+policy, all writes by normal users are currently **blocked**. Write policies
+will arrive with `@platform/auth`, when the action-level permission model is
+defined. Server-side code using the Supabase **secret key** runs as
+`service_role`, which bypasses RLS, so backend seeding/admin still works.
+
+### How recursion is avoided (the important bit)
+
+A policy on `memberships` that needs to ask "is this user a member of this org?"
+would normally re-query `memberships` — and that re-query is itself subject to
+the same policy, causing **infinite recursion** (Postgres error `42P17`). We
+avoid this by doing every membership lookup inside **`SECURITY DEFINER` helper
+functions** in a private (non-API-exposed) schema:
+
+- `private.auth_user_is_member_of(org_id)`
+- `private.auth_user_shares_org_with(user_id)`
+- `private.auth_user_can_access_role(role_id)`
+
+A `SECURITY DEFINER` function runs with its owner's privileges, which **bypass
+RLS**, so the lookup does not re-trigger the calling table's policy. Each
+function is `STABLE` and pinned with `SET search_path = ''` (with every name
+fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
+
+---
+
 ## Notes & deferred work
 
 - **`organization_id` everywhere.** Every org-scoped table carries
-  `organization_id`. This is deliberate: it is the column that RLS policies
-  will key on to isolate tenants in the next step.
+  `organization_id`. This is deliberate: it is the column the RLS policies key
+  on to isolate tenants (see "RLS / Tenant Isolation" above).
 - **Cross-table org consistency — enforced.** A `membership_roles` row links a
   membership and a role that must both belong to the *same* organization. This
   is now guaranteed at the database level via composite foreign keys (see the
   `membership_roles` section above), not left to application code.
-- **RLS is not enabled.** No row-level security policies exist yet. Until they
-  are added, tenant isolation is **not** enforced at the database level.
+- **RLS is enabled (SELECT only).** Row Level Security is on for all seven
+  tables with read policies enforcing org-membership isolation. Write
+  (INSERT/UPDATE/DELETE) policies are intentionally deferred until
+  `@platform/auth` defines the action-level permission model.
 - **Soft deletes (planned).** Today every relationship uses physical
   `ON DELETE CASCADE`: deleting an organization (or user) permanently removes
   all dependent rows. Once real data exists we plan to move to **soft deletes**

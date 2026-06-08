@@ -114,6 +114,35 @@ lands, tenant isolation is not enforced by the database. See
 
 ---
 
+## 11. RLS for Tenant Isolation; Action Permissions in the App Layer
+
+**Decision:** Use Postgres Row Level Security as the database-level guarantee of
+**tenant isolation** — a user can only read rows belonging to organizations they
+are a member of — and keep **action-level permission checks** (who may invite,
+edit roles, delete, etc.) out of RLS, deferring them to `@platform/auth`.
+Membership checks inside policies are implemented via `SECURITY DEFINER` helper
+functions in a private, non-API-exposed schema, marked `STABLE` with
+`SET search_path = ''`.
+
+**Reasoning:** RLS is the right place for "which org's data can I see" because
+it enforces isolation even if application code is buggy — the strongest possible
+boundary between tenants. It is the *wrong* place for "what am I allowed to do",
+which is richer, changes often, and is better expressed as explicit permission
+checks in the auth layer; baking that into SQL policies would couple isolation
+to business rules and make both brittle. The `SECURITY DEFINER` helpers are
+required to avoid the classic RLS **infinite-recursion** footgun: a membership
+policy that re-queries `memberships` would recurse, so the lookup runs in a
+function whose owner privileges bypass RLS. `search_path = ''` plus full schema
+qualification closes the SECURITY DEFINER search-path-hijack vulnerability.
+
+**Status / sequencing:** Applied to the Supabase cloud project (migration
+`20260605000002`). **SELECT policies only** for now; INSERT/UPDATE/DELETE remain
+unpolicied (therefore denied for normal users) until `@platform/auth` defines
+the action-level model. Server-side code using the secret key runs as
+`service_role` and bypasses RLS. See `packages/db/SCHEMA.md`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
