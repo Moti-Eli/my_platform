@@ -93,6 +93,7 @@ pnpm build
 | `pnpm lint` | Run ESLint across all packages |
 | `pnpm typecheck` | Run TypeScript type checking |
 | `pnpm format` | Format code with Prettier |
+| `pnpm seed` | Seed dev test data (2 orgs + users) — see `packages/db` |
 | `pnpm clean` | Remove node_modules and lock file |
 
 ## 📦 Package Guide

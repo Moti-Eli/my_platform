@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Database client, schema, and migrations",
+  "scripts": {
+    "seed": "tsx scripts/seed.ts"
+  },
   "main": "src/index.ts",
   "types": "src/index.ts",
   "exports": {
@@ -14,5 +17,10 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.108.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.22.4"
   }
 }
