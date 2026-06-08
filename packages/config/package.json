@@ -7,7 +7,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./design-tokens": "./src/design-tokens.ts",
-    "./tsconfig": "./tsconfig.json"
+    "./themes": "./src/themes.ts",
+    "./tsconfig": "./tsconfig.json",
+    "./tsconfig.json": "./tsconfig.json",
+    "./tsconfig.strict.json": "./tsconfig.strict.json"
   },
   "files": ["src"]
 }

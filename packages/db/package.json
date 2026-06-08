@@ -8,5 +8,11 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"]
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.108.0"
+  }
 }

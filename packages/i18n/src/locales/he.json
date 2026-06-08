@@ -1,7 +1,27 @@
 {
   "common": {
     "appName": "פלטפורמה",
-    "loading": "...טוען",
+    "loading": "טוען...",
     "error": "חלה שגיאה"
+  },
+  "home": {
+    "tagline": "פלטפורמה לניהול עסקי רב-דיירים.",
+    "healthTitle": "בדיקת תקינות Supabase",
+    "healthOk": "מחובר. הרשאות שנזרעו:",
+    "healthEmpty": "מחובר, אך לא הוחזרו הרשאות.",
+    "healthError": "לא ניתן להתחבר ל-Supabase:",
+    "healthNotConfigured": "Supabase אינו מוגדר. יש להגדיר את NEXT_PUBLIC_SUPABASE_URL ו-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+  },
+  "nav": {
+    "language": "שפה",
+    "theme": "ערכת נושא"
+  },
+  "language": {
+    "he": "עברית",
+    "en": "English"
+  },
+  "theme": {
+    "toLight": "בהיר",
+    "toDark": "כהה"
   }
 }

@@ -3,5 +3,25 @@
     "appName": "Platform",
     "loading": "Loading...",
     "error": "An error occurred"
+  },
+  "home": {
+    "tagline": "A multi-tenant business management platform.",
+    "healthTitle": "Supabase health check",
+    "healthOk": "Connected. Seeded permissions:",
+    "healthEmpty": "Connected, but no permissions were returned.",
+    "healthError": "Could not reach Supabase:",
+    "healthNotConfigured": "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+  },
+  "nav": {
+    "language": "Language",
+    "theme": "Theme"
+  },
+  "language": {
+    "he": "עברית",
+    "en": "English"
+  },
+  "theme": {
+    "toLight": "Light",
+    "toDark": "Dark"
   }
 }

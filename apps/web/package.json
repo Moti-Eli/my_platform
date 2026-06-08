@@ -2,11 +2,34 @@
   "name": "@platform/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Web application (Next.js)",
+  "description": "Web application (Next.js App Router)",
   "scripts": {
-    "dev": "echo 'Next.js will be scaffolded here'",
-    "build": "echo 'Next.js will be scaffolded here'",
-    "typecheck": "echo 'Typechecking will run after Next.js setup'",
-    "lint": "echo 'Linting will run after Next.js setup'"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@platform/config": "workspace:*",
+    "@platform/db": "workspace:*",
+    "@platform/i18n": "workspace:*",
+    "@platform/ui": "workspace:*",
+    "next": "^16.2.7",
+    "next-intl": "^4.13.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@next/eslint-plugin-next": "^16.2.7",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/node": "^25.9.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.7",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.3.0"
   }
 }

@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/*
+ * Map Tailwind's color/font/radius utilities onto the runtime CSS variables
+ * that @platform/config emits per theme (see themeStylesheet()). Using
+ * `inline` makes utilities resolve the variables at use-time, so toggling
+ * `data-theme` on <html> instantly re-themes everything — no hard-coded colors.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --font-sans: var(--font-sans);
+  --radius-lg: var(--radius);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}

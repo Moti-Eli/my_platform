@@ -173,8 +173,10 @@ simple and auditable, and business rules can evolve without touching RLS.
   belong to.
 - **membership_roles** — readable when the row's organization is one you belong
   to.
-- **permissions** — global, code-defined reference data; any authenticated user
-  may read the whole catalog.
+- **permissions** — global, code-defined reference data; readable by **anyone**
+  (anon and authenticated), since the catalog is non-sensitive and the web
+  health check reads it without a session (migration `20260608000001`). Writes
+  remain denied.
 
 ### Reads only, for now
 

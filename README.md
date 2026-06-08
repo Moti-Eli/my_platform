@@ -13,7 +13,7 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 - Placeholder apps (Next.js web, Expo mobile)
 - Conventional Commits readiness
 
-**Phase 1: Database — Multi-Tenant RBAC** 🚧 (in progress)
+**Phase 1: Database — Multi-Tenant RBAC** ✅
 - ✅ Step 1: Core RBAC schema migration (organizations, users, memberships,
   roles, permissions, and join tables) with DB-level same-organization
   integrity on role assignments — **applied to the Supabase cloud project**
@@ -21,13 +21,21 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 - ✅ Step 2: Row Level Security enabled on all 7 tables with org-membership
   tenant-isolation policies (read-only for now) — **applied to the Supabase
   cloud project** (migration `20260605000002`)
-- ⏳ Step 3: Seed full permission catalog + generated TypeScript schema types
+- ✅ Step 2b: Global `permissions` catalog made publicly readable for the
+  web health check (migration `20260608000001`)
+
+**Phase 2: Web App Skeleton** 🚧 (in progress)
+- ✅ `apps/web` scaffolded: Next.js 16 (App Router, Turbopack), TypeScript
+  strict, wired to the shared `@platform/*` packages
+- ✅ i18n via next-intl: locale-prefixed routing (`/he`, `/en`, `he` default),
+  dynamic `dir` (RTL/LTR), translations sourced from `@platform/i18n`
+- ✅ Token-driven theming (Tailwind v4 + CSS variables from `@platform/config`),
+  two themes switchable at runtime, persisted via cookie (SSR-safe)
+- ✅ Supabase wiring (`@supabase/ssr`) with a working home-page health check
 
 **Coming Next:**
-- Row Level Security policies for tenant isolation
-- Next.js web app scaffolding
+- Authentication & permission checks (`@platform/auth`)
 - Expo mobile app scaffolding
-- API implementation
 - Feature development
 
 ## 🏗️ Project Structure
@@ -35,7 +43,7 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 ```
 my-platform/
 ├── apps/
-│   ├── web/          (Next.js web app - placeholder)
+│   ├── web/          (Next.js 16 app: i18n, RTL, theming, Supabase)
 │   └── mobile/       (Expo mobile app - placeholder)
 ├── packages/
 │   ├── config/       (ESLint, TS configs, design tokens, Prettier)
@@ -130,10 +138,25 @@ Database layer:
   `packages/db/supabase/migrations/`
 
 ### `@platform/web`
-Web application placeholder (Next.js coming soon):
-- Server-side rendering
-- API routes
-- Environment configuration
+Next.js 16 web application (App Router, Turbopack, TypeScript strict):
+- Locale-prefixed i18n via next-intl (`/he`, `/en`; `he` default; RTL/LTR)
+- Token-driven theming (Tailwind v4 + CSS variables), runtime theme switch
+- Supabase wiring via `@supabase/ssr` (browser + server clients)
+- Consumes `@platform/config`, `@platform/i18n`, `@platform/db`, `@platform/ui`
+
+**Running it:**
+
+```bash
+# 1. Provide Supabase env (publishable key is safe for the client):
+#    apps/web/.env.local
+#      NEXT_PUBLIC_SUPABASE_URL=...
+#      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+# 2. From the repo root:
+pnpm dev            # starts the web dev server (http://localhost:3000 -> /he)
+```
+
+The home page shows the app name, a language switcher, a theme toggle, and a
+Supabase health check that lists the seeded permission keys.
 
 ### `@platform/mobile`
 Mobile application placeholder (Expo coming soon):
@@ -221,21 +244,23 @@ pnpm build --graph
 
 - **Monorepo**: Turborepo + pnpm
 - **Language**: TypeScript (strict mode)
+- **Web**: Next.js 16 (App Router, Turbopack) + React 19
+- **i18n**: next-intl (locale-prefixed routing, RTL/LTR)
+- **Styling**: Tailwind CSS v4 (design tokens via CSS variables)
+- **Database/Auth**: Supabase (`@supabase/ssr`)
 - **Linting**: ESLint
 - **Formatting**: Prettier
 - **Git Hooks**: Husky
 - **Commit Linting**: Commitlint
 - **Package Manager**: pnpm
-- **Node**: 18.17.0+
+- **Node**: 20.9.0+
 
 ## 📖 Next Steps
 
 1. ✅ Monorepo infrastructure
-2. 🚧 Set up Supabase database
-   - ✅ Core multi-tenant RBAC schema applied to cloud (Step 1)
-   - ✅ Row Level Security tenant-isolation policies applied to cloud (Step 2)
-3. 🔐 Implement authentication & permission checks (`@platform/auth`)
-4. 📦 Scaffold Next.js web app
+2. ✅ Set up Supabase database (multi-tenant RBAC schema + RLS, applied to cloud)
+3. ✅ Scaffold Next.js web app (i18n, RTL, theming, Supabase wiring)
+4. 🔐 Implement authentication & permission checks (`@platform/auth`)
 5. 📱 Scaffold Expo mobile app
 6. 🌍 Add first feature domain
 

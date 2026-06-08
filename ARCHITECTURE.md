@@ -143,6 +143,47 @@ the action-level model. Server-side code using the secret key runs as
 
 ---
 
+## 12. Web App: Next.js App Router, next-intl, Token-Driven Theming, @supabase/ssr
+
+**Decision:** Build `apps/web` on **Next.js (App Router, latest stable — v16)**
+with TypeScript strict, consuming the shared `@platform/*` packages via
+`transpilePackages` (the packages ship raw TS, no build step). Four sub-decisions:
+
+- **i18n with next-intl, locale-prefixed routing.** Routes are prefixed
+  (`/he`, `/en`) with `he` as the default; `<html dir>` is derived from the
+  locale (RTL for Hebrew). Translations and the locale list live in
+  `@platform/i18n` as the single source of truth — apps never copy translations.
+- **Token-driven theming via CSS variables.** `@platform/config` emits CSS
+  variables for each theme from the design tokens; Tailwind v4 utilities are
+  mapped (`@theme inline`) onto those variables. Switching themes is just
+  toggling `data-theme` on `<html>`. The choice is stored in a **cookie** and
+  applied **server-side**, so the first paint is correct (no flash, no hydration
+  mismatch) — chosen over `localStorage`, which is unavailable during SSR.
+- **@supabase/ssr for auth-ready data access.** Cookie-based browser and server
+  clients (the current Supabase App Router pattern). The factories live in
+  `@platform/db` and are **framework-agnostic** (the server one takes a cookie
+  adapter), so the package never imports `next/*` — apps depend on packages, not
+  the reverse.
+- **Theming/i18n state is server-derived.** Locale comes from the URL; theme
+  from a cookie. Both are read on the server so rendering is deterministic.
+
+**Reasoning:** The App Router is the current Next.js default and the only
+actively developed model. Putting locales/messages/tokens in shared packages
+keeps web and (future) mobile consistent and avoids duplication, honoring the
+monorepo philosophy. Cookie-based theme + server rendering is the clean,
+SSR-correct way to avoid the theme/RTL flash that plagues client-only
+approaches. Keeping the Supabase factories framework-agnostic preserves package
+boundaries and lets mobile reuse them later.
+
+**Notes:** Next.js 16 raised the floor to **Node ≥ 20.9**, made Turbopack the
+default bundler, renamed the `middleware` convention to `proxy`, and removed
+`next lint` (we lint with ESLint flat config + `@next/eslint-plugin-next`
+directly). The home page's Supabase health check reads the global `permissions`
+catalog; to support that public read, the catalog was made anon-readable
+(migration `20260608000001`) — tenant data remains members-only.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
