@@ -225,3 +225,19 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   accidental-deletion recovery are possible. The cascades are kept for now
   because the schema is empty and physical deletes keep early development
   simple.
+- **Covering indexes for `membership_roles` composite FKs (TODO).** The
+  Supabase performance advisor flags the two composite foreign keys
+  (`membership_roles_membership_fk`, `membership_roles_role_fk`) as lacking a
+  covering index, which makes parent (`memberships`/`roles`) deletes do a
+  sequential scan of `membership_roles`. INFO-level only and harmless on an
+  empty table, so it is deferred to a later performance pass. The fix:
+
+  ```sql
+  create index membership_roles_membership_org_idx
+    on public.membership_roles (membership_id, organization_id);
+  create index membership_roles_role_org_idx
+    on public.membership_roles (role_id, organization_id);
+  -- The new role_org index leads with role_id, making the existing
+  -- single-column index redundant — drop it in the same migration:
+  drop index public.membership_roles_role_id_idx;
+  ```
