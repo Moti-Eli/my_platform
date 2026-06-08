@@ -243,3 +243,19 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   -- single-column index redundant — drop it in the same migration:
   drop index public.membership_roles_role_id_idx;
   ```
+- **Tighten client-role baseline grants (TODO, low-priority).** `anon` and
+  `authenticated` carry Supabase's default `TRUNCATE`, `TRIGGER`, `REFERENCES`
+  grants on all tables. These are not reachable via the PostgREST API (no
+  TRUNCATE endpoint; no schema CREATE rights), so the risk is low — but
+  `TRUNCATE` is destructive and not RLS-gated, so stripping it is sensible
+  defense-in-depth. Deferred; **needs separate validation against Supabase's
+  own default privileges** (future tables may re-acquire these unless the
+  `ALTER DEFAULT PRIVILEGES` defaults are also adjusted). Proposed
+  `20260608000003_tighten_client_role_grants.sql`:
+
+  ```sql
+  revoke truncate, trigger, references on
+    public.organizations, public.users, public.memberships, public.roles,
+    public.permissions, public.role_permissions, public.membership_roles
+  from anon, authenticated;
+  ```
