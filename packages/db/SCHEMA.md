@@ -294,7 +294,14 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   to a non-breached dev password. Intentionally OFF now so the simple `123456`
   dev password works. (Flagged by the security advisor as
   `auth_leaked_password_protection`; it is an Auth project setting, not a schema
-  change.)
+  change.) **The "Add user" admin action**
+  (`apps/web/.../dashboard/members/actions.ts → addMemberAction`) uses the same
+  known temp password ONLY outside production so new users can log in
+  immediately for the demo; in production it falls back to a random,
+  never-disclosed password (so the new account can't be a backdoor). Production
+  still needs a real onboarding flow — an email invite / magic link or a forced
+  password reset on first login — before this is user-facing (see
+  ARCHITECTURE.md #16).
 - **Harden last-admin protection at DB level (trigger) before production.** The
   "an organization must never be left with zero admins" rule is currently
   enforced only in the app (the member-management server action). A direct API

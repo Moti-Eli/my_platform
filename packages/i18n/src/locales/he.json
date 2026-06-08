@@ -61,6 +61,22 @@
     "updateFailed": "עדכון התפקיד נכשל. נסה שוב.",
     "noMembers": "אין חברים עדיין.",
     "noOrganization": "אינך משתייך לאף ארגון עדיין.",
-    "backToDashboard": "חזרה ללוח הבקרה"
+    "backToDashboard": "חזרה ללוח הבקרה",
+    "addUser": "הוספת משתמש",
+    "addUserSubtitle": "יצירת משתמש חדש והוספתו לארגון זה.",
+    "addUserSubmit": "הוספת משתמש",
+    "adding": "מוסיף...",
+    "cancel": "ביטול",
+    "fieldEmail": "אימייל",
+    "fieldEmailPlaceholder": "name@company.com",
+    "fieldName": "שם תצוגה",
+    "fieldNamePlaceholder": "ישראל ישראלי",
+    "fieldRole": "תפקיד התחלתי",
+    "tempPasswordNotice": "המשתמש החדש מקבל סיסמה זמנית (123456) עבור הדגמה זו ויכול להתחבר מיד.",
+    "invalidEmail": "יש להזין כתובת אימייל תקינה.",
+    "invalidName": "יש להזין שם תצוגה.",
+    "emailExists": "משתמש עם אימייל זה כבר קיים.",
+    "notConfigured": "יצירת משתמשים אינה מוגדרת בשרת.",
+    "addFailed": "הוספת המשתמש נכשלה. נסה שוב."
   }
 }

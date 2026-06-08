@@ -50,6 +50,13 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `members.manage` (via `@platform/auth` `hasPermission`); otherwise read-only.
   Writes go through the authenticated client so RLS is the real enforcer
 - ✅ "Can't remove the last admin" guard (UI-level; DB-level guard is a TODO)
+- ✅ **Add user to organization**: an admin (anyone with `members.manage`) can
+  create a new user — email + display name + initial role — via an accessible,
+  i18n/RTL modal. Runs in a **server action** with the secret key (the one path
+  that needs `service_role`, to create the `auth.users` row), behind a
+  mandatory server-side permission re-check; the secret key is confined to a
+  `server-only` module and never reaches the client. No cross-org creation;
+  duplicate emails surface a translated error. See ARCHITECTURE.md #16.
 
 **Coming Next:**
 - Expo mobile app scaffolding
@@ -165,10 +172,13 @@ Next.js 16 web application (App Router, Turbopack, TypeScript strict):
 **Running it:**
 
 ```bash
-# 1. Provide Supabase env (publishable key is safe for the client):
-#    apps/web/.env.local
+# 1. Provide Supabase env in apps/web/.env.local:
 #      NEXT_PUBLIC_SUPABASE_URL=...
-#      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+#      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...   # safe for the client
+#      SUPABASE_SECRET_KEY=...                    # server-only; needed for the
+#                                                 # admin "Add user" action.
+#                                                 # No NEXT_PUBLIC_ prefix, so it
+#                                                 # is never shipped to the browser.
 # 2. From the repo root:
 pnpm dev            # starts the web dev server (http://localhost:3000 -> /he)
 ```

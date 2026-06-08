@@ -12,6 +12,7 @@ import {
   createServerClient,
   type CookieMethodsServer,
 } from "@supabase/ssr";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const dbVersion = "0.1.0";
 
@@ -34,4 +35,23 @@ export function createServerDbClient(
   cookies: CookieMethodsServer
 ) {
   return createServerClient(supabaseUrl, publishableKey, { cookies });
+}
+
+/**
+ * Create a privileged Supabase client using the SECRET (service-role) key.
+ *
+ * This client BYPASSES Row Level Security and can perform admin operations such
+ * as creating auth users. It is intended ONLY for trusted server-side code
+ * (server actions, route handlers, scripts) and must NEVER be constructed in,
+ * or have its key exposed to, the browser.
+ *
+ * It carries no session (no cookies) and never persists/refreshes tokens, so it
+ * always acts as `service_role` rather than on behalf of a logged-in user.
+ * Callers are responsible for doing their own authorization checks (e.g. via
+ * @platform/auth, using a separate authenticated client) BEFORE using this.
+ */
+export function createAdminDbClient(supabaseUrl: string, secretKey: string): SupabaseClient {
+  return createClient(supabaseUrl, secretKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }

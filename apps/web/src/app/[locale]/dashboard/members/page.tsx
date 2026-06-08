@@ -10,6 +10,7 @@ import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { RoleSelect } from "./role-select";
+import { AddMember } from "./add-member";
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -95,17 +96,20 @@ export default async function MembersPage({ params, searchParams }: Props) {
     <main className="mx-auto w-full max-w-3xl px-6 py-12">
       <BackLink label={t("backToDashboard")} />
 
-      <header className="mb-8">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {activeOrg.organizationName}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-balance text-2xl font-bold text-foreground">{t("title")}</h1>
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-            {t("count", { count: members.length })}
-          </span>
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {activeOrg.organizationName}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-balance text-2xl font-bold text-foreground">{t("title")}</h1>
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+              {t("count", { count: members.length })}
+            </span>
+          </div>
+          <p className="mt-1.5 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <p className="mt-1.5 text-sm text-muted-foreground">{t("subtitle")}</p>
+        {canManage && <AddMember orgId={activeOrg.organizationId} locale={locale} />}
       </header>
 
       {organizations.length > 1 && (

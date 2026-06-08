@@ -272,6 +272,55 @@ flagged to become a DB-level guard (trigger) when hardened.
 
 ---
 
+## 16. Server-Side Privileged User Creation (Secret Key, Permission-Checked)
+
+**Decision:** Adding a brand-new user to an organization (create the Supabase
+auth user + `public.users` profile + membership + initial role) runs in a
+**server action** using the **secret/service-role key**, because it must create
+an `auth.users` row — an operation RLS/anon cannot perform. The secret key is
+reached only through a single `server-only` module
+(`apps/web/src/lib/supabase/admin.ts` → `@platform/db` `createAdminDbClient`),
+and the action authorizes the request *before* touching that client by
+re-checking `hasPermission(authClient, user.id, orgId, 'members.manage')` with
+the **authenticated** (RLS-scoped) client.
+
+**Reasoning:** This is the deliberate, narrow exception to "the web app only
+uses the anon key" (decision #15): user creation genuinely needs elevated
+privilege, so it is isolated server-side and fenced off from the client. The
+`server-only` import makes an accidental client import a **build error**, and
+the env var has no `NEXT_PUBLIC_` prefix, so Next.js can never inline it into a
+client bundle (verified: the key is absent from `.next/static`). Authorization
+is **never** trusted from the client — hiding the "Add user" button is UX, while
+the server-side `hasPermission` re-check is the security boundary. That same
+check **also enforces tenant isolation for the create**: `hasPermission` returns
+false unless the acting user has a `members.manage` membership in the *target*
+org, so an Org A admin cannot create users in Org B. Creation is **atomic-ish** —
+the auth user is created first and, if any later insert fails, it is deleted
+again (FK `ON DELETE CASCADE` removes the profile/membership/role), so a failure
+never leaves a half-provisioned user.
+
+**Note — why not a DB write policy (like #14)?** `membership_roles` writes are
+gated in the database because both anon and service paths touch the same table.
+User creation is different: it *requires* `service_role` to make the `auth.users`
+row, so the authorization check lives in the server action (app layer), with the
+secret key confined to `server-only` code. The created member's roles still flow
+through the same `membership_roles` table whose composite FKs guarantee
+same-org integrity.
+
+**Dev shortcut, fenced off from production:** in development new users get a
+known temporary password (`123456`, matching the seed) so the demo can log in
+immediately. In production that known password is **never** used — it would be a
+backdoor — so `newUserPassword()` falls back to a cryptographically random,
+never-disclosed password (`NODE_ENV` gate), and the in-app "temp password" hint
+is hidden. A real deployment must still wire an email invite / magic link or a
+forced reset on first login before this is user-facing (flagged in
+`packages/db/SCHEMA.md`); the random-password fallback only guarantees no
+backdoor exists in the meantime. The duplicate-email path returns a friendly
+translated error; because the action is admin-gated, the resulting
+registration-status disclosure is limited to trusted admins.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

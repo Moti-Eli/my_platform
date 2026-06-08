@@ -61,6 +61,22 @@
     "updateFailed": "Couldn't update the role. Please try again.",
     "noMembers": "No members yet.",
     "noOrganization": "You don't belong to any organization yet.",
-    "backToDashboard": "Back to dashboard"
+    "backToDashboard": "Back to dashboard",
+    "addUser": "Add user",
+    "addUserSubtitle": "Create a new user and add them to this organization.",
+    "addUserSubmit": "Add user",
+    "adding": "Adding...",
+    "cancel": "Cancel",
+    "fieldEmail": "Email",
+    "fieldEmailPlaceholder": "name@company.com",
+    "fieldName": "Display name",
+    "fieldNamePlaceholder": "Jane Doe",
+    "fieldRole": "Initial role",
+    "tempPasswordNotice": "The new user gets a temporary password (123456) for this demo and can sign in immediately.",
+    "invalidEmail": "Please enter a valid email address.",
+    "invalidName": "Please enter a display name.",
+    "emailExists": "A user with this email already exists.",
+    "notConfigured": "User creation isn't configured on the server.",
+    "addFailed": "Couldn't add the user. Please try again."
   }
 }
