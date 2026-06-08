@@ -280,7 +280,7 @@ pnpm build --graph
   login if there's no session. Session refresh runs in the proxy.
 - **Logout** clears the session and returns to login.
 - Seed dev test users with `pnpm seed` (see `packages/db`), e.g.
-  `admin@acme.test` / `DevPassword123!`.
+  `admin1@organizationA.com` / `123456`.
 
 ## 📝 License
 

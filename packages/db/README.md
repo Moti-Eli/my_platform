@@ -40,10 +40,11 @@ URL, key, and (server-side) a cookie adapter — see `apps/web/src/lib/supabase/
 `scripts/seed.ts` populates the linked Supabase project with fictional data so
 you can develop and demo tenant isolation by logging in as different org admins.
 
-It seeds **2 organizations** (Acme Corp, Globex Inc), each with an **Admin** role
-(`is_admin = true`) and a **Member** role (granted `users.view`, `users.invite`),
-plus real Supabase **auth users** + their `public.users` profiles, memberships,
-and role assignments.
+It seeds **2 organizations** (Organization A, Organization B), each with **5
+users** (2 admins + 3 members), an **Admin** role (`is_admin = true`) and a
+**Member** role (granted `users.view`, `users.invite`), plus real Supabase
+**auth users** + their `public.users` profiles, memberships, and role
+assignments.
 
 ```bash
 pnpm seed                       # from the repo root
@@ -57,15 +58,25 @@ Requirements & safety:
   `.env`. The **secret (service-role) key** is required because the script
   bypasses RLS to insert data. It is **server-side only** and never used by the
   web app.
-- **Idempotent**: clears previously-seeded data first (orgs by name + auth users
-  whose email ends in `.test`), so it is safe to re-run.
+- **Idempotent**: clears previously-seeded data first (seed orgs by name plus
+  auth users on the seed domains `@organizationa.com`/`@organizationb.com` and
+  the legacy `.test` suffix), so it is safe to re-run.
 - Prints the **target project URL** before running and refuses to run with
   `NODE_ENV=production` (override with `SEED_FORCE=1`).
 - Prints a **login credentials table** at the end.
 
+All test users share the password **`123456`**. The emails use `.com` but are
+fake/non-deliverable (we use email+password, not magic links).
+
 | Email | Password | Organization | Role |
 |---|---|---|---|
-| admin@acme.test | DevPassword123! | Acme Corp | Admin |
-| alice@acme.test | DevPassword123! | Acme Corp | Member |
-| admin@globex.test | DevPassword123! | Globex Inc | Admin |
-| bob@globex.test | DevPassword123! | Globex Inc | Member |
+| admin1@organizationA.com | 123456 | Organization A | Admin |
+| admin2@organizationA.com | 123456 | Organization A | Admin |
+| user1@organizationA.com | 123456 | Organization A | Member |
+| user2@organizationA.com | 123456 | Organization A | Member |
+| user3@organizationA.com | 123456 | Organization A | Member |
+| admin1@organizationB.com | 123456 | Organization B | Admin |
+| admin2@organizationB.com | 123456 | Organization B | Admin |
+| user1@organizationB.com | 123456 | Organization B | Member |
+| user2@organizationB.com | 123456 | Organization B | Member |
+| user3@organizationB.com | 123456 | Organization B | Member |
