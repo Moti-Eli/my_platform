@@ -23,5 +23,24 @@
   "theme": {
     "toLight": "Light",
     "toDark": "Dark"
+  },
+  "login": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "signingIn": "Signing in...",
+    "invalidCredentials": "Invalid email or password.",
+    "notConfigured": "Authentication is not configured.",
+    "link": "Sign in"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "signedInAs": "Signed in as",
+    "organizations": "Your organizations",
+    "roles": "Roles",
+    "noRoles": "No roles",
+    "noOrganizations": "You don't belong to any organization yet.",
+    "logout": "Log out"
   }
 }

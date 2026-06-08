@@ -184,6 +184,37 @@ catalog; to support that public read, the catalog was made anon-readable
 
 ---
 
+## 13. Authentication via Supabase + @supabase/ssr; RBAC Resolution in @platform/auth
+
+**Decision:** Use Supabase email/password auth with the `@supabase/ssr`
+cookie-based session pattern for the Next.js App Router. The auth/RBAC *logic*
+lives in `@platform/auth` as **UI-agnostic functions that take a Supabase
+client** (`signIn`, `signOut`, `getCurrentUser`, `getUserOrganizations`,
+`getEffectivePermissions`, `hasPermission`). Effective permissions are resolved
+as the union of permissions across all roles on the user's membership in an org,
+with an `is_admin` role implying all permissions.
+
+**Route protection:** the proxy (`@supabase/ssr` session refresh, composed with
+next-intl) keeps tokens fresh, but the actual guard is enforced **in the
+protected server component** via `getCurrentUser` (redirect to login if absent).
+We never rely on middleware alone for protection — middleware can be bypassed
+and runs before the data layer; the server-side check is authoritative.
+
+**Reasoning:** Keeping auth/RBAC as client-injected functions (no `next/*` or
+React imports) means mobile can reuse the exact same logic later — honoring the
+monorepo philosophy. `@supabase/ssr` is the current, supported way to do
+cookie-based SSR auth in the App Router. Resolving permissions in the app layer
+(rather than in SQL/RLS) keeps RLS focused purely on tenant isolation (decision
+#11) while permission *checks* — which are richer and change often — live in
+code. Because these helpers run as the current user, RLS automatically scopes
+every query to that user's data, so the resolution can't leak across tenants.
+
+**Login flow:** a server action calls `signIn` (which sets the session cookies
+server-side) then redirects to the dashboard; errors are returned as i18n keys
+and rendered translated (he/en). Logout is a server action calling `signOut`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

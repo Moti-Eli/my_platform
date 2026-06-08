@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
     "@platform/config",
     "@platform/i18n",
     "@platform/db",
+    "@platform/auth",
     "@platform/ui",
   ],
 };

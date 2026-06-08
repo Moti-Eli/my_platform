@@ -23,5 +23,24 @@
   "theme": {
     "toLight": "בהיר",
     "toDark": "כהה"
+  },
+  "login": {
+    "title": "התחברות",
+    "email": "אימייל",
+    "password": "סיסמה",
+    "submit": "התחבר",
+    "signingIn": "מתחבר...",
+    "invalidCredentials": "אימייל או סיסמה שגויים.",
+    "notConfigured": "האימות אינו מוגדר.",
+    "link": "התחברות"
+  },
+  "dashboard": {
+    "title": "לוח בקרה",
+    "signedInAs": "מחובר בתור",
+    "organizations": "הארגונים שלך",
+    "roles": "תפקידים",
+    "noRoles": "אין תפקידים",
+    "noOrganizations": "אינך משתייך לאף ארגון עדיין.",
+    "logout": "התנתק"
   }
 }

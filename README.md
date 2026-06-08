@@ -24,7 +24,7 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 - ✅ Step 2b: Global `permissions` catalog made publicly readable for the
   web health check (migration `20260608000001`)
 
-**Phase 2: Web App Skeleton** 🚧 (in progress)
+**Phase 2: Web App Skeleton** ✅
 - ✅ `apps/web` scaffolded: Next.js 16 (App Router, Turbopack), TypeScript
   strict, wired to the shared `@platform/*` packages
 - ✅ i18n via next-intl: locale-prefixed routing (`/he`, `/en`, `he` default),
@@ -33,8 +33,16 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   two themes switchable at runtime, persisted via cookie (SSR-safe)
 - ✅ Supabase wiring (`@supabase/ssr`) with a working home-page health check
 
+**Phase 3: Authentication & RBAC** ✅
+- ✅ `@platform/auth`: email/password sign-in, sign-out, current user, and RBAC
+  resolution (org membership → roles → effective permissions; admin ⇒ all)
+- ✅ Login page (`/[locale]/login`) with translated error handling (he/en)
+- ✅ Protected dashboard (`/[locale]/dashboard`) showing the user's org(s) and
+  role(s); logged-out access redirects to login; logout clears the session
+- ✅ Session refresh in the proxy (`@supabase/ssr`) composed with next-intl
+
 **Coming Next:**
-- Authentication & permission checks (`@platform/auth`)
+- Action-level permission enforcement in features (using `hasPermission`)
 - Expo mobile app scaffolding
 - Feature development
 
@@ -113,11 +121,11 @@ Core business logic and types:
 - Data transformations
 
 ### `@platform/auth`
-Authentication and authorization:
-- Role-based access control (RBAC)
-- Permission system
-- Supabase authentication wrapper
-- Session management
+Authentication and authorization (UI-agnostic; takes a Supabase client):
+- `signIn` / `signOut` / `getCurrentUser`
+- RBAC resolution: `getUserOrganizations`, `getEffectivePermissions`,
+  `hasPermission` (admin role ⇒ all permissions)
+- Runs as the current user, so RLS enforces tenant isolation
 
 ### `@platform/i18n`
 Internationalization and translations:
@@ -261,9 +269,18 @@ pnpm build --graph
 1. ✅ Monorepo infrastructure
 2. ✅ Set up Supabase database (multi-tenant RBAC schema + RLS, applied to cloud)
 3. ✅ Scaffold Next.js web app (i18n, RTL, theming, Supabase wiring)
-4. 🔐 Implement authentication & permission checks (`@platform/auth`)
+4. ✅ Authentication & RBAC (`@platform/auth`): login, protected dashboard
 5. 📱 Scaffold Expo mobile app
 6. 🌍 Add first feature domain
+
+## 🔐 Authentication
+
+- **Login**: `/[locale]/login` (email + password). On success → dashboard.
+- **Protected route**: `/[locale]/dashboard` — server-side guard redirects to
+  login if there's no session. Session refresh runs in the proxy.
+- **Logout** clears the session and returns to login.
+- Seed dev test users with `pnpm seed` (see `packages/db`), e.g.
+  `admin@acme.test` / `DevPassword123!`.
 
 ## 📝 License
 

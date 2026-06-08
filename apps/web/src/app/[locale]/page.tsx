@@ -6,6 +6,7 @@ import {
   type ThemeName,
 } from "@platform/config";
 import { routing } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -72,6 +73,7 @@ export default async function HomePage({ params }: Props) {
 
   const tCommon = await getTranslations("common");
   const tHome = await getTranslations("home");
+  const tLogin = await getTranslations("login");
 
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("theme")?.value;
@@ -83,7 +85,15 @@ export default async function HomePage({ params }: Props) {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-10 px-6 py-16">
       <header className="flex items-center justify-between gap-4">
         <LanguageSwitcher />
-        <ThemeToggle initialTheme={initialTheme} />
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+          >
+            {tLogin("link")}
+          </Link>
+          <ThemeToggle initialTheme={initialTheme} />
+        </div>
       </header>
 
       <div className="space-y-3">
