@@ -295,3 +295,10 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   dev password works. (Flagged by the security advisor as
   `auth_leaked_password_protection`; it is an Auth project setting, not a schema
   change.)
+- **Harden last-admin protection at DB level (trigger) before production.** The
+  "an organization must never be left with zero admins" rule is currently
+  enforced only in the app (the member-management server action). A direct API
+  caller with `members.manage` could still demote the last admin. Before
+  production, enforce it in the database — e.g. a trigger on `membership_roles`
+  that rejects removing/over-writing the final `is_admin` role assignment in an
+  org. (See ARCHITECTURE.md #15.)
