@@ -34,6 +34,16 @@ export interface UserOrganization {
   roles: OrgRole[];
 }
 
+export interface OrgMember {
+  membershipId: string;
+  userId: string;
+  email: string;
+  displayName: string | null;
+  /** ISO timestamp of when the membership was created. */
+  joinedAt: string;
+  roles: OrgRole[];
+}
+
 /** Sign in with email + password. */
 export async function signIn(
   supabase: SupabaseClient,
@@ -128,6 +138,92 @@ export async function getUserOrganizations(
     organizationName: orgNameById.get(m.organization_id) ?? "(unknown)",
     roles: rolesByMembership.get(m.id) ?? [],
   }));
+}
+
+/**
+ * All members of an organization, with their profile and role(s). Runs as the
+ * current user — RLS guarantees this only returns data for orgs the user
+ * belongs to, and only co-members' profiles (never the global user table).
+ */
+export async function getOrganizationMembers(
+  supabase: SupabaseClient,
+  organizationId: string
+): Promise<OrgMember[]> {
+  const membershipsRes = await supabase
+    .from("memberships")
+    .select("id, user_id, created_at")
+    .eq("organization_id", organizationId);
+  if (membershipsRes.error) {
+    throw new Error(`getOrganizationMembers (memberships): ${membershipsRes.error.message}`);
+  }
+  const memberships = (membershipsRes.data ?? []) as Array<{
+    id: string;
+    user_id: string;
+    created_at: string;
+  }>;
+  if (memberships.length === 0) return [];
+
+  const userIds = memberships.map((m) => m.user_id);
+  const membershipIds = memberships.map((m) => m.id);
+
+  const usersRes = await supabase
+    .from("users")
+    .select("id, email, display_name")
+    .in("id", userIds);
+  if (usersRes.error) {
+    throw new Error(`getOrganizationMembers (users): ${usersRes.error.message}`);
+  }
+  const users = (usersRes.data ?? []) as Array<{
+    id: string;
+    email: string;
+    display_name: string | null;
+  }>;
+  const userById = new Map(users.map((u) => [u.id, u]));
+
+  const mrRes = await supabase
+    .from("membership_roles")
+    .select("membership_id, role_id")
+    .in("membership_id", membershipIds);
+  if (mrRes.error) {
+    throw new Error(`getOrganizationMembers (membership_roles): ${mrRes.error.message}`);
+  }
+  const membershipRoles = (mrRes.data ?? []) as Array<{ membership_id: string; role_id: string }>;
+
+  const roleById = new Map<string, OrgRole>();
+  const roleIds = Array.from(new Set(membershipRoles.map((mr) => mr.role_id)));
+  if (roleIds.length > 0) {
+    const rolesRes = await supabase.from("roles").select("id, name, is_admin").in("id", roleIds);
+    if (rolesRes.error) {
+      throw new Error(`getOrganizationMembers (roles): ${rolesRes.error.message}`);
+    }
+    const roles = (rolesRes.data ?? []) as Array<{ id: string; name: string; is_admin: boolean }>;
+    for (const r of roles) {
+      roleById.set(r.id, { id: r.id, name: r.name, isAdmin: Boolean(r.is_admin) });
+    }
+  }
+
+  const rolesByMembership = new Map<string, OrgRole[]>();
+  for (const mr of membershipRoles) {
+    const role = roleById.get(mr.role_id);
+    if (!role) continue;
+    const list = rolesByMembership.get(mr.membership_id) ?? [];
+    list.push(role);
+    rolesByMembership.set(mr.membership_id, list);
+  }
+
+  return memberships
+    .map((m) => {
+      const profile = userById.get(m.user_id);
+      return {
+        membershipId: m.id,
+        userId: m.user_id,
+        email: profile?.email ?? "",
+        displayName: profile?.display_name ?? null,
+        joinedAt: m.created_at,
+        roles: rolesByMembership.get(m.id) ?? [],
+      };
+    })
+    .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt));
 }
 
 /** Every permission key the user effectively has in the given organization. */

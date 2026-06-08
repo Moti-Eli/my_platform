@@ -28,6 +28,7 @@ interface SemanticTokens {
   muted: string;
   mutedForeground: string;
   border: string;
+  destructive: string;
 }
 
 export const themes: Record<ThemeName, SemanticTokens> = {
@@ -41,6 +42,7 @@ export const themes: Record<ThemeName, SemanticTokens> = {
     muted: colors.neutral[100],
     mutedForeground: colors.neutral[500],
     border: colors.neutral[200],
+    destructive: colors.error[500],
   },
   dark: {
     background: colors.neutral[900],
@@ -52,6 +54,7 @@ export const themes: Record<ThemeName, SemanticTokens> = {
     muted: colors.neutral[800],
     mutedForeground: colors.neutral[500],
     border: colors.neutral[700],
+    destructive: colors.error[500],
   },
 };
 
@@ -66,6 +69,7 @@ function toCssVars(tokens: SemanticTokens): string {
     `--muted:${tokens.muted}`,
     `--muted-foreground:${tokens.mutedForeground}`,
     `--border:${tokens.border}`,
+    `--destructive:${tokens.destructive}`,
   ].join(";");
 }
 
@@ -74,12 +78,20 @@ function toCssVars(tokens: SemanticTokens): string {
  * `:root` plus per-theme semantic overrides keyed by `[data-theme="..."]`. The
  * default theme lives on `:root`, so it applies when no/unknown theme is set.
  */
+/** Native control rendering (scrollbars, <select> option lists) per theme. */
+function colorScheme(name: ThemeName): "light" | "dark" {
+  return name === "dark" ? "dark" : "light";
+}
+
 export function themeStylesheet(): string {
   const shared = `--font-sans:${fonts.sans};--radius:${radii.lg}`;
-  const root = `:root{${shared};${toCssVars(themes.default)}}`;
+  const root = `:root{${shared};color-scheme:${colorScheme(defaultTheme)};${toCssVars(themes.default)}}`;
   const overrides = themeNames
     .filter((name) => name !== defaultTheme)
-    .map((name) => `[data-theme="${name}"]{${toCssVars(themes[name])}}`)
+    .map(
+      (name) =>
+        `[data-theme="${name}"]{color-scheme:${colorScheme(name)};${toCssVars(themes[name])}}`
+    )
     .join("");
   return `${root}${overrides}`;
 }

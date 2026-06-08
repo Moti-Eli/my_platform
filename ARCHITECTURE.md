@@ -247,6 +247,31 @@ self-escalation — in app logic and/or stricter policies before doing so.
 
 ---
 
+## 15. Permission-Aware UI (Ask "Is This Allowed?", Not "Is This an Admin?")
+
+**Decision:** UI that gates privileged actions asks the permission system —
+`hasPermission(user, org, 'members.manage')` from `@platform/auth` — rather than
+checking `isAdmin` directly. The member-management screen shows role-editing
+controls only when that permission is present; otherwise it renders read-only.
+The write itself goes through the **authenticated** Supabase client so **RLS is
+the real enforcer** — the UI gating is UX, not the security boundary.
+
+**Reasoning:** Keying UI on permissions (not roles) is what makes the RBAC model
+generic: when permissions later become editable per-org, the same screen adapts
+with no code change, and a non-admin role granted `members.manage` would simply
+see the controls. Crucially, hiding controls is never trusted for security — a
+member who forges a request is still denied by the RLS write policy (decision
+#14), which we verified end-to-end. The web app only ever uses the publishable
+(anon) key; the secret key is never shipped to the client.
+
+**Last-admin guard:** preventing an org from being left with zero admins is
+currently enforced in the server action (counts admin memberships before
+demoting). This is **UI/app-level only** for now — a determined direct API
+caller with `members.manage` could still remove the last admin — so it is
+flagged to become a DB-level guard (trigger) when hardened.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

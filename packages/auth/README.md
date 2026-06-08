@@ -18,6 +18,8 @@ role with `is_admin` implies **all** permissions. (See `packages/db/SCHEMA.md`.)
 
 - `getUserOrganizations(supabase, userId)` → `UserOrganization[]`
   (each: `{ organizationId, organizationName, roles: { id, name, isAdmin }[] }`)
+- `getOrganizationMembers(supabase, orgId)` → `OrgMember[]`
+  (each: `{ membershipId, userId, email, displayName, joinedAt, roles }`)
 - `getEffectivePermissions(supabase, userId, orgId)` → `string[]` (permission keys)
 - `hasPermission(supabase, userId, orgId, permissionKey)` → `boolean`
 

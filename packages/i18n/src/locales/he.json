@@ -41,6 +41,26 @@
     "roles": "תפקידים",
     "noRoles": "אין תפקידים",
     "noOrganizations": "אינך משתייך לאף ארגון עדיין.",
-    "logout": "התנתק"
+    "logout": "התנתק",
+    "manageMembers": "ניהול חברים"
+  },
+  "members": {
+    "title": "חברים",
+    "subtitle": "האנשים בארגון זה והתפקידים שלהם.",
+    "count": "{count, plural, one {חבר אחד} other {# חברים}}",
+    "colMember": "חבר",
+    "colRole": "תפקיד",
+    "colJoined": "הצטרף",
+    "roleAdmin": "מנהל",
+    "roleMember": "חבר",
+    "changeRole": "שינוי תפקיד",
+    "you": "את/ה",
+    "readOnlyNotice": "ניתן לצפות בחברים, אך אין לך הרשאה לשנות תפקידים.",
+    "cannotRemoveLastAdmin": "לא ניתן להסיר את המנהל האחרון של הארגון.",
+    "notAllowed": "אין לך הרשאה לבצע שינוי זה.",
+    "updateFailed": "עדכון התפקיד נכשל. נסה שוב.",
+    "noMembers": "אין חברים עדיין.",
+    "noOrganization": "אינך משתייך לאף ארגון עדיין.",
+    "backToDashboard": "חזרה ללוח הבקרה"
   }
 }

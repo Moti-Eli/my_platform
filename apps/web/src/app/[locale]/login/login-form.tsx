@@ -37,7 +37,7 @@ export function LoginForm({ locale }: { locale: string }) {
       </label>
 
       {state.error && (
-        <p role="alert" className="text-sm text-[var(--color-error,#ef4444)]">
+        <p role="alert" className="text-sm text-destructive">
           {t(state.error)}
         </p>
       )}

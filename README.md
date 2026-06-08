@@ -41,8 +41,17 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   role(s); logged-out access redirects to login; logout clears the session
 - ✅ Session refresh in the proxy (`@supabase/ssr`) composed with next-intl
 
+**Phase 4: Admin Member Management** ✅
+- ✅ DB-enforced write path: `members.manage` permission gates `membership_roles`
+  writes via RLS (migration `20260608000003`)
+- ✅ Member-management screen (`/[locale]/dashboard/members`): polished,
+  token-driven members table; change a member's role (Admin ↔ Member)
+- ✅ Permission-aware UI: editing controls show only if the user has
+  `members.manage` (via `@platform/auth` `hasPermission`); otherwise read-only.
+  Writes go through the authenticated client so RLS is the real enforcer
+- ✅ "Can't remove the last admin" guard (UI-level; DB-level guard is a TODO)
+
 **Coming Next:**
-- Action-level permission enforcement in features (using `hasPermission`)
 - Expo mobile app scaffolding
 - Feature development
 

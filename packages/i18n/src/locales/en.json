@@ -41,6 +41,26 @@
     "roles": "Roles",
     "noRoles": "No roles",
     "noOrganizations": "You don't belong to any organization yet.",
-    "logout": "Log out"
+    "logout": "Log out",
+    "manageMembers": "Manage members"
+  },
+  "members": {
+    "title": "Members",
+    "subtitle": "People in this organization and their roles.",
+    "count": "{count, plural, one {# member} other {# members}}",
+    "colMember": "Member",
+    "colRole": "Role",
+    "colJoined": "Joined",
+    "roleAdmin": "Admin",
+    "roleMember": "Member",
+    "changeRole": "Change role",
+    "you": "You",
+    "readOnlyNotice": "You can view members, but you don't have permission to change roles.",
+    "cannotRemoveLastAdmin": "You can't remove the organization's last admin.",
+    "notAllowed": "You don't have permission to make this change.",
+    "updateFailed": "Couldn't update the role. Please try again.",
+    "noMembers": "No members yet.",
+    "noOrganization": "You don't belong to any organization yet.",
+    "backToDashboard": "Back to dashboard"
   }
 }

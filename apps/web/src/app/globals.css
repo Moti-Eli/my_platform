@@ -16,6 +16,7 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-destructive: var(--destructive);
   --font-sans: var(--font-sans);
   --radius-lg: var(--radius);
 }

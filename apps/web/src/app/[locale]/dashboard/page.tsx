@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getCurrentUser, getUserOrganizations } from "@platform/auth";
 import { routing } from "@/i18n/routing";
+import { Link } from "@/i18n/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logoutAction } from "./actions";
 
@@ -32,15 +33,23 @@ export default async function DashboardPage({ params }: Props) {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
-        <form action={logoutAction}>
-          <input type="hidden" name="locale" value={locale} />
-          <button
-            type="submit"
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/members"
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
           >
-            {t("logout")}
-          </button>
-        </form>
+            {t("manageMembers")}
+          </Link>
+          <form action={logoutAction}>
+            <input type="hidden" name="locale" value={locale} />
+            <button
+              type="submit"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+            >
+              {t("logout")}
+            </button>
+          </form>
+        </div>
       </header>
 
       <p className="text-muted-foreground">
