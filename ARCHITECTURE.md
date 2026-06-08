@@ -215,6 +215,38 @@ and rendered translated (he/en). Logout is a server action calling `signOut`.
 
 ---
 
+## 14. Permission-Checked Write Policies (DB-Enforced Authorization)
+
+**Decision:** Open up writes **one path at a time**, each gated by an RLS policy
+that calls a `SECURITY DEFINER` helper to check the acting user's *permission* in
+the row's organization — so authorization for mutations is enforced at the
+database level, not only in app code. The first such path is `membership_roles`
+(assign/unassign a member's roles), gated by the `members.manage` permission via
+`private.auth_user_has_permission(org_id, permission_key)`.
+
+**Reasoning:** RLS already guarantees tenant isolation (decision #11); this
+extends the same database-level guarantee to *who may write what*. Even if the
+app layer has a bug or is bypassed, the database refuses unauthorized writes. We
+follow Postgres/Supabase conventions: INSERT uses `WITH CHECK`, DELETE uses
+`USING`, UPDATE uses both; the permission helper is recursion-safe (SECURITY
+DEFINER bypasses RLS on the joined tables), `STABLE`, and `search_path`-locked,
+matching our read helpers. RLS gates rows, so the role also receives the DML
+**table grant** (`authenticated` gets INSERT/UPDATE/DELETE on `membership_roles`
+only). Opening one table at a time keeps each authorization decision reviewable.
+
+**Org isolation:** the policy keys on the row's `organization_id`, and the
+composite foreign keys from Step 1 prevent that id from being spoofed to another
+org — so `members.manage` in org A cannot mutate `membership_roles` in org B
+(verified end-to-end as seeded users).
+
+**Guardrail (revisit):** `members.manage` is currently granted only to admin
+roles, so only admins can (re)assign roles and a member cannot self-escalate. If
+that permission ever becomes grantable to non-admins (e.g. via a future admin
+UI), add explicit guards — forbid removing an org's last admin, forbid
+self-escalation — in app logic and/or stricter policies before doing so.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

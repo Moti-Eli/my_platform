@@ -25,6 +25,9 @@ full explanation.
   permission catalog anon-readable.
 - `20260608000002_grant_service_role_privileges.sql` — grants `service_role`
   full DML on the public schema (used by trusted server-side code / the seed).
+- `20260608000003_membership_roles_write_policy.sql` — first permission-checked
+  write path: users with `members.manage` may assign/unassign roles on a
+  membership in their own org (`auth_user_has_permission` helper).
 
 ## Usage
 

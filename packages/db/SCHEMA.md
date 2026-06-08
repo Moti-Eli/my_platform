@@ -180,12 +180,38 @@ simple and auditable, and business rules can evolve without touching RLS.
 
 ### Reads only, for now
 
-Only **SELECT** policies exist. There are deliberately **no INSERT / UPDATE /
-DELETE policies yet** — and because RLS denies anything without a matching
-policy, all writes by normal users are currently **blocked**. Write policies
-will arrive with `@platform/auth`, when the action-level permission model is
-defined. Server-side code using the Supabase **secret key** runs as
-`service_role`, which bypasses RLS, so backend seeding/admin still works.
+Most tables are still **read-only** for normal users: only SELECT policies
+exist, so RLS denies all their writes. The exception is **`membership_roles`**,
+which now has permission-checked write policies (see "Write policies" below).
+Server-side code using the Supabase **secret key** runs as `service_role`, which
+bypasses RLS, so backend seeding/admin still works.
+
+### Write policies (permission-checked)
+
+Writes are opened up **one path at a time**, each gated by a permission in the
+acting user's organization — enforced in the database, not just app code.
+
+So far, only **`membership_roles`** is writable (to support an admin managing a
+member's roles). A user may INSERT / UPDATE / DELETE a `membership_roles` row
+only if they have the **`members.manage`** permission **in that row's
+organization**. The check uses a new helper,
+`private.auth_user_has_permission(org_id, permission_key)` — same recursion-safe,
+`search_path = ''`, SECURITY DEFINER pattern as the read helpers — which is true
+when the user has a membership in the org and one of their roles there is
+`is_admin` or is linked to that permission key.
+
+- INSERT uses `WITH CHECK`; DELETE uses `USING`; UPDATE uses both.
+- **Org isolation is airtight**: the policy keys on the row's `organization_id`,
+  and the composite FKs `(membership_id, organization_id)` / `(role_id,
+  organization_id)` mean that id can't be spoofed to another org. So
+  `members.manage` in org A cannot write `membership_roles` in org B.
+- **Privilege-escalation note (revisit later):** `members.manage` is currently
+  granted only to admin roles, so only admins can (re)assign roles. If it is ever
+  granted to non-admins, add guardrails (e.g. forbid removing the last admin,
+  forbid self-escalation) before doing so.
+
+All other tables (organizations, users, memberships, roles, role_permissions)
+remain write-locked pending their own permission-checked policies.
 
 ### How recursion is avoided (the important bit)
 
@@ -198,6 +224,8 @@ functions** in a private (non-API-exposed) schema:
 - `private.auth_user_is_member_of(org_id)`
 - `private.auth_user_shares_org_with(user_id)`
 - `private.auth_user_can_access_role(role_id)`
+- `private.auth_user_has_permission(org_id, permission_key)` — used by write
+  policies to check the acting user's permission in an org
 
 A `SECURITY DEFINER` function runs with its owner's privileges, which **bypass
 RLS**, so the lookup does not re-trigger the calling table's policy. Each
@@ -215,10 +243,11 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   membership and a role that must both belong to the *same* organization. This
   is now guaranteed at the database level via composite foreign keys (see the
   `membership_roles` section above), not left to application code.
-- **RLS is enabled (SELECT only).** Row Level Security is on for all seven
-  tables with read policies enforcing org-membership isolation. Write
-  (INSERT/UPDATE/DELETE) policies are intentionally deferred until
-  `@platform/auth` defines the action-level permission model.
+- **RLS is enabled.** Row Level Security is on for all seven tables with read
+  policies enforcing org-membership isolation. Writes are being opened one path
+  at a time, each permission-checked: `membership_roles` is writable by users
+  with `members.manage` (see "Write policies"); all other tables remain
+  write-locked pending their own policies.
 - **Soft deletes (planned).** Today every relationship uses physical
   `ON DELETE CASCADE`: deleting an organization (or user) permanently removes
   all dependent rows. Once real data exists we plan to move to **soft deletes**
@@ -250,8 +279,9 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   `TRUNCATE` is destructive and not RLS-gated, so stripping it is sensible
   defense-in-depth. Deferred; **needs separate validation against Supabase's
   own default privileges** (future tables may re-acquire these unless the
-  `ALTER DEFAULT PRIVILEGES` defaults are also adjusted). Proposed
-  `20260608000003_tighten_client_role_grants.sql`:
+  `ALTER DEFAULT PRIVILEGES` defaults are also adjusted). Proposed (give it the
+  next free timestamp when actually created, e.g.
+  `20260608000004_tighten_client_role_grants.sql`):
 
   ```sql
   revoke truncate, trigger, references on
@@ -259,3 +289,9 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
     public.permissions, public.role_permissions, public.membership_roles
   from anon, authenticated;
   ```
+- **Leaked-password protection (TODO before production).** Before production —
+  enable Supabase leaked-password protection (Auth settings) AND switch the seed
+  to a non-breached dev password. Intentionally OFF now so the simple `123456`
+  dev password works. (Flagged by the security advisor as
+  `auth_leaked_password_protection`; it is an Auth project setting, not a schema
+  change.)
