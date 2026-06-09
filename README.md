@@ -245,9 +245,15 @@ to semi-technical partners — hero, "what this is", architecture, security, and
 fenced **demo-access** section listing the seeded logins so partners can sign in
 and explore. It's **temporary/demo** content (real product marketing replaces it
 later), and the old raw permission dump is now a subtle "systems operational"
-indicator. The demo-access block is a single component
-(`src/components/demo-access.tsx`, marked _REMOVE BEFORE PRODUCTION_) — delete the
-file + its one usage to drop it.
+indicator.
+
+The demo-access block discloses the seeded login credentials, so it is **safe by
+default**: it renders automatically in development, but in a **production build it
+appears ONLY if `NEXT_PUBLIC_SHOW_DEMO_ACCESS=1`** is set — intended for a
+dedicated **evaluation** deploy that holds no real data, and **never** a real
+production site. It's also self-contained in one component
+(`src/components/demo-access.tsx`): delete the file + its one usage to drop it
+entirely.
 
 ### `@platform/observability`
 Vendor- and framework-agnostic **logging + error reporting**:

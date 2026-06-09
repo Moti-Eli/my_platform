@@ -545,9 +545,12 @@ matters, demo access), token-driven so both themes + RTL/LTR work, fully i18n
 content** — real product marketing will replace it. Two rules govern it: (1) the
 copy describes the *approach*, never exploitable internals (no table/helper names,
 no project refs — verified absent from the rendered HTML of both locales); (2) the
-**demo-access** block (the seeded logins + shared password) is isolated in a
-single component (`src/components/demo-access.tsx`, marked _REMOVE BEFORE
-PRODUCTION_) so it is trivially removable.
+**demo-access** block (the seeded logins + shared password) is **safe by default**
+— it renders in development but, in a production build, ONLY when
+`NEXT_PUBLIC_SHOW_DEMO_ACCESS=1` is explicitly set (for a dedicated evaluation
+deploy with no real data). It's isolated in one component
+(`src/components/demo-access.tsx`) for trivial removal, with a defense-in-depth
+early-return so it can never render when disabled.
 
 **Reasoning:** Partners need to understand and *try* the platform, which means
 showing demo credentials — but those, and any internal detail that aids an
@@ -558,9 +561,10 @@ secrets in env only, redacted logging) communicates credibility without leaking
 how to attack it. The raw permission-catalog dump from the dev health check is
 replaced by a reachability-only "systems operational" pill (HEAD/count, no data).
 
-**Pre-production gate:** remove the demo-access component (and revisit the page as
-real marketing) before launch — alongside the other deferred pre-production items
-(HIBP, onboarding flow). See `README.md`.
+**Pre-production gate:** the env flag makes the demo safe-by-default, but before a
+real launch, also remove the demo-access component and revisit the page as real
+marketing — alongside the other deferred pre-production items (HIBP, onboarding
+flow). See `README.md`.
 
 ---
 

@@ -2,13 +2,31 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 
 // ============================================================================
-// DEMO ACCESS — TEMPORARY. REMOVE BEFORE PRODUCTION.
+// DEMO ACCESS — TEMPORARY. EVALUATION ONLY.
 // ----------------------------------------------------------------------------
-// This whole section is self-contained: to remove it, delete this file and the
-// single <DemoAccess /> usage in the landing page. It lists the SEEDED demo
-// credentials so evaluators can sign in. It must NOT ship to a real production
-// site (the accounts + shared password are for evaluation only).
+// This section lists the SEEDED demo credentials so evaluators can sign in. It is
+// SAFE BY DEFAULT: it is NEVER rendered in a production build unless the deploy
+// explicitly opts in (see `isDemoAccessEnabled`). It is also self-contained — to
+// drop it entirely, delete this file and its single usage in the landing page.
+//
+// The credentials below are intentionally weak demo accounts for evaluation
+// deploys that hold NO real data. They must never be exposed on a real production
+// site — which the env gate guarantees.
 // ============================================================================
+
+/**
+ * Whether the demo-access section may be shown. Safe by default: in a production
+ * build it is shown ONLY when `NEXT_PUBLIC_SHOW_DEMO_ACCESS=1` is set at build
+ * time (intended for a dedicated EVALUATION deploy with no real data). In
+ * development it is shown automatically. So a real production deploy that doesn't
+ * set the flag can never leak these credentials.
+ */
+export function isDemoAccessEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_SHOW_DEMO_ACCESS === "1" ||
+    process.env.NODE_ENV !== "production"
+  );
+}
 
 const DEMO_PASSWORD = "123456";
 
@@ -71,6 +89,10 @@ function OrgColumn({
 }
 
 export async function DemoAccess() {
+  // Defense in depth: even if a caller forgets to gate the usage, never render the
+  // credentials unless explicitly enabled.
+  if (!isDemoAccessEnabled()) return null;
+
   const t = await getTranslations("landing.demo");
 
   return (

@@ -8,7 +8,7 @@ import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { DemoAccess } from "@/components/demo-access";
+import { DemoAccess, isDemoAccessEnabled } from "@/components/demo-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 // Distinctive bilingual display face — a renowned Hebrew serif that also covers
@@ -111,6 +111,7 @@ export default async function HomePage({ params }: Props) {
     : defaultTheme;
 
   const appName = tc("appName");
+  const showDemo = isDemoAccessEnabled();
 
   const sections = [
     { key: "whatIs", num: t("whatIs.num"), title: t("whatIs.title"), lead: t("whatIs.lead"), points: t.raw("whatIs.points") as string[] },
@@ -183,12 +184,14 @@ export default async function HomePage({ params }: Props) {
                   />
                 </svg>
               </Link>
-              <a
-                href="#demo"
-                className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                {t("ctaDemo")}
-              </a>
+              {showDemo && (
+                <a
+                  href="#demo"
+                  className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  {t("ctaDemo")}
+                </a>
+              )}
               <span className="ms-1">
                 <SystemStatus />
               </span>
@@ -203,10 +206,14 @@ export default async function HomePage({ params }: Props) {
           <Section key={s.key} num={s.num} title={s.title} lead={s.lead} points={s.points} />
         ))}
 
-        {/* DEMO — self-contained; remove this block + the component to drop it. */}
-        <section id="demo" className="scroll-mt-8 border-t border-border py-14 md:py-20">
-          <DemoAccess />
-        </section>
+        {/* DEMO — safe by default: only shown when demo access is enabled (dev, or
+            a deploy that opts in via NEXT_PUBLIC_SHOW_DEMO_ACCESS=1). Self-contained:
+            remove this block + the component to drop it entirely. */}
+        {showDemo && (
+          <section id="demo" className="scroll-mt-8 border-t border-border py-14 md:py-20">
+            <DemoAccess />
+          </section>
+        )}
       </main>
 
       {/* =========================== FOOTER =========================== */}
