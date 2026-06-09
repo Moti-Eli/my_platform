@@ -43,7 +43,8 @@
     "noOrganizations": "אינך משתייך לאף ארגון עדיין.",
     "logout": "התנתק",
     "manageMembers": "ניהול חברים",
-    "platformAdmin": "ניהול הפלטפורמה"
+    "platformAdmin": "ניהול הפלטפורמה",
+    "openChat": "צ׳אט"
   },
   "members": {
     "title": "חברים",
@@ -120,5 +121,18 @@
     "notAllowed": "אין לך הרשאה לבצע פעולה זו.",
     "notConfigured": "יצירת ארגונים אינה מוגדרת בשרת.",
     "createFailed": "יצירת הארגון נכשלה. נסה שוב."
+  },
+  "chat": {
+    "title": "צ׳אט",
+    "subtitle": "התכתבו עם הארגון שלכם בזמן אמת.",
+    "backToDashboard": "חזרה ללוח הבקרה",
+    "placeholder": "כתבו הודעה…",
+    "send": "שלח",
+    "sending": "שולח…",
+    "empty": "אין הודעות עדיין. אמרו שלום 👋",
+    "you": "את/ה",
+    "unknownSender": "חבר",
+    "sendError": "השליחה נכשלה. נסה שוב.",
+    "noOrganization": "אינך משתייך לאף ארגון עדיין."
   }
 }

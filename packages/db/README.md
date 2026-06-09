@@ -37,6 +37,10 @@ full explanation.
   table (org-scoped) with RLS: members-only SELECT, and INSERT requiring org
   membership **and** `sender_id = auth.uid()` (anti-forgery). Immutable for now
   (no update/delete). PART 1 of the chat feature (data + RLS only).
+- `20260609000003_messages_realtime_publication.sql` — adds `messages` to the
+  `supabase_realtime` publication so clients can subscribe to live INSERTs
+  (Postgres Changes). RLS still gates delivery, so the socket respects org
+  isolation. PART 2 of the chat feature.
 
 ## Usage
 

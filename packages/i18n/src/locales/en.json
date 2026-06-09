@@ -43,7 +43,8 @@
     "noOrganizations": "You don't belong to any organization yet.",
     "logout": "Log out",
     "manageMembers": "Manage members",
-    "platformAdmin": "Platform admin"
+    "platformAdmin": "Platform admin",
+    "openChat": "Chat"
   },
   "members": {
     "title": "Members",
@@ -120,5 +121,18 @@
     "notAllowed": "You don't have permission to do this.",
     "notConfigured": "Organization creation isn't configured on the server.",
     "createFailed": "Couldn't create the organization. Please try again."
+  },
+  "chat": {
+    "title": "Chat",
+    "subtitle": "Message your organization in real time.",
+    "backToDashboard": "Back to dashboard",
+    "placeholder": "Write a message…",
+    "send": "Send",
+    "sending": "Sending…",
+    "empty": "No messages yet. Say hello 👋",
+    "you": "You",
+    "unknownSender": "Member",
+    "sendError": "Couldn't send. Please try again.",
+    "noOrganization": "You don't belong to any organization yet."
   }
 }

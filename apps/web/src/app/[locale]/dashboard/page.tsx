@@ -49,6 +49,12 @@ export default async function DashboardPage({ params }: Props) {
             </Link>
           )}
           <Link
+            href="/dashboard/chat"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+          >
+            {t("openChat")}
+          </Link>
+          <Link
             href="/dashboard/members"
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
           >

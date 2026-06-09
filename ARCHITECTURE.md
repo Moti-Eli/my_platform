@@ -401,6 +401,22 @@ Verified live (6/6): post+read within your org; cross-org read and insert both
 denied; forged `sender_id` rejected with no row landing. The security advisor
 reports no new findings. See `packages/db/SCHEMA.md`.
 
+**PART 2 — realtime delivery (`messages` in the `supabase_realtime`
+publication).** Live updates use Supabase **Postgres Changes** (subscribe to
+`messages` INSERTs filtered by `organization_id`), chosen because **Postgres
+Changes already enforces RLS**: Realtime only delivers a row to a subscriber who
+may `SELECT` it, so our existing members-only policy *is* the channel
+authorization — a client that tampers with the subscription `filter` to another
+org still receives nothing (the filter is a pre-filter; RLS is the boundary).
+The newer `realtime.messages` authorization is only for Broadcast/Presence, so
+nothing extra is needed. This was the security-critical question, so it was
+verified directly over the websocket (5/5): two same-org users receive each
+other's messages live, while an Org B client subscribed (with a filter tampered
+to Org A) receives **zero** Org A messages. The chat page server-renders recent
+history and the client sends through the **authenticated** client (so the
+`sender_id = auth.uid()` policy stays the enforcer); the secret key is never
+involved. UI/realtime lives in `apps/web/.../dashboard/chat`.
+
 ---
 
 ## Future Considerations

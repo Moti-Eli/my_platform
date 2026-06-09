@@ -77,18 +77,23 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   server-side before acting. The dashboard shows a "Platform admin" nav link only
   to owners. See ARCHITECTURE.md #17.
 
-**Phase 6: Internal Org Chat** 🚧 (PART 1)
+**Phase 6: Internal Org Chat (Realtime)** ✅
 - ✅ PART 1 — data layer: `messages` table (org-scoped; `sender_id` →
   `auth.users`) with RLS (migration `20260609000002`, applied to cloud). **SELECT**
   is members-only (`auth_user_is_member_of`); **INSERT** requires org membership
   **and** `sender_id = auth.uid()` (anti-forgery — you can only post as
   yourself); messages are immutable (no update/delete). Verified live (6/6):
-  cross-org read/insert denied, forged sender rejected. See ARCHITECTURE.md #18.
-- ⏳ PART 2 (chat UI + Supabase Realtime) intentionally deferred to a separate
-  change.
+  cross-org read/insert denied, forged sender rejected.
+- ✅ PART 2 — realtime chat UI (`/[locale]/dashboard/chat`): server-rendered
+  recent history + a **Supabase Realtime** (Postgres Changes) subscription so new
+  messages appear live. Sends go through the authenticated client (RLS enforces
+  the sender). Token-driven bubbles distinguish your own messages, i18n (he/en),
+  RTL/LTR, both themes. Realtime is added to the `supabase_realtime` publication
+  (migration `20260609000003`). **Socket tenant isolation is RLS-enforced and
+  verified (5/5)**: same-org users get each other's messages live; a cross-org
+  client (even tampering its filter) receives nothing. See ARCHITECTURE.md #18.
 
 **Coming Next:**
-- Org chat UI + realtime (PART 2)
 - Expo mobile app scaffolding
 - Feature development
 
