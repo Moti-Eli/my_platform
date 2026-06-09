@@ -8,5 +8,8 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"]
+  "files": ["src"],
+  "devDependencies": {
+    "@platform/config": "workspace:*"
+  }
 }
