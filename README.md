@@ -108,6 +108,10 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   logging + error reporting, with an optional env-activated **Sentry** adapter and
   built-in secret/PII redaction. App code never imports a vendor SDK directly. See
   the Observability section below + ARCHITECTURE.md #20.
+- ✅ **User-facing error states**: calm, localized (he/en, RTL/LTR, themed) error
+  boundary (`error.tsx`) + 404 (`not-found.tsx`, via a `[...rest]` catch-all);
+  no stack traces/raw messages ever reach the user (logged instead); form/action
+  flows show translated errors + pending/loading feedback. See ARCHITECTURE.md #21.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
 

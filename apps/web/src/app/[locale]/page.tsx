@@ -5,6 +5,7 @@ import {
   themeNames,
   type ThemeName,
 } from "@platform/config";
+import { captureException } from "@platform/observability";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -38,11 +39,10 @@ async function SupabaseHealthCheck() {
     .order("key");
 
   if (error) {
-    return (
-      <p className="text-muted-foreground">
-        {t("healthError")} {error.message}
-      </p>
-    );
+    // Log the technical detail; show the user only a friendly translated message
+    // (never the raw DB error).
+    captureException(error, { source: "supabaseHealthCheck" });
+    return <p className="text-muted-foreground">{t("healthError")}</p>;
   }
 
   const rows = (data ?? []) as { key: string }[];

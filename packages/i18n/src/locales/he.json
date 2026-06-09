@@ -9,7 +9,7 @@
     "healthTitle": "בדיקת תקינות Supabase",
     "healthOk": "מחובר. הרשאות שנזרעו:",
     "healthEmpty": "מחובר, אך לא הוחזרו הרשאות.",
-    "healthError": "לא ניתן להתחבר ל-Supabase:",
+    "healthError": "לא ניתן להתחבר ל-Supabase.",
     "healthNotConfigured": "Supabase אינו מוגדר. יש להגדיר את NEXT_PUBLIC_SUPABASE_URL ו-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
   },
   "nav": {
@@ -134,5 +134,16 @@
     "unknownSender": "חבר",
     "sendError": "השליחה נכשלה. נסה שוב.",
     "noOrganization": "אינך משתייך לאף ארגון עדיין."
+  },
+  "error": {
+    "title": "משהו השתבש",
+    "description": "אירעה שגיאה בלתי צפויה מצדנו. אפשר לנסות שוב — ואם זה חוזר על עצמו, חזרו מעט מאוחר יותר.",
+    "retry": "נסה שוב",
+    "goHome": "לדף הבית"
+  },
+  "notFound": {
+    "title": "הדף לא נמצא",
+    "description": "הדף שחיפשת אינו קיים או שייתכן שהועבר.",
+    "goHome": "לדף הבית"
   }
 }

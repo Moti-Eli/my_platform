@@ -491,6 +491,31 @@ is absent from the client bundle. No DSN is ever hardcoded — all via env
 
 ---
 
+## 21. User-Facing Error States — Calm, Localized, Never Technical
+
+**Decision:** Users never see a raw stack trace, error message, or white screen.
+Every failure surfaces a **calm, translated, themed** state, while the technical
+detail goes only to the logger (decision #20). Concretely: a route error boundary
+(`[locale]/error.tsx`) with a retry action; a localized 404
+(`[locale]/not-found.tsx`) reached for any unknown in-locale path via a catch-all
+(`[locale]/[...rest]`) that funnels Next's otherwise-default 404 through our page;
+a last-resort `global-error.tsx`; and form/action flows that render only
+**translated** error keys (never `error.message`) plus pending/disabled loading
+feedback. The one place that echoed a raw DB error to the user (the home health
+check) now logs it and shows a translated message.
+
+**Reasoning:** Raw errors are both a poor experience and a security risk — stack
+traces and DB messages can leak internals. Routing all error UI through i18n keys
+guarantees nothing technical reaches the screen, and pairing it with the
+observability layer means the detail is still captured for operators. The 404
+catch-all is required because Next renders its *non-localized* default 404 for
+unmatched routes; funneling them through `notFound()` keeps every error state
+on-brand, in the user's language and theme (he/en, RTL/LTR). Verified: the 404
+renders translated in both locales with `dir="rtl"` for Hebrew, and the boundaries
+render only `t()` strings (the error `digest` is logged, never displayed).
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

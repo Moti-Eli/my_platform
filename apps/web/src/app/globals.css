@@ -27,6 +27,28 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Full-screen state entrance: a gentle fade + rise (used by error / 404). */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.85rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-rise {
+  animation: fade-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-rise {
+    animation: none;
+  }
+}
+
 /* Modal entrance: a soft backdrop fade and a panel that rises + scales in. */
 @keyframes modal-backdrop-in {
   from {

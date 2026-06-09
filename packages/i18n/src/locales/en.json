@@ -9,7 +9,7 @@
     "healthTitle": "Supabase health check",
     "healthOk": "Connected. Seeded permissions:",
     "healthEmpty": "Connected, but no permissions were returned.",
-    "healthError": "Could not reach Supabase:",
+    "healthError": "Could not reach Supabase.",
     "healthNotConfigured": "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
   },
   "nav": {
@@ -134,5 +134,16 @@
     "unknownSender": "Member",
     "sendError": "Couldn't send. Please try again.",
     "noOrganization": "You don't belong to any organization yet."
+  },
+  "error": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred on our side. You can try again — if it keeps happening, please come back a little later.",
+    "retry": "Try again",
+    "goHome": "Go to homepage"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The page you're looking for doesn't exist or may have moved.",
+    "goHome": "Go to homepage"
   }
 }
