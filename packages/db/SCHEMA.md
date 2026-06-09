@@ -5,7 +5,9 @@ companion to the SQL migrations in [`supabase/migrations/`](./supabase/migration
 
 > **Status:** STEP 2 complete. Core tables (Step 1) plus Row Level Security for
 > org-membership tenant isolation (Step 2) are applied to the Supabase cloud
-> project. See "RLS / Tenant Isolation" below.
+> project. See "RLS / Tenant Isolation" below. A **platform-owner (super admin)**
+> layer above org admins has also been added (migration `20260609000001`) — see
+> "Platform Owner (Super Admin)" below.
 
 ---
 
@@ -234,6 +236,87 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
 
 ---
 
+## Platform Owner (Super Admin)
+
+There is one access level **above** organization admins: the **platform owner**
+— the operator of the whole platform, who onboards new client organizations.
+This sits *above* tenant isolation, so it is the most security-sensitive
+construct in the schema and is built to be explicit, auditable, and impossible
+for a normal user to grant themselves. Added in migration `20260609000001`.
+
+### `platform_admins` — the owner allowlist
+
+```
+platform_admins ( user_id PK → auth.users(id), created_at, note )
+```
+
+One row per platform owner. We use a **dedicated table** rather than a boolean
+on `public.users` because it is explicit, auditable (timestamp + note), trivially
+revocable (delete the row), and — most importantly — gives the owner flag its own
+fully-sealed surface instead of sharing `users`' read surface.
+
+### No-self-assignment guarantee (the critical property)
+
+A regular user has **no API path** to become a platform owner:
+
+- RLS is **enabled** on `platform_admins` with **no policies** for
+  `anon`/`authenticated` → every client SELECT/INSERT/UPDATE/DELETE is denied.
+- We additionally **`REVOKE ALL`** on the table from `anon` and `authenticated`,
+  so even Supabase's default non-DML grants are stripped — the publishable/anon
+  key has *zero* privilege on it. (Verified: a client INSERT fails with
+  `permission denied for table platform_admins`, and SELECT returns nothing.)
+- The **only** way to add a row is server-side as `service_role` (the secret
+  key) — i.e. by us, via migration/seed.
+
+There are intentionally **no policies** on this table; do not add client policies
+without a separate security review.
+
+### `auth_user_is_platform_owner()` → boolean
+
+A `SECURITY DEFINER` function (STABLE, `search_path = ''`, fully schema-qualified)
+that returns whether **the caller** (`auth.uid()`) is in `platform_admins`. It is
+placed in the **`public`** schema (unlike the private RLS helpers) on purpose, so
+the app layer can call it as a PostgREST RPC to authorize super-admin actions;
+`SECURITY DEFINER` is required so it can read the sealed table. It is safe to
+expose because it takes **no parameters** and returns **only a boolean about the
+caller** — it never reveals the owner list. `EXECUTE` is revoked from `PUBLIC`
+and granted only to `authenticated`.
+
+### Cross-org access strategy — server-side only (approach (b))
+
+Platform owners need to read/manage across **all** organizations. We deliberately
+do **NOT** widen any existing table's RLS with an `OR auth_user_is_platform_owner()`
+branch. Instead, **all** super-admin operations run **server-side** through the
+**service-role key** (which already bypasses RLS), gated by an app-level owner
+check. Consequences:
+
+- **Tenant isolation is byte-for-byte unchanged.** A platform owner gains **zero**
+  extra power through their normal (publishable-key) session; the client-facing
+  RLS knows nothing about owners. A stolen owner *session/JWT* therefore cannot
+  read cross-org via the public API — you would need the server-only secret key.
+- Super-admin features must be built as **server actions / route handlers**
+  (e.g. `createOrganizationWithFirstAdmin` in `@platform/auth`, which re-verifies
+  ownership server-side before using the service-role client, and rolls back on
+  any failure — same pattern as add-member).
+
+### Accepted security-advisor findings (intentional)
+
+Running the Supabase **security advisor** after this migration shows two new,
+**expected** findings (no ERROR-level findings; tenant isolation advisories
+unchanged):
+
+- **INFO `rls_enabled_no_policy` on `public.platform_admins`** — *intended.* This
+  table is meant to be a fully sealed deny-all allowlist; RLS-on-with-no-policy is
+  exactly that.
+- **WARN `authenticated_security_definer_function_executable` on
+  `public.auth_user_is_platform_owner()`** — *intended and reviewed as safe.* The
+  function is parameterless and returns only the caller's own boolean (no owner
+  enumeration, no other-row access), and `SECURITY DEFINER` is required to read
+  the sealed table. Granting `authenticated` execute is deliberate (the app calls
+  it via RPC). Accepted, not a defect.
+
+---
+
 ## Notes & deferred work
 
 - **`organization_id` everywhere.** Every org-scoped table carries
@@ -301,7 +384,12 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
   never-disclosed password (so the new account can't be a backdoor). Production
   still needs a real onboarding flow — an email invite / magic link or a forced
   password reset on first login — before this is user-facing (see
-  ARCHITECTURE.md #16).
+  ARCHITECTURE.md #16). The **platform-owner onboarding path** is the same: the
+  dev seed marks `owner@platform.test` with `123456`, and
+  `createOrganizationWithFirstAdmin` takes the first admin's password from its
+  caller — so when PART 2 (the super-admin UI) is wired, production must mint the
+  first admin via a random password + invite/reset (mirror add-member's
+  `newUserPassword()` NODE_ENV gate), not a known one.
 - **Harden last-admin protection at DB level (trigger) before production.** The
   "an organization must never be left with zero admins" rule is currently
   enforced only in the app (the member-management server action). A direct API

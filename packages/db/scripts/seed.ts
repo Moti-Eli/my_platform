@@ -34,6 +34,18 @@ const TEST_PASSWORD = "123456";
 /** Permissions granted to the non-admin "Member" role. */
 const MEMBER_PERMISSIONS = ["users.view", "users.invite"];
 
+/**
+ * Dev PLATFORM OWNER (super admin). Kept deliberately SEPARATE from the org
+ * admins so the roles are clean: this account belongs to NO organization — its
+ * only power comes from a row in `platform_admins`. Its email ends in `.test`,
+ * so the existing cleanup already removes it (deleting the auth user cascades
+ * the platform_admins row).
+ */
+const PLATFORM_OWNER = {
+  email: "owner@platform.test",
+  displayName: "Platform Owner",
+};
+
 // Cleanup scoping: a user is considered "seed data" (and cleared on re-run) if
 // its email matches a current seed domain OR a legacy suffix from an earlier
 // seed version. Org names from earlier versions are cleared too.
@@ -104,8 +116,9 @@ async function clearTestData(supabase: SupabaseClient): Promise<void> {
   const delOrgs = await supabase.from("organizations").delete().in("name", orgNames);
   if (delOrgs.error) throw new Error(`clear orgs: ${delOrgs.error.message}`);
 
-  // Delete seed auth users (current .com domains + legacy .test) — cascades
-  // their public.users profiles (and any remaining memberships).
+  // Delete seed auth users (current .com domains + the platform owner's .test
+  // address) — cascades their public.users profiles, any remaining memberships,
+  // and any platform_admins row (so the dev platform owner is cleared too).
   const list = await supabase.auth.admin.listUsers({ perPage: 1000 });
   if (list.error) throw new Error(`list auth users: ${list.error.message}`);
   const testUsers = list.data.users.filter((u) => isSeedEmail(u.email));
@@ -233,6 +246,50 @@ async function main(): Promise<void> {
 
     console.log(`✓ Seeded "${org.name}" with ${org.users.length} users (Admin + Member roles).`);
   }
+
+  // ---------------------------------------------------------------------------
+  // Platform owner (super admin): an auth user + a `platform_admins` row, and
+  // NO organization membership. This is the ONLY way a platform_admins row gets
+  // written — via the service-role key, server-side (the table is sealed to
+  // clients). Kept separate from the org admins so the roles stay clean.
+  // ---------------------------------------------------------------------------
+  const ownerCreated = await supabase.auth.admin.createUser({
+    email: PLATFORM_OWNER.email,
+    password: TEST_PASSWORD,
+    email_confirm: true,
+  });
+  if (ownerCreated.error) {
+    throw new Error(`create platform owner ${PLATFORM_OWNER.email}: ${ownerCreated.error.message}`);
+  }
+  const ownerAuthId = ownerCreated.data.user?.id;
+  if (!ownerAuthId) throw new Error("create platform owner: no id returned");
+  const ownerEmail = ownerCreated.data.user?.email ?? PLATFORM_OWNER.email.toLowerCase();
+
+  const ownerProfile = await supabase
+    .from("users")
+    .insert({ id: ownerAuthId, email: ownerEmail, display_name: PLATFORM_OWNER.displayName });
+  if (ownerProfile.error) {
+    throw new Error(`insert platform owner profile: ${ownerProfile.error.message}`);
+  }
+
+  const ownerGrant = await supabase
+    .from("platform_admins")
+    .upsert(
+      { user_id: ownerAuthId, note: "dev seed platform owner" },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
+  if (ownerGrant.error) {
+    throw new Error(`grant platform owner ${PLATFORM_OWNER.email}: ${ownerGrant.error.message}`);
+  }
+
+  console.log(`✓ Seeded platform owner "${PLATFORM_OWNER.email}" (no org; platform_admins row).`);
+
+  credentials.push({
+    email: PLATFORM_OWNER.email,
+    password: TEST_PASSWORD,
+    organization: "— (platform owner)",
+    role: "Platform Owner",
+  });
 
   console.log("");
   console.log(`Done. Seeded ${SEED.length} organizations: ${SEED.map((o) => o.name).join(", ")}.`);

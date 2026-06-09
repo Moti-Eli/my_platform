@@ -26,6 +26,21 @@ role with `is_admin` implies **all** permissions. (See `packages/db/SCHEMA.md`.)
 These run as the **current user**, so RLS guarantees they only ever see that
 user's own data (tenant isolation is enforced by the database, not here).
 
+## Platform owner (super admin) — server-side
+
+An access level **above** org admins (see `packages/db/SCHEMA.md`). Owner status
+lives in the sealed `platform_admins` table; super-admin power is **server-side
+only** (no cross-org RLS), so these need a privileged service-role client.
+
+- `isPlatformOwner(supabase)` → `boolean` — calls the
+  `auth_user_is_platform_owner()` RPC (reports only on the caller).
+- `createOrganizationWithFirstAdmin(actingClient, serviceClient, input)` →
+  `{ error, organizationId, adminUserId }` — onboards a new client org. Re-checks
+  the acting user is a platform owner **before** using `serviceClient` (the
+  secret/service-role key, server-side only), then atomically creates the org +
+  Admin/Member roles + first admin (auth user + profile + membership + admin
+  role), rolling everything back on any failure.
+
 ## Usage
 
 ```typescript

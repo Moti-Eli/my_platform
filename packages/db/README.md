@@ -28,6 +28,11 @@ full explanation.
 - `20260608000003_membership_roles_write_policy.sql` — first permission-checked
   write path: users with `members.manage` may assign/unassign roles on a
   membership in their own org (`auth_user_has_permission` helper).
+- `20260609000001_platform_admins_super_admin.sql` — **platform-owner (super
+  admin)** layer above org admins: a sealed `platform_admins` allowlist (RLS
+  deny-all + `REVOKE ALL`, writable only server-side via `service_role`) and the
+  `auth_user_is_platform_owner()` RPC. No cross-org RLS is added — super-admin
+  power is server-side only. See [`SCHEMA.md`](./SCHEMA.md).
 
 ## Usage
 
@@ -47,7 +52,9 @@ It seeds **2 organizations** (Organization A, Organization B), each with **5
 users** (2 admins + 3 members), an **Admin** role (`is_admin = true`) and a
 **Member** role (granted `users.view`, `users.invite`), plus real Supabase
 **auth users** + their `public.users` profiles, memberships, and role
-assignments.
+assignments. It also seeds one **platform owner** (super admin),
+`owner@platform.test`, flagged in `platform_admins` and belonging to **no**
+organization.
 
 ```bash
 pnpm seed                       # from the repo root
@@ -83,3 +90,4 @@ fake/non-deliverable (we use email+password, not magic links).
 | user1@organizationB.com | 123456 | Organization B | Member |
 | user2@organizationB.com | 123456 | Organization B | Member |
 | user3@organizationB.com | 123456 | Organization B | Member |
+| owner@platform.test | 123456 | — (no org) | Platform Owner (super admin) |

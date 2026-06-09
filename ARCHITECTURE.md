@@ -321,6 +321,49 @@ registration-status disclosure is limited to trusted admins.
 
 ---
 
+## 17. Platform-Owner (Super Admin) Layer — Server-Side Cross-Org Provisioning
+
+**Decision:** Introduce an access level **above** organization admins — the
+**platform owner** — who onboards new client organizations (create org + first
+admin). Owner status lives in a dedicated, fully-sealed `platform_admins` table
+(PK → `auth.users`), checked by a `public.auth_user_is_platform_owner()`
+`SECURITY DEFINER` RPC. Crucially, super-admin power is **server-side only**: we
+add **no** cross-org RLS policies (approach (b)); every super-admin operation
+runs through the **service-role key** behind an app-level owner re-check
+(`createOrganizationWithFirstAdmin` in `@platform/auth`, with rollback).
+
+**Reasoning:** This layer sits *above* tenant isolation, so it is the most
+security-sensitive construct in the system and is designed to minimize blast
+radius. A dedicated table (not a boolean on `users`) is explicit, auditable, and
+gets its own sealed surface. **No-self-assignment is guaranteed** by RLS-enabled
++ zero-policies + `REVOKE ALL` from `anon`/`authenticated`: the publishable key
+has no privilege on the table at all, so the *only* way to mint an owner is
+server-side as `service_role` (us, via migration/seed). We chose approach (b)
+over widening client-facing RLS with `OR auth_user_is_platform_owner()` because
+(b) leaves tenant isolation **byte-for-byte unchanged** — an owner gains zero
+extra power through their normal session, and a stolen owner JWT cannot read
+cross-org via the public API (you'd need the server-only secret key). The cost —
+super-admin features must be server actions — is appropriate for an onboarding
+tool. Verified end-to-end (15/15): owner creates an org whose first admin then
+sees/manages only that org; a non-owner is rejected server-side; existing
+isolation (Org A ⇎ Org B, member cannot write roles) is unchanged; and no client
+path can insert into `platform_admins`.
+
+**Accepted advisor findings:** the security advisor reports two new, intended
+findings — INFO `rls_enabled_no_policy` on `platform_admins` (that *is* the
+sealed table) and WARN `authenticated_security_definer_function_executable` on
+the owner-check RPC. The latter is reviewed as safe: the function is parameterless
+and returns only the caller's own boolean (no enumeration), and `SECURITY
+DEFINER` is required to read the sealed table; granting `authenticated` execute
+is deliberate. See `packages/db/SCHEMA.md`.
+
+**Dev shortcut (same caveat as #16):** the dev seed marks `owner@platform.test`
+with `123456`, and `createOrganizationWithFirstAdmin` takes the first admin's
+password from its caller. When PART 2 (the super-admin UI) is wired, production
+must mint the first admin via a random password + invite/reset, not a known one.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

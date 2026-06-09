@@ -58,7 +58,22 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `server-only` module and never reaches the client. No cross-org creation;
   duplicate emails surface a translated error. See ARCHITECTURE.md #16.
 
+**Phase 5: Platform Owner (Super Admin) — data layer** ✅ (PART 1)
+- ✅ `platform_admins` allowlist table (PK → `auth.users`) — an access level
+  **above** org admins (migration `20260609000001`, applied to cloud)
+- ✅ **Sealed & not self-assignable**: RLS enabled + no policies + `REVOKE ALL`
+  from anon/authenticated → only the server-side `service_role` (secret key) can
+  grant ownership
+- ✅ `auth_user_is_platform_owner()` `SECURITY DEFINER` RPC (returns only the
+  caller's own boolean)
+- ✅ Server-side `createOrganizationWithFirstAdmin` in `@platform/auth`: owner
+  re-checked server-side, creates org + admin/member roles + first admin
+  (atomic-ish with rollback). **No new cross-org RLS** — super-admin power is
+  server-side only, so tenant isolation is unchanged (ARCHITECTURE.md #17)
+- ⏳ PART 2 (super-admin UI) is intentionally deferred to a separate change
+
 **Coming Next:**
+- Platform-owner UI (PART 2): create-organization screen for the platform owner
 - Expo mobile app scaffolding
 - Feature development
 
@@ -299,7 +314,9 @@ pnpm build --graph
   login if there's no session. Session refresh runs in the proxy.
 - **Logout** clears the session and returns to login.
 - Seed dev test users with `pnpm seed` (see `packages/db`), e.g.
-  `admin1@organizationA.com` / `123456`.
+  `admin1@organizationA.com` / `123456`. The seed also creates a **platform
+  owner** (super admin) `owner@platform.test` / `123456` — flagged in
+  `platform_admins`, belonging to no organization.
 
 ## 📝 License
 
