@@ -265,10 +265,14 @@ member who forges a request is still denied by the RLS write policy (decision
 (anon) key; the secret key is never shipped to the client.
 
 **Last-admin guard:** preventing an org from being left with zero admins is
-currently enforced in the server action (counts admin memberships before
-demoting). This is **UI/app-level only** for now — a determined direct API
-caller with `members.manage` could still remove the last admin — so it is
-flagged to become a DB-level guard (trigger) when hardened.
+enforced at **two layers**. The server action still counts admins before
+demoting (fast UX feedback), but the real boundary is now in the **database**: a
+deferrable constraint trigger on `membership_roles`
+(`membership_roles_keep_org_admin`, migration `20260609000005`) rejects any
+DELETE/UPDATE that would strip an existing org's last `is_admin` assignment —
+verified to hold even against a direct `service_role` call, while still allowing
+legitimate org/user cascade teardown (it evaluates the transaction's final state
+at commit). See `packages/db/SCHEMA.md`.
 
 ---
 

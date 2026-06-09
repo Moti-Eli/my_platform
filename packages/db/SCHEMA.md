@@ -450,10 +450,17 @@ unchanged):
   accepted dev-stage finding**. (The create-user paths also still need a real
   onboarding flow — invite / forced reset — before being user-facing; see
   ARCHITECTURE.md #16/#17.)
-- **Harden last-admin protection at DB level (trigger) before production.** The
-  "an organization must never be left with zero admins" rule is currently
-  enforced only in the app (the member-management server action). A direct API
-  caller with `members.manage` could still demote the last admin. Before
-  production, enforce it in the database — e.g. a trigger on `membership_roles`
-  that rejects removing/over-writing the final `is_admin` role assignment in an
-  org. (See ARCHITECTURE.md #15.)
+- **Harden last-admin protection at DB level — DONE** (migration
+  `20260609000005`). The "an organization must never be left with zero admins"
+  rule is now enforced in the **database**, not just the app. A **DEFERRABLE
+  INITIALLY DEFERRED constraint trigger** (`membership_roles_keep_org_admin`) on
+  `membership_roles` runs a SECURITY DEFINER function
+  (`private.enforce_org_keeps_admin`, `search_path = ''`) at COMMIT: if the row's
+  organization still exists and still has members but no `is_admin` assignment
+  remains, it raises and aborts. Deferring to commit is deliberate — it judges the
+  *final* state, so it rejects a direct DELETE/UPDATE that strips the last admin
+  (verified even via the `service_role` key, 6/6) **without** breaking legitimate
+  cascade teardown (deleting the whole org/user, or swapping admins within one
+  transaction, is fine because the end state is consistent). This supersedes the
+  app-only guard in the member-management server action (which remains as
+  fast-feedback UX). See ARCHITECTURE.md #15.
