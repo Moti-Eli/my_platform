@@ -359,8 +359,23 @@ is deliberate. See `packages/db/SCHEMA.md`.
 
 **Dev shortcut (same caveat as #16):** the dev seed marks `owner@platform.test`
 with `123456`, and `createOrganizationWithFirstAdmin` takes the first admin's
-password from its caller. When PART 2 (the super-admin UI) is wired, production
-must mint the first admin via a random password + invite/reset, not a known one.
+password from its caller. The super-admin UI's create action uses the same
+`NODE_ENV` gate as add-member (dev `123456`; production mints a random,
+never-disclosed password) — production must still wire invite/reset.
+
+**PART 2 — the super-admin screen (`apps/web/.../[locale]/platform`).** The owner
+guard pattern from #13 is extended one notch: the page's server component
+redirects to `/dashboard` unless `isPlatformOwner` (the boundary; the dashboard's
+owner-only nav link is just UX), and **only after** that check passes does it
+build the service-role client to list **all** organizations — because, by the
+approach-(b) choice above, the publishable client cannot read cross-org. The
+create-organization server action re-verifies ownership server-side before
+building the privileged client (never trusting the page guard), then delegates to
+`createOrganizationWithFirstAdmin`. The service-role key is confined to the
+`server-only` admin module and verified absent from the client bundle. Verified
+end-to-end against the running app (10/10 HTTP checks: unauthenticated→login,
+org-admin/member→dashboard, owner→200 with all orgs, RTL `/he`) plus the
+data-layer harness (15/15).
 
 ---
 

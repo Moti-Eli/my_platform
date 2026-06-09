@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getCurrentUser, getUserOrganizations } from "@platform/auth";
+import { getCurrentUser, getUserOrganizations, isPlatformOwner } from "@platform/auth";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -27,13 +27,27 @@ export default async function DashboardPage({ params }: Props) {
     redirect(`/${locale}/login`);
   }
 
-  const organizations = await getUserOrganizations(supabase, user.id);
+  const [organizations, owner] = await Promise.all([
+    getUserOrganizations(supabase, user.id),
+    isPlatformOwner(supabase),
+  ]);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">{t("title")}</h1>
         <div className="flex items-center gap-3">
+          {owner && (
+            <Link
+              href="/platform"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="size-3.5">
+                <path d="M10 1.5 3 4.5v4.2c0 4 2.8 7.7 7 8.8 4.2-1.1 7-4.8 7-8.8V4.5l-7-3Z" />
+              </svg>
+              {t("platformAdmin")}
+            </Link>
+          )}
           <Link
             href="/dashboard/members"
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
