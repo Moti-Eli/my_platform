@@ -536,6 +536,34 @@ same as "works for a teammate cloning the repo".
 
 ---
 
+## 23. Landing Page — Temporary Explainer, Internals-Safe, Demo Fenced
+
+**Decision:** The home page (`/[locale]`) is a designed **landing/explainer** for
+semi-technical partners (hero, what-this-is, architecture, security, why-it-
+matters, demo access), token-driven so both themes + RTL/LTR work, fully i18n
+(he/en), with a distinctive bilingual serif display face. It is **temporary
+content** — real product marketing will replace it. Two rules govern it: (1) the
+copy describes the *approach*, never exploitable internals (no table/helper names,
+no project refs — verified absent from the rendered HTML of both locales); (2) the
+**demo-access** block (the seeded logins + shared password) is isolated in a
+single component (`src/components/demo-access.tsx`, marked _REMOVE BEFORE
+PRODUCTION_) so it is trivially removable.
+
+**Reasoning:** Partners need to understand and *try* the platform, which means
+showing demo credentials — but those, and any internal detail that aids an
+attacker, must never reach a real production site. Fencing the demo into one
+component makes removal a one-step pre-production gate; keeping the explainer copy
+to high-level posture (DB-level tenant isolation, server-side permission re-checks,
+secrets in env only, redacted logging) communicates credibility without leaking
+how to attack it. The raw permission-catalog dump from the dev health check is
+replaced by a reachability-only "systems operational" pill (HEAD/count, no data).
+
+**Pre-production gate:** remove the demo-access component (and revisit the page as
+real marketing) before launch — alongside the other deferred pre-production items
+(HIBP, onboarding flow). See `README.md`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

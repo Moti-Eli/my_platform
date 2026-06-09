@@ -240,8 +240,14 @@ Next.js 16 web application (App Router, Turbopack, TypeScript strict):
 pnpm dev            # starts the web dev server (http://localhost:3000 -> /he)
 ```
 
-The home page shows the app name, a language switcher, a theme toggle, and a
-Supabase health check that lists the seeded permission keys.
+The home page (`/[locale]`) is a polished **landing page** explaining the project
+to semi-technical partners — hero, "what this is", architecture, security, and a
+fenced **demo-access** section listing the seeded logins so partners can sign in
+and explore. It's **temporary/demo** content (real product marketing replaces it
+later), and the old raw permission dump is now a subtle "systems operational"
+indicator. The demo-access block is a single component
+(`src/components/demo-access.tsx`, marked _REMOVE BEFORE PRODUCTION_) — delete the
+file + its one usage to drop it.
 
 ### `@platform/observability`
 Vendor- and framework-agnostic **logging + error reporting**:

@@ -145,5 +145,78 @@
     "title": "Page not found",
     "description": "The page you're looking for doesn't exist or may have moved.",
     "goHome": "Go to homepage"
+  },
+  "landing": {
+    "eyebrow": "Multi-tenant platform foundation",
+    "headline": "The groundwork for serious multi-tenant apps — already built.",
+    "subhead": "A reusable, production-minded foundation: the identity, access, real-time and internationalization plumbing most business apps need — engineered once, cloned per project.",
+    "ctaExplore": "Explore the live demo",
+    "ctaDemo": "Demo logins",
+    "signIn": "Sign in",
+    "status": {
+      "operational": "All systems operational",
+      "down": "Systems unavailable",
+      "notConfigured": "Preview mode"
+    },
+    "whatIs": {
+      "num": "01",
+      "title": "What this is",
+      "lead": "A foundation, not a finished product.",
+      "points": [
+        "A reusable starting point for generic, multi-tenant business websites — the infrastructure most apps need, built once and cloned per project.",
+        "Organizations, users, roles and permissions out of the box, so every new project begins with identity and access already solved.",
+        "Real-time messaging, full internationalization (English + Hebrew, right-to-left) and light/dark theming, included.",
+        "Opinionated where it matters — security, types, structure — and flexible everywhere you build your actual product."
+      ]
+    },
+    "architecture": {
+      "num": "02",
+      "title": "Architecture & where data lives",
+      "lead": "Modern, managed, cloud-native.",
+      "points": [
+        "A TypeScript monorepo (Turborepo + pnpm) of small, single-responsibility packages shared across apps.",
+        "A server-rendered Next.js web application.",
+        "Data lives in a managed PostgreSQL database in the cloud (Supabase) — not on any one machine.",
+        "Built to deploy on Vercel, configured per project entirely through environment variables."
+      ]
+    },
+    "security": {
+      "num": "03",
+      "title": "Security, engineered in",
+      "lead": "Not bolted on later.",
+      "points": [
+        "Tenant isolation is enforced in the database itself — one organization can never see another's data, even if application code has a bug.",
+        "Every privileged action is re-checked on the server; a hidden button is never treated as the security boundary.",
+        "Secrets live only in environment variables — never in source code, never shipped to the browser.",
+        "High-privilege keys are used strictly server-side; the browser only ever holds a low-privilege, restricted key.",
+        "Error logging redacts secrets automatically, so passwords, tokens and keys never reach the logs."
+      ]
+    },
+    "why": {
+      "num": "04",
+      "title": "Why the foundation matters",
+      "lead": "Get the hard parts right first.",
+      "points": [
+        "Identity, tenancy, roles and security are the hardest things to retrofit — doing them first makes everything after safer.",
+        "New features — calendar, tasks, billing and beyond — inherit isolation and permissions for free.",
+        "One audited foundation, many products: improve it once, and every project benefits.",
+        "Less boilerplate per project means more time on what makes each product unique."
+      ]
+    },
+    "demo": {
+      "kicker": "Try it yourself",
+      "title": "Demo access",
+      "subtitle": "Sign in with any seeded account and explore the platform exactly as an operator would.",
+      "passwordLabel": "Password for all accounts",
+      "owner": "Platform owner",
+      "ownerNote": "Creates organizations and onboards their first admin.",
+      "orgA": "Organization A",
+      "orgB": "Organization B",
+      "admins": "Admins",
+      "members": "Members",
+      "note": "Demo accounts — for evaluation only. This section is removed before real production.",
+      "cta": "Go to sign in"
+    },
+    "footer": "A foundation for building — not a finished product."
   }
 }
