@@ -403,23 +403,29 @@ unchanged):
   -- single-column index redundant — drop it in the same migration:
   drop index public.membership_roles_role_id_idx;
   ```
-- **Tighten client-role baseline grants (TODO, low-priority).** `anon` and
-  `authenticated` carry Supabase's default `TRUNCATE`, `TRIGGER`, `REFERENCES`
-  grants on all tables. These are not reachable via the PostgREST API (no
-  TRUNCATE endpoint; no schema CREATE rights), so the risk is low — but
-  `TRUNCATE` is destructive and not RLS-gated, so stripping it is sensible
-  defense-in-depth. Deferred; **needs separate validation against Supabase's
-  own default privileges** (future tables may re-acquire these unless the
-  `ALTER DEFAULT PRIVILEGES` defaults are also adjusted). Proposed (give it the
-  next free timestamp when actually created, e.g.
-  `20260608000004_tighten_client_role_grants.sql`):
+- **Tighten client-role baseline grants — DONE** (migration
+  `20260609000004`). `anon`/`authenticated` previously carried Supabase's default
+  `TRUNCATE`, `TRIGGER`, `REFERENCES` on every table. These aren't reachable via
+  PostgREST, but `TRUNCATE` is destructive and not RLS-gated, so we stripped them
+  as defense in depth. The migration does two things:
+  1. **Current tables:** `revoke truncate, trigger, references` from
+     `anon, authenticated` on all nine public tables.
+  2. **Future tables:** `alter default privileges in schema public revoke
+     truncate, trigger, references on tables from anon, authenticated`. The
+     default-privileges question was **validated** via `pg_default_acl`: these
+     grants come from the **`postgres`-owned** default (anon/authenticated =
+     `Dxtm`), and our migrations run as `postgres`, so an unqualified
+     `alter default privileges` modifies exactly that. The separate
+     **`supabase_admin`-owned** default (which grants full privileges) is left
+     untouched — it is Supabase-managed and our tables are postgres-owned, so they
+     never use it.
 
-  ```sql
-  revoke truncate, trigger, references on
-    public.organizations, public.users, public.memberships, public.roles,
-    public.permissions, public.role_permissions, public.membership_roles
-  from anon, authenticated;
-  ```
+  `SELECT`/`INSERT` and every `service_role` grant are deliberately untouched.
+  Verified after: anon/authenticated have **no** truncate/trigger/references on
+  any table; `authenticated` keeps SELECT (8 tables) + INSERT (membership_roles,
+  messages) + UPDATE/DELETE (membership_roles); `service_role` keeps all
+  privileges; and a freshly-created probe table grants the client roles none of
+  the three.
 - **Leaked-password protection (TODO before production).** Before production —
   enable Supabase leaked-password protection (Auth settings) AND switch the seed
   to a non-breached dev password. Intentionally OFF now so the simple `123456`
