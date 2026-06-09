@@ -34,30 +34,19 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      # engines.node is ">=20.9.0"; 20 resolves to the latest 20.x LTS.
+      # engines.node is ">=20.9.0"; 20 resolves to the latest 20.x LTS. The pnpm
+      # store is cached and keyed on the committed pnpm-lock.yaml.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: pnpm
 
-      # This repo does not commit pnpm-lock.yaml, so the lockfile-keyed cache and
-      # `--frozen-lockfile` aren't usable. We cache the pnpm content-addressable
-      # store keyed on the package.json files instead. (Committing the lockfile
-      # would let us switch to --frozen-lockfile for fully reproducible installs.)
-      - name: Resolve pnpm store path
-        id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
+      # --frozen-lockfile makes the install REPRODUCIBLE: it fails if package.json
+      # and the committed pnpm-lock.yaml disagree, so "works in CI" == "works for a
+      # teammate cloning the repo".
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: pnpm lint

@@ -529,10 +529,10 @@ cached.
 exactly the class that slipped through before every package had its own
 `typecheck` task. Keeping it to lint/typecheck/build means it needs no secrets and
 stays fast and deterministic; DB-dependent tests/e2e belong in a later, separate
-job wired to CI secrets once those tests exist. **Caveat:** `pnpm-lock.yaml` is
-gitignored in this repo, so CI uses `--no-frozen-lockfile` and caches the store by
-`package.json` hash; committing the lockfile would make installs fully
-reproducible and is recommended before relying on CI as a strict gate.
+job wired to CI secrets once those tests exist. `pnpm-lock.yaml` is **committed**
+and CI installs with `--frozen-lockfile`, so the gate is reproducible — the
+install fails if a manifest and the lockfile disagree, making "works in CI" the
+same as "works for a teammate cloning the repo".
 
 ---
 

@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
-pnpm-lock.yaml
+# pnpm-lock.yaml is COMMITTED on purpose — it makes installs reproducible and CI a
+# real gate (works-in-CI == works-for-a-teammate). Only the non-pnpm lockfiles are
+# ignored, to avoid accidentally committing a competing lockfile.
 yarn.lock
 package-lock.json
 

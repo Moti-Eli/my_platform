@@ -360,14 +360,14 @@ pnpm install  →  pnpm lint  →  pnpm typecheck  →  pnpm build   (turbo, who
 Each step is separate, so the run **fails** if lint, typecheck, or build fails —
 this is the gate that catches regressions (e.g. the kind that hid before every
 package had a `typecheck` task). It uses Node 20 (engines: `>=20.9`) and pnpm
-(from `packageManager`), with the pnpm store cached for speed.
+(from `packageManager`), with the pnpm store cached (keyed on the lockfile).
 
+- **Reproducible:** `pnpm-lock.yaml` is **committed**, and CI installs with
+  `--frozen-lockfile` — so "works in CI" == "works for a teammate cloning the
+  repo". The install fails if `package.json` and the lockfile disagree.
 - **No secrets / no live DB:** CI runs only static checks. The web build is
   server-rendered on demand, so `next build` needs no Supabase env. DB-dependent
   tests / e2e can be added later as a separate job using GitHub Actions secrets.
-- **Note:** `pnpm-lock.yaml` is gitignored in this repo, so CI installs with
-  `--no-frozen-lockfile` and caches the store by `package.json` hash. Committing
-  the lockfile would enable `--frozen-lockfile` for fully reproducible installs.
 
 ## 📚 Documentation
 
