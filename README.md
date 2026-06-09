@@ -104,6 +104,10 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `messages`: soft-deleted rows are hidden from normal reads via the RLS helpers
   (tenant isolation unchanged), rows retained for history/recovery; `users`
   deliberately deferred (migration `20260610000001`). See ARCHITECTURE.md #19.
+- ✅ **Observability** (`@platform/observability`): vendor-agnostic structured
+  logging + error reporting, with an optional env-activated **Sentry** adapter and
+  built-in secret/PII redaction. App code never imports a vendor SDK directly. See
+  the Observability section below + ARCHITECTURE.md #20.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
 
@@ -235,6 +239,14 @@ pnpm dev            # starts the web dev server (http://localhost:3000 -> /he)
 The home page shows the app name, a language switcher, a theme toggle, and a
 Supabase health check that lists the seeded permission keys.
 
+### `@platform/observability`
+Vendor- and framework-agnostic **logging + error reporting**:
+- `logger.{debug,info,warn,error}` → structured JSON console lines
+- `captureException(err, context?)` → logs + forwards to the active reporter
+- Pluggable backend via `setErrorReporter` (optional **Sentry** adapter, env-gated)
+- Built-in **secret/PII redaction** before any sink — app code imports only this,
+  never a vendor SDK directly
+
 ### `@platform/mobile`
 Mobile application placeholder (Expo coming soon):
 - React Native components
@@ -270,6 +282,26 @@ All secrets go in `.env` (gitignored):
 - Never commit `.env`
 - Use `.env.example` as a template
 - Deploy secrets via CI/CD platform (GitHub Actions, etc.)
+
+## 🔭 Observability (logging + error reporting)
+
+App code logs and reports errors **only** through `@platform/observability` —
+never a vendor SDK directly — so the backend is swappable from one adapter.
+
+- **Default (no config):** errors and logs go to the console as **structured JSON
+  lines** (`level`, `timestamp`, `msg`, `context`, `error`). Nothing else happens.
+- **Enable Sentry (optional):** set `SENTRY_DSN` (server) and
+  `NEXT_PUBLIC_SENTRY_DSN` (browser) in `.env.local`. The Sentry adapter then
+  initializes and errors are reported there **in addition to** the console log.
+  Leave them empty to disable. Never commit a real DSN.
+- **Secrets never hit logs:** every log context + error is run through a redaction
+  layer that scrubs passwords, tokens, the Supabase keys, `Bearer …`, JWTs, and
+  emails. Prefer logging identifiers (`userId`, `orgId`) over sensitive content.
+- **Swap vendors:** replace the two adapter files
+  (`apps/web/src/lib/observability/sentry.{server,client}.ts`) with your provider
+  and register it via `setErrorReporter` — no app code changes.
+
+See `ARCHITECTURE.md` #20 and `packages/observability/README.md`.
 
 ## 🎯 Development Workflow
 

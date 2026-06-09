@@ -458,6 +458,39 @@ the common offboarding case. See `packages/db/SCHEMA.md`.
 
 ---
 
+## 20. Vendor-Agnostic Observability (Logging + Error Reporting)
+
+**Decision:** All logging and error reporting goes through a small in-house
+abstraction, `@platform/observability` — never a vendor SDK directly. It exposes
+`logger.{debug,info,warn,error}` (structured JSON console lines) and
+`captureException(err, context?)`. The error-reporting backend is **pluggable**
+via `setErrorReporter`: the web app registers a **Sentry** adapter from its
+instrumentation **only when `SENTRY_DSN` (server) / `NEXT_PUBLIC_SENTRY_DSN`
+(client) is set**; with no DSN, the default is structured console logging and
+nothing else. The package is vendor- *and* framework-agnostic (zero vendor deps);
+the Sentry SDK is only ever touched in two adapter files in `apps/web`.
+
+**Reasoning:** This mirrors how `@platform/db` abstracts Supabase — a project
+spawned from this template can swap monitoring vendors by editing one adapter, or
+disable it by leaving the DSN empty, without touching app code. Following current
+`@sentry/nextjs` practice (`instrumentation.ts` `register()` + `onRequestError`,
+`instrumentation-client.ts`), the Sentry adapter is **dynamically imported and
+DSN-gated**, so it never initializes (and isn't loaded) when unused.
+
+**Security — redaction is a single chokepoint.** Every context object and error
+message/stack passes through `redact()` before any sink (console *or* reporter),
+scrubbing sensitive **keys** (password, token, secret, authorization, cookie,
+dsn, service_role, jwt, session, email, …) and sensitive **values** (Supabase
+`sb_secret_…`/`sb_publishable_…` keys, JWTs, `Bearer …`, email local-parts).
+Server actions log **identifiers** (`userId`, `orgId`, `organizationId`) — never
+emails, names, passwords, tokens, or the secret key. `onRequestError` logs only
+request method/route, never headers (which carry auth cookies). Verified (21/21):
+secrets of every shape are scrubbed while identifiers survive; the real secret key
+is absent from the client bundle. No DSN is ever hardcoded — all via env
+(`.env.example`).
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

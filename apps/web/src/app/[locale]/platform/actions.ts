@@ -2,7 +2,8 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { createOrganizationWithFirstAdmin, isPlatformOwner } from "@platform/auth";
+import { createOrganizationWithFirstAdmin, getCurrentUser, isPlatformOwner } from "@platform/auth";
+import { captureException, logger } from "@platform/observability";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -75,14 +76,30 @@ export async function createOrganizationAction(
   const admin = createSupabaseAdminClient();
   if (!admin) return { error: "notConfigured", ...EMPTY };
 
+  const actor = await getCurrentUser(supabase);
   const result = await createOrganizationWithFirstAdmin(supabase, admin, {
     organizationName,
     adminEmail,
     adminDisplayName,
     adminPassword: newFirstAdminPassword(),
   });
-  if (result.error) return { error: toI18nKey(result.error), ...EMPTY };
+  if (result.error) {
+    if (result.error === "createFailed") {
+      // An UNEXPECTED provisioning failure (not a user/validation error) — report it.
+      captureException(new Error("createOrganizationWithFirstAdmin failed"), {
+        action: "createOrganization",
+        actorId: actor?.id,
+      });
+    }
+    return { error: toI18nKey(result.error), ...EMPTY };
+  }
 
+  logger.info("organization created", {
+    action: "createOrganization",
+    actorId: actor?.id,
+    organizationId: result.organizationId,
+    adminUserId: result.adminUserId,
+  });
   revalidatePath(`/${locale}/platform`);
   return {
     error: null,

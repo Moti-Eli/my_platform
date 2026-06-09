@@ -3,6 +3,7 @@
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser, hasPermission } from "@platform/auth";
+import { captureException, logger } from "@platform/observability";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -41,7 +42,10 @@ export async function updateMemberRoleAction(
     .from("roles")
     .select("id, name, is_admin")
     .eq("organization_id", organizationId);
-  if (rolesRes.error) return { error: "updateFailed" };
+  if (rolesRes.error) {
+    captureException(rolesRes.error, { action: "updateMemberRole", organizationId, membershipId });
+    return { error: "updateFailed" };
+  }
   const roles = (rolesRes.data ?? []) as Array<{ id: string; name: string; is_admin: boolean }>;
   const adminRole = roles.find((r) => r.is_admin);
   const memberRole =
@@ -74,7 +78,15 @@ export async function updateMemberRoleAction(
       { membership_id: membershipId, role_id: addRoleId, organization_id: organizationId },
       { onConflict: "membership_id,role_id", ignoreDuplicates: true }
     );
-  if (upsert.error) return { error: "notAllowed" };
+  if (upsert.error) {
+    logger.warn("membership_roles write denied", {
+      action: "updateMemberRole",
+      organizationId,
+      membershipId,
+      code: upsert.error.code,
+    });
+    return { error: "notAllowed" };
+  }
 
   const del = await supabase
     .from("membership_roles")
@@ -82,8 +94,17 @@ export async function updateMemberRoleAction(
     .eq("membership_id", membershipId)
     .eq("role_id", removeRoleId)
     .eq("organization_id", organizationId);
-  if (del.error) return { error: "notAllowed" };
+  if (del.error) {
+    logger.warn("membership_roles write denied", {
+      action: "updateMemberRole",
+      organizationId,
+      membershipId,
+      code: del.error.code,
+    });
+    return { error: "notAllowed" };
+  }
 
+  logger.info("member role updated", { action: "updateMemberRole", organizationId, membershipId, targetRole });
   revalidatePath(`/${locale}/dashboard/members`);
   return { error: null };
 }
@@ -222,6 +243,12 @@ export async function addMemberAction(
     if (isDuplicateEmailError(created.error?.message)) {
       return { error: "emailExists", success: false };
     }
+    captureException(created.error ?? new Error("createUser returned no user"), {
+      action: "addMember",
+      organizationId,
+      actorId: actingUser.id,
+      step: "createUser",
+    });
     return { error: "addFailed", success: false };
   }
   const authId = created.data.user.id;
@@ -240,10 +267,16 @@ export async function addMemberAction(
     .insert({ id: authId, email: normalizedEmail, display_name: displayName });
   if (profile.error) {
     await rollback();
-    return {
-      error: isDuplicateEmailError(profile.error.message) ? "emailExists" : "addFailed",
-      success: false,
-    };
+    if (isDuplicateEmailError(profile.error.message)) {
+      return { error: "emailExists", success: false };
+    }
+    captureException(profile.error, {
+      action: "addMember",
+      organizationId,
+      actorId: actingUser.id,
+      step: "profile",
+    });
+    return { error: "addFailed", success: false };
   }
 
   // 3) membership in the target org.
@@ -254,6 +287,12 @@ export async function addMemberAction(
     .single();
   if (membershipRes.error || !membershipRes.data) {
     await rollback();
+    captureException(membershipRes.error ?? new Error("membership insert returned no data"), {
+      action: "addMember",
+      organizationId,
+      actorId: actingUser.id,
+      step: "membership",
+    });
     return { error: "addFailed", success: false };
   }
 
@@ -265,9 +304,22 @@ export async function addMemberAction(
   });
   if (mr.error) {
     await rollback();
+    captureException(mr.error, {
+      action: "addMember",
+      organizationId,
+      actorId: actingUser.id,
+      step: "membership_role",
+    });
     return { error: "addFailed", success: false };
   }
 
+  logger.info("member added", {
+    action: "addMember",
+    organizationId,
+    actorId: actingUser.id,
+    newUserId: authId,
+    role: targetRole,
+  });
   revalidatePath(`/${locale}/dashboard/members`);
   return { error: null, success: true };
 }

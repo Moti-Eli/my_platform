@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
     "@platform/db",
     "@platform/auth",
     "@platform/ui",
+    "@platform/observability",
   ],
 };
 
