@@ -387,22 +387,21 @@ unchanged):
   accidental-deletion recovery are possible. The cascades are kept for now
   because the schema is empty and physical deletes keep early development
   simple.
-- **Covering indexes for `membership_roles` composite FKs (TODO).** The
-  Supabase performance advisor flags the two composite foreign keys
-  (`membership_roles_membership_fk`, `membership_roles_role_fk`) as lacking a
-  covering index, which makes parent (`memberships`/`roles`) deletes do a
-  sequential scan of `membership_roles`. INFO-level only and harmless on an
-  empty table, so it is deferred to a later performance pass. The fix:
-
-  ```sql
-  create index membership_roles_membership_org_idx
-    on public.membership_roles (membership_id, organization_id);
-  create index membership_roles_role_org_idx
-    on public.membership_roles (role_id, organization_id);
-  -- The new role_org index leads with role_id, making the existing
-  -- single-column index redundant — drop it in the same migration:
-  drop index public.membership_roles_role_id_idx;
-  ```
+- **Covering indexes for `membership_roles` composite FKs — DONE** (migration
+  `20260609000006`). The Supabase performance advisor flagged the two composite
+  FKs (`membership_roles_membership_fk`, `membership_roles_role_fk`) as lacking a
+  covering index (parent deletes would seq-scan `membership_roles`). Added
+  `membership_roles_membership_org_idx (membership_id, organization_id)` and
+  `membership_roles_role_org_idx (role_id, organization_id)`, and dropped the now
+  redundant `membership_roles_role_id_idx (role_id)` (the new role_org index
+  leads with `role_id`). Kept `membership_roles_organization_id_idx` (backs the
+  org-scoped RLS reads + the last-admin guard). Verified: both
+  `unindexed_foreign_keys` findings for `membership_roles` cleared.
+  - **Note — separate, newer finding (NOT part of this item):** the performance
+    advisor also flags `messages_sender_id_fkey` (from the chat feature) as
+    lacking a covering index. A one-line fix (`create index on public.messages
+    (sender_id)`) when chat gets a performance pass — tracked here, intentionally
+    not bundled with the membership_roles work.
 - **Tighten client-role baseline grants — DONE** (migration
   `20260609000004`). `anon`/`authenticated` previously carried Supabase's default
   `TRUNCATE`, `TRIGGER`, `REFERENCES` on every table. These aren't reachable via
