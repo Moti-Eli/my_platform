@@ -348,6 +348,27 @@ pnpm build --force
 pnpm build --graph
 ```
 
+## ⚙️ Continuous Integration
+
+GitHub Actions runs a **static-checks gate** on every push to `main` and every PR
+targeting `main` (`.github/workflows/ci.yml`):
+
+```
+pnpm install  →  pnpm lint  →  pnpm typecheck  →  pnpm build   (turbo, whole monorepo)
+```
+
+Each step is separate, so the run **fails** if lint, typecheck, or build fails —
+this is the gate that catches regressions (e.g. the kind that hid before every
+package had a `typecheck` task). It uses Node 20 (engines: `>=20.9`) and pnpm
+(from `packageManager`), with the pnpm store cached for speed.
+
+- **No secrets / no live DB:** CI runs only static checks. The web build is
+  server-rendered on demand, so `next build` needs no Supabase env. DB-dependent
+  tests / e2e can be added later as a separate job using GitHub Actions secrets.
+- **Note:** `pnpm-lock.yaml` is gitignored in this repo, so CI installs with
+  `--no-frozen-lockfile` and caches the store by `package.json` hash. Committing
+  the lockfile would enable `--frozen-lockfile` for fully reproducible installs.
+
 ## 📚 Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Key architectural decisions and reasoning

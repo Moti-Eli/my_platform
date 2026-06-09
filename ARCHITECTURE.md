@@ -516,6 +516,26 @@ render only `t()` strings (the error `digest` is logged, never displayed).
 
 ---
 
+## 22. CI Gate — Static Checks on Every Push and PR
+
+**Decision:** A GitHub Actions workflow (`.github/workflows/ci.yml`) runs
+`pnpm install` → `pnpm lint` → `pnpm typecheck` → `pnpm build` (turbo, whole
+monorepo) on every push to `main` and every PR targeting `main`, with each as a
+separate failing step. It runs **only static checks** — no secrets, no live
+Supabase. Node 20 (engines `>=20.9`), pnpm from `packageManager`, pnpm store
+cached.
+
+**Reasoning:** This is the automated gate that catches regressions before merge —
+exactly the class that slipped through before every package had its own
+`typecheck` task. Keeping it to lint/typecheck/build means it needs no secrets and
+stays fast and deterministic; DB-dependent tests/e2e belong in a later, separate
+job wired to CI secrets once those tests exist. **Caveat:** `pnpm-lock.yaml` is
+gitignored in this repo, so CI uses `--no-frozen-lockfile` and caches the store by
+`package.json` hash; committing the lockfile would make installs fully
+reproducible and is recommended before relying on CI as a strict gate.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

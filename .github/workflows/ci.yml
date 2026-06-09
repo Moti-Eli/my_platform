@@ -1,0 +1,69 @@
+name: CI
+
+# Static-checks gate: runs on every push to main and every PR targeting main.
+# It runs lint + typecheck + build across the whole monorepo (turbo) and FAILS
+# the run if any of them fail — this is the gate that catches regressions like the
+# one that hid before per-package typecheck existed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel an in-progress run when a new commit is pushed to the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint · Typecheck · Build
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: "0" # skip git hooks (e.g. the prepare/husky install) in CI
+      TURBO_TELEMETRY_DISABLED: "1"
+      # NOTE: no secrets and no live Supabase here — these are STATIC checks only.
+      # The web build's pages are server-rendered on demand, so `next build` does
+      # not call Supabase at build time and needs no env. DB-dependent tests / e2e
+      # can be added later as a separate job using GitHub Actions secrets.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Uses the pnpm version declared in package.json `packageManager` (pnpm@9).
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      # engines.node is ">=20.9.0"; 20 resolves to the latest 20.x LTS.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # This repo does not commit pnpm-lock.yaml, so the lockfile-keyed cache and
+      # `--frozen-lockfile` aren't usable. We cache the pnpm content-addressable
+      # store keyed on the package.json files instead. (Committing the lockfile
+      # would let us switch to --frozen-lockfile for fully reproducible installs.)
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
