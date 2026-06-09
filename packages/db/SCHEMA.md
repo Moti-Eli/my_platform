@@ -426,24 +426,30 @@ unchanged):
   messages) + UPDATE/DELETE (membership_roles); `service_role` keeps all
   privileges; and a freshly-created probe table grants the client roles none of
   the three.
-- **Leaked-password protection (TODO before production).** Before production —
-  enable Supabase leaked-password protection (Auth settings) AND switch the seed
-  to a non-breached dev password. Intentionally OFF now so the simple `123456`
-  dev password works. (Flagged by the security advisor as
-  `auth_leaked_password_protection`; it is an Auth project setting, not a schema
-  change.) **The "Add user" admin action**
-  (`apps/web/.../dashboard/members/actions.ts → addMemberAction`) uses the same
-  known temp password ONLY outside production so new users can log in
-  immediately for the demo; in production it falls back to a random,
-  never-disclosed password (so the new account can't be a backdoor). Production
-  still needs a real onboarding flow — an email invite / magic link or a forced
-  password reset on first login — before this is user-facing (see
-  ARCHITECTURE.md #16). The **platform-owner onboarding path** is the same: the
-  dev seed marks `owner@platform.test` with `123456`, and
-  `createOrganizationWithFirstAdmin` takes the first admin's password from its
-  caller — so when PART 2 (the super-admin UI) is wired, production must mint the
-  first admin via a random password + invite/reset (mirror add-member's
-  `newUserPassword()` NODE_ENV gate), not a known one.
+- **Leaked-password protection + strong passwords (deferred as ONE
+  pre-production step).** These two belong together and are intentionally
+  deferred while there are **no real users or data**:
+  > **Before real users —** upgrade the project to **Pro**, enable Supabase
+  > **leaked-password protection (HIBP)**, **AND** switch the seed/all users to a
+  > strong, non-breached password. **Intentionally deferred:** the simple `123456`
+  > dev password + HIBP off, because there are no real users yet and a strong
+  > password is pure friction at this stage.
+
+  Why combined: enabling HIBP rejects breached passwords everywhere a password is
+  SET (signup / password update / admin create), so `123456` (seed, the
+  add-member action, the platform create-org action) would all break the moment
+  HIBP is on — they must flip in the same step. Also note **HIBP requires a Pro
+  plan**: the Management API confirms *"Configuring leaked password protection via
+  HaveIBeenPwned.org is available on Pro Plans and up,"* so it cannot be toggled
+  on the current Free project at all. **To do it later (on Pro):** Dashboard →
+  Authentication → password policy → enable *"Leaked password protection"* (or
+  `PATCH /v1/projects/{ref}/config/auth { "password_hibp_enabled": true }`), and
+  change the dev password constants + re-seed in the same change.
+
+  Until then, the `auth_leaked_password_protection` advisor finding is a **known,
+  accepted dev-stage finding**. (The create-user paths also still need a real
+  onboarding flow — invite / forced reset — before being user-facing; see
+  ARCHITECTURE.md #16/#17.)
 - **Harden last-admin protection at DB level (trigger) before production.** The
   "an organization must never be left with zero admins" rule is currently
   enforced only in the app (the member-management server action). A direct API
