@@ -7,7 +7,9 @@ companion to the SQL migrations in [`supabase/migrations/`](./supabase/migration
 > org-membership tenant isolation (Step 2) are applied to the Supabase cloud
 > project. See "RLS / Tenant Isolation" below. A **platform-owner (super admin)**
 > layer above org admins has also been added (migration `20260609000001`) — see
-> "Platform Owner (Super Admin)" below.
+> "Platform Owner (Super Admin)" below. A `messages` table for **internal org
+> chat** (migration `20260609000002`) is also applied — see "Internal Chat
+> (messages)" below.
 
 ---
 
@@ -233,6 +235,52 @@ A `SECURITY DEFINER` function runs with its owner's privileges, which **bypass
 RLS**, so the lookup does not re-trigger the calling table's policy. Each
 function is `STABLE` and pinned with `SET search_path = ''` (with every name
 fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
+
+---
+
+## Internal Chat (messages)
+
+The first realtime feature: members of an organization can message each other.
+PART 1 (this section) is the **data + RLS** only; realtime delivery and UI come
+later. Added in migration `20260609000002`.
+
+### `messages` — org-scoped chat messages
+
+```
+messages ( id PK, organization_id → organizations, sender_id → users,
+           content text not null, created_at )
+```
+
+Org-scoped like everything else (carries `organization_id`). `sender_id`
+references `public.users` (whose id mirrors `auth.users.id`, i.e. the value
+`auth.uid()` returns). A composite index on `(organization_id, created_at)`
+serves the common "load this org's history in order" read. Messages are
+**immutable for now** — there are no UPDATE/DELETE policies, so those are denied;
+editing/deleting is a deliberate future feature.
+
+### RLS — isolation for reads, anti-forgery for writes
+
+RLS is enabled; `authenticated` is granted `SELECT, INSERT` (the row policies
+decide which rows actually apply). `anon` gets nothing.
+
+- **SELECT** — a user may read a message only if they are a member of its
+  organization: `private.auth_user_is_member_of(organization_id)` (the same
+  recursion-safe SECURITY DEFINER helper used elsewhere). So org A can never read
+  org B's chat.
+- **INSERT** (`WITH CHECK`) — a user may post a message only if **both**:
+  1. they are a member of the target org
+     (`private.auth_user_is_member_of(organization_id)`), **and**
+  2. `sender_id = auth.uid()` — they are posting **as themselves**.
+
+  Rule (2) is the critical **anti-forgery** guarantee: it is impossible to post a
+  message attributed to another user, even inside your own org. Rule (1) blocks
+  posting into an org you don't belong to. Both are enforced in the database, not
+  app code. Verified end-to-end (6/6): a member posts into their org and reads it
+  back; cannot read or insert into another org; and a forged `sender_id` is
+  rejected (no forged row lands).
+
+- **UPDATE / DELETE** — no policy, therefore denied (messages are immutable for
+  now). Server-side `service_role` bypasses RLS as usual.
 
 ---
 

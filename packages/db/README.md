@@ -33,6 +33,10 @@ full explanation.
   deny-all + `REVOKE ALL`, writable only server-side via `service_role`) and the
   `auth_user_is_platform_owner()` RPC. No cross-org RLS is added — super-admin
   power is server-side only. See [`SCHEMA.md`](./SCHEMA.md).
+- `20260609000002_messages_org_chat.sql` — **internal org chat** `messages`
+  table (org-scoped) with RLS: members-only SELECT, and INSERT requiring org
+  membership **and** `sender_id = auth.uid()` (anti-forgery). Immutable for now
+  (no update/delete). PART 1 of the chat feature (data + RLS only).
 
 ## Usage
 

@@ -77,7 +77,18 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   server-side before acting. The dashboard shows a "Platform admin" nav link only
   to owners. See ARCHITECTURE.md #17.
 
+**Phase 6: Internal Org Chat** 🚧 (PART 1)
+- ✅ PART 1 — data layer: `messages` table (org-scoped; `sender_id` →
+  `auth.users`) with RLS (migration `20260609000002`, applied to cloud). **SELECT**
+  is members-only (`auth_user_is_member_of`); **INSERT** requires org membership
+  **and** `sender_id = auth.uid()` (anti-forgery — you can only post as
+  yourself); messages are immutable (no update/delete). Verified live (6/6):
+  cross-org read/insert denied, forged sender rejected. See ARCHITECTURE.md #18.
+- ⏳ PART 2 (chat UI + Supabase Realtime) intentionally deferred to a separate
+  change.
+
 **Coming Next:**
+- Org chat UI + realtime (PART 2)
 - Expo mobile app scaffolding
 - Feature development
 

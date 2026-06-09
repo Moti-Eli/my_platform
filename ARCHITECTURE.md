@@ -379,6 +379,30 @@ data-layer harness (15/15).
 
 ---
 
+## 18. Internal Org Chat — DB-Enforced Isolation + Anti-Forgery (data layer)
+
+**Decision:** Model internal chat as an org-scoped `messages` table
+(`organization_id`, `sender_id → users`, `content`, `created_at`) governed
+entirely by RLS: **SELECT** is gated on `auth_user_is_member_of(organization_id)`
+(our recursion-safe SECURITY DEFINER helper), and **INSERT** (`WITH CHECK`)
+requires both org membership **and** `sender_id = auth.uid()`. No UPDATE/DELETE
+policies (messages are immutable for now). This is PART 1 (data + RLS); realtime
+delivery and UI follow in PART 2.
+
+**Reasoning:** Chat is just another org-scoped resource, so it reuses the exact
+tenant-isolation pattern (decision #11) rather than inventing anything — org A
+can never read org B's messages, enforced by the database. The one chat-specific
+addition is the `sender_id = auth.uid()` check: identity in a chat is
+load-bearing, so "you can only post as yourself" must be a hard DB guarantee, not
+an app convention — otherwise a crafted request could attribute a message to
+another user even within the same org. Keeping messages immutable for now avoids
+designing edit/delete semantics (and their policies) before they're needed.
+Verified live (6/6): post+read within your org; cross-org read and insert both
+denied; forged `sender_id` rejected with no row landing. The security advisor
+reports no new findings. See `packages/db/SCHEMA.md`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
