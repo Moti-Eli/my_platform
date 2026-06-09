@@ -93,6 +93,20 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   verified (5/5)**: same-org users get each other's messages live; a cross-org
   client (even tampering its filter) receives nothing. See ARCHITECTURE.md #18.
 
+**Phase 7: Pre-production Hardening** 🚧 (in progress)
+- ✅ Stripped `TRUNCATE/TRIGGER/REFERENCES` from `anon`/`authenticated` on all
+  tables + future-table defaults (migration `20260609000004`)
+- ✅ DB-level **last-admin guard**: a deferred constraint trigger rejects removing
+  an org's last admin even via a direct privileged call (migration `20260609000005`)
+- ✅ Covering indexes for the `membership_roles` and `messages` foreign keys —
+  performance advisor's unindexed-FK findings cleared (migrations `…06`, `…07`)
+- ✅ **Soft deletes** (`deleted_at`) for `organizations`, `memberships`,
+  `messages`: soft-deleted rows are hidden from normal reads via the RLS helpers
+  (tenant isolation unchanged), rows retained for history/recovery; `users`
+  deliberately deferred (migration `20260610000001`). See ARCHITECTURE.md #19.
+- ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
+  Pro plan) + switch to a strong dev password — tracked as one combined step.
+
 **Coming Next:**
 - Expo mobile app scaffolding
 - Feature development

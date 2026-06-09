@@ -238,6 +238,63 @@ fully schema-qualified) to close the SECURITY DEFINER search-path-hijack hole.
 
 ---
 
+## Soft Deletes
+
+`organizations`, `memberships`, and `messages` support **soft delete**: a nullable
+`deleted_at timestamptz` (NULL = active). Soft delete preserves history/audit and
+allows recovery, instead of physically removing rows. Added in migration
+`20260610000001`.
+
+### What is soft-deletable (and what isn't)
+
+- **organizations, memberships, messages** — soft-deletable. These hold
+  history/audit value (tenant offboarding & recovery; a member's record + roles;
+  message history).
+- **users — deferred.** Removing a person from an org is a **membership**
+  soft-delete, not a user delete. A global `users.deleted_at` is intentionally
+  *not* added yet: hiding a profile would break message attribution for that
+  user's past messages, and it wouldn't disable their `auth.users` login by
+  itself. A real "deactivate account" feature (handling `auth.users` too) will
+  revisit this. (See ARCHITECTURE.md.)
+- **roles, role_permissions, membership_roles, permissions — hard-delete.** Join/
+  config/reference data; their history rides on the soft-deleted parent (a
+  soft-deleted membership keeps its `membership_roles`, just hidden via the
+  parent).
+
+### How soft-deleted rows are hidden (and why isolation is unchanged)
+
+Two layers, both **read-side only**:
+
+1. The SELECT policy on each soft-deletable table gains `deleted_at IS NULL`.
+2. The recursion-safe membership helpers
+   (`auth_user_is_member_of`, `auth_user_shares_org_with`,
+   `auth_user_can_access_role`, `auth_user_has_permission`) became
+   **deleted_at-aware**: a membership only counts if **it AND its organization are
+   active**. So soft-deleting a *parent* cascades the hidden state to children for
+   free — soft-deleting an **org** hides its memberships/roles/messages/etc.;
+   soft-deleting a **membership** revokes just that user. No `deleted_at` is
+   propagated downward. A small `private.org_is_active(org_id)` helper also gates
+   the memberships policy's "see my own membership" branch, so a soft-deleted
+   org's memberships vanish even there.
+
+Every change here only **adds** `deleted_at IS NULL` filtering, so it strictly
+**narrows** visibility — it can never widen it. Tenant isolation is therefore
+unchanged: a soft-deleted org's data becomes invisible to its own members
+(intended) and stays invisible to non-members. Verified live (17/17), with all
+existing isolation harnesses re-run green.
+
+### Writing a soft delete
+
+Set `deleted_at = now()` **server-side as `service_role`** (which bypasses RLS).
+This is deliberate: doing it as a normal user via `UPDATE ... RETURNING` would hit
+the well-known RLS trap where the returned row (now `deleted_at`-stamped) fails
+the SELECT policy. The `ON DELETE CASCADE` foreign keys are unchanged, so a
+genuine **hard** purge is still available. **Org removal** (e.g. a platform owner
+offboarding a tenant) should be a **soft** delete (`organizations.deleted_at`);
+hard-deleting an org remains possible for a true purge.
+
+---
+
 ## Internal Chat (messages)
 
 The first realtime feature: members of an organization can message each other.
@@ -379,14 +436,13 @@ unchanged):
   at a time, each permission-checked: `membership_roles` is writable by users
   with `members.manage` (see "Write policies"); all other tables remain
   write-locked pending their own policies.
-- **Soft deletes (planned).** Today every relationship uses physical
-  `ON DELETE CASCADE`: deleting an organization (or user) permanently removes
-  all dependent rows. Once real data exists we plan to move to **soft deletes**
-  — marking rows as deleted (e.g. a `deleted_at` timestamp) instead of
-  physically removing them — so that tenant offboarding, audit history, and
-  accidental-deletion recovery are possible. The cascades are kept for now
-  because the schema is empty and physical deletes keep early development
-  simple.
+- **Soft deletes — DONE for organizations, memberships, messages** (migration
+  `20260610000001`). Those three carry a nullable `deleted_at timestamptz` (NULL
+  = active); see "Soft deletes" below. `users` is **deferred** (offboarding is a
+  membership soft-delete; account deactivation is a later, separate feature — see
+  ARCHITECTURE.md). The join tables (`role_permissions`, `membership_roles`),
+  `roles`, and global `permissions` stay hard-delete. `ON DELETE CASCADE` is kept
+  for genuine hard purges and the dev seed cleanup.
 - **Covering indexes for `membership_roles` composite FKs — DONE** (migration
   `20260609000006`). The Supabase performance advisor flagged the two composite
   FKs (`membership_roles_membership_fk`, `membership_roles_role_fk`) as lacking a

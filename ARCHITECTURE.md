@@ -423,6 +423,41 @@ involved. UI/realtime lives in `apps/web/.../dashboard/chat`.
 
 ---
 
+## 19. Soft Deletes via `deleted_at`, Hidden Through the RLS Helpers
+
+**Decision:** Give `organizations`, `memberships`, and `messages` a nullable
+`deleted_at timestamptz` (NULL = active) and treat "delete" as **soft** for them.
+Soft-deleted rows are hidden by (a) adding `deleted_at IS NULL` to each SELECT
+policy and (b) making the recursion-safe membership helpers **deleted_at-aware**
+(a membership counts only if it *and* its org are active), so soft-deleting a
+parent hides its children automatically. Soft-delete *writes* set `deleted_at`
+server-side as `service_role`. `ON DELETE CASCADE` is kept for genuine hard
+purges. `roles`, the join tables, and `permissions` stay hard-delete.
+
+**Reasoning:** Once real data exists, physical `ON DELETE CASCADE` throws away
+exactly the history that tenant offboarding, audit, and accidental-deletion
+recovery need. `deleted_at` keeps the rows. Hiding via the *helpers* (not by
+propagating `deleted_at` to every child) reuses the machinery that already gates
+org-scoped visibility, so it stays consistent with the existing model and a
+single org soft-delete cleanly removes the whole tenant from view. Crucially,
+these are **read-narrowing** changes only — they add filtering, never widen
+access — so tenant isolation is provably unchanged (re-verified: the soft-delete
+harness plus every prior isolation harness pass). Writing soft-deletes as
+`service_role` avoids the documented RLS trap where an `UPDATE ... RETURNING` that
+sets `deleted_at` makes the returned row fail the SELECT policy.
+
+**`users` deferred — explicit decision.** We do **not** add `users.deleted_at`
+now. Removing a person from an organization is modeled as soft-deleting their
+**membership**, not the global user identity. A `users.deleted_at` would (a) break
+message attribution — hiding the profile makes a former member's past messages
+render without a name — and (b) not actually disable their `auth.users` login,
+which is the part that matters for "deactivation." A real account-deactivation
+feature (coordinating `public.users` *and* `auth.users`, e.g. ban/delete the auth
+user) will revisit this deliberately; until then, membership soft-delete covers
+the common offboarding case. See `packages/db/SCHEMA.md`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
