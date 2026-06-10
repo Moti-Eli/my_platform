@@ -28,8 +28,13 @@ restarts. Screens (Expo Router):
   live. Reads/writes use the authenticated RN client, so RLS is the enforcer
   (members-only reads; `sender_id = auth.uid()` anti-forgery). Own-vs-others
   bubbles, keyboard-aware composer, auto-scroll, visible connection status.
-- `app/members.tsx`, `app/platform.tsx` — themed/i18n "coming soon" placeholders
-  (shared `components/coming-soon.tsx`); filled in for real in later steps.
+- `app/members.tsx` — **members management** (parity with web): lists the org's
+  members + roles and lets an admin change a member's role (admin↔member) via the
+  authenticated client — the `members.manage` RLS policy and last-admin DB trigger
+  are the enforcers. Non-admins see the list read-only. (Add-user is deferred to
+  part B — it needs a server-side endpoint since mobile can't hold the secret key.)
+- `app/platform.tsx` — themed/i18n "coming soon" placeholder
+  (shared `components/coming-soon.tsx`); filled in for real in a later step.
 
 **App-wide context** (in `app/_layout.tsx`) so every screen inherits the choices:
 
