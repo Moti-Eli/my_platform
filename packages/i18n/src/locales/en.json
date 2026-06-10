@@ -143,7 +143,11 @@
     "you": "You",
     "unknownSender": "Member",
     "sendError": "Couldn't send. Please try again.",
-    "noOrganization": "You don't belong to any organization yet."
+    "noOrganization": "You don't belong to any organization yet.",
+    "live": "Live",
+    "connecting": "Connecting…",
+    "connectionError": "Connection lost",
+    "loadError": "Couldn't load messages. Please try again."
   },
   "error": {
     "title": "Something went wrong",

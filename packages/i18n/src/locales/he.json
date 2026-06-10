@@ -143,7 +143,11 @@
     "you": "את/ה",
     "unknownSender": "חבר",
     "sendError": "השליחה נכשלה. נסה שוב.",
-    "noOrganization": "אינך משתייך לאף ארגון עדיין."
+    "noOrganization": "אינך משתייך לאף ארגון עדיין.",
+    "live": "מחובר",
+    "connecting": "מתחבר…",
+    "connectionError": "החיבור אבד",
+    "loadError": "טעינת ההודעות נכשלה. נסו שוב."
   },
   "error": {
     "title": "משהו השתבש",

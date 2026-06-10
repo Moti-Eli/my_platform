@@ -23,9 +23,13 @@ restarts. Screens (Expo Router):
   organization(s) + role(s), and **role-aware** feature navigation — Members + Chat
   show only with an organization; Platform admin only for platform owners
   (`isPlatformOwner`). Plus switchers and logout.
-- `app/members.tsx`, `app/chat.tsx`, `app/platform.tsx` — themed/i18n "coming soon"
-  placeholders (shared `components/coming-soon.tsx`) so navigation works end to end;
-  filled in for real in later steps.
+- `app/chat.tsx` — **realtime org chat** (parity with web): recent history + a
+  Supabase Realtime (Postgres Changes) INSERT subscription so new messages appear
+  live. Reads/writes use the authenticated RN client, so RLS is the enforcer
+  (members-only reads; `sender_id = auth.uid()` anti-forgery). Own-vs-others
+  bubbles, keyboard-aware composer, auto-scroll, visible connection status.
+- `app/members.tsx`, `app/platform.tsx` — themed/i18n "coming soon" placeholders
+  (shared `components/coming-soon.tsx`); filled in for real in later steps.
 
 **App-wide context** (in `app/_layout.tsx`) so every screen inherits the choices:
 
