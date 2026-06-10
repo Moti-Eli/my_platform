@@ -1,6 +1,6 @@
 # @platform/mobile
 
-The mobile app — **Expo (SDK 56) + Expo Router + TypeScript**, inside the
+The mobile app — **Expo (SDK 54) + Expo Router + TypeScript**, inside the
 Turborepo/pnpm monorepo. It shares the same packages as the web app
 (`@platform/core`, `@platform/auth`, `@platform/db`, `@platform/i18n`) instead of
 duplicating them.

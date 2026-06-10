@@ -135,7 +135,7 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 my-platform/
 ├── apps/
 │   ├── web/          (Next.js 16 app: i18n, RTL, theming, Supabase)
-│   └── mobile/       (Expo SDK 56 + Expo Router: shares packages, Supabase health check)
+│   └── mobile/       (Expo SDK 54 + Expo Router: shares packages, Supabase health check)
 ├── packages/
 │   ├── config/       (ESLint, TS configs, design tokens, Prettier)
 │   ├── core/         (Business logic, types, API client)
@@ -274,7 +274,7 @@ Vendor- and framework-agnostic **logging + error reporting**:
   never a vendor SDK directly
 
 ### `@platform/mobile`
-Expo (SDK 56) + Expo Router + TypeScript app, inside the monorepo. **STEP 1
+Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo. **STEP 1
 skeleton:** one screen that runs a Supabase health check (lists global
 permission keys) to prove the app runs, reaches Supabase, and resolves the
 shared packages (`core`, `auth`, `db`, `i18n`) through Metro — no duplication.

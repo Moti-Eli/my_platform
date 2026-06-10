@@ -605,9 +605,12 @@ messages). Verified service-side, 14/14, with all prior isolation harnesses gree
 
 ## 25. Mobile App — Expo + Expo Router, Sharing the Same Packages
 
-**Decision:** `apps/mobile` is an Expo (SDK 56) + Expo Router + TypeScript app in
+**Decision:** `apps/mobile` is an Expo (SDK 54) + Expo Router + TypeScript app in
 the same monorepo, consuming the existing `@platform/*` packages rather than
-duplicating them. Metro is given the canonical monorepo config (`watchFolders` =
+duplicating them. SDK 54 (not the newer npm-`latest` 56) is pinned deliberately:
+modern Expo Go runs a single SDK, and the public store build currently supports
+SDK 54 (`expoGoSdkVersion` from Expo's versions API) — so 54 is the newest SDK
+that runs in stock Expo Go without a custom dev build. Bump it when Expo Go does. Metro is given the canonical monorepo config (`watchFolders` =
 repo root, `nodeModulesPaths` = app then root). Client env uses Expo's
 `EXPO_PUBLIC_` prefix; the secret key is never shipped to the client (same rule
 as web). A new framework-agnostic `createNativeDbClient` was added to
