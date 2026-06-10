@@ -37,3 +37,6 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# Local Claude settings (per-developer preferences, never shared)
+.claude/settings.local.json
