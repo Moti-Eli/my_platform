@@ -694,6 +694,26 @@ from the client bundle (`.next/static`), while the publishable key is present
 same shared functions, exercised at runtime by the API tests, and the
 members/platform pages still render (307 to login when unauthenticated).
 
+**Mobile wiring (Part B) + the orgs-list GET.** The platform-owner screen needs
+the all-orgs list, which RLS approach (b) keeps off the publishable client — so a
+**GET** was added to `/api/admin/organizations` following the exact pattern:
+Bearer → owner re-check on the token-scoped client (shared `listOrganizations`)
+→ service client → return id/name/memberCount/createdAt (active only, soft
+deletes excluded). Other methods still 405. Verified 3/3 (`--get-only`): no token
+→ 401, non-owner → 403, owner → 200 with the seeded orgs.
+
+The mobile client (`apps/mobile/lib/admin-api.ts`) reads its base URL from
+`EXPO_PUBLIC_API_URL` (client env only — never the secret key) and sends the
+session's access token as the Bearer. Its **error contract**: 401 → the session
+is dead, so it signs out locally and routes to login; 403/400/409 → the returned
+i18n key, translated in the **endpoint's namespace** (`members` for
+`/api/admin/members`, `platform` for `/api/admin/organizations`); a network
+failure → a generic `common.connectivity` message. Raw error text is never shown.
+The mobile add-user (members screen) and create-org (platform screen) call these
+endpoints; permission-aware UI hides the entry points (the server stays the
+boundary), and the dev temp-password hint is gated by `__DEV__` to mirror the
+server's `NODE_ENV` gate.
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

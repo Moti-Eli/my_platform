@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
@@ -17,19 +21,20 @@ import {
   type OrgMember,
 } from "@platform/auth";
 import { supabase } from "@/lib/supabase";
+import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/locale-context";
 import { useTheme, type ThemeColors } from "@/lib/theme-context";
 
 /**
- * Members management — mobile parity with web's dashboard/members (VIEW + CHANGE
- * ROLE only; add-user is deferred to part B, which needs a server-side endpoint
- * because mobile can't hold the secret key).
+ * Members management — mobile parity with web's dashboard/members.
  *
- * Everything runs through the AUTHENTICATED RN client, so the database is the
- * enforcer: the `members.manage` RLS policy gates the role writes (a non-admin
- * is denied), and the last-admin DB trigger blocks stripping an org's last
- * admin. The app-level checks here are just UX — the DB is the real boundary.
+ * VIEW + CHANGE ROLE run directly through the authenticated RN client (RLS is
+ * the enforcer). ADD USER (Part B) goes through the web admin API
+ * (`/api/admin/members`, ARCHITECTURE.md #26) because creating an auth user
+ * needs the secret key — which mobile must never hold; the server re-checks
+ * `members.manage` before acting. The "Add user" entry is shown only to users
+ * who can manage members (UX; the server is the real boundary).
  */
 type OrgRoleRow = { id: string; name: string; is_admin: boolean };
 type TargetRole = "admin" | "member";
@@ -39,6 +44,9 @@ type Phase =
   | { status: "noOrg" }
   | { status: "error"; message: string }
   | { status: "ready"; orgId: string; canManage: boolean; adminRole: OrgRoleRow; memberRole: OrgRoleRow };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_NAME_LEN = 200;
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -51,12 +59,20 @@ export default function MembersScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useAuth();
-  const { t, isRTL } = useI18n();
+  const { t, tk, isRTL } = useI18n();
   const { colors } = useTheme();
 
   const [phase, setPhase] = useState<Phase>({ status: "loading" });
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Add-user modal state.
+  const [addOpen, setAddOpen] = useState(false);
+  const [addEmail, setAddEmail] = useState("");
+  const [addName, setAddName] = useState("");
+  const [addRole, setAddRole] = useState<TargetRole>("member");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
   const textAlign = isRTL ? "right" : "left";
@@ -68,6 +84,13 @@ export default function MembersScreen() {
     const fresh = await getOrganizationMembers(supabase, orgId);
     setMembers(fresh);
   }, []);
+
+  // 401 from the admin API (or no session) means the session is dead: sign out
+  // locally and route to login.
+  const handleSessionExpired = useCallback(async () => {
+    await supabase?.auth.signOut();
+    router.replace("/login");
+  }, [router]);
 
   useEffect(() => {
     if (!supabase || !currentUserId) return;
@@ -200,6 +223,55 @@ export default function MembersScreen() {
     [changeRole, t]
   );
 
+  const openAdd = useCallback(() => {
+    setAddEmail("");
+    setAddName("");
+    setAddRole("member");
+    setAddError(null);
+    setAddOpen(true);
+  }, []);
+
+  const submitAdd = useCallback(async () => {
+    if (phase.status !== "ready" || adding) return;
+    const email = addEmail.trim();
+    const displayName = addName.trim();
+    // Client-side validation for UX — the server remains the boundary.
+    if (!EMAIL_RE.test(email)) {
+      setAddError(tk("members", "invalidEmail"));
+      return;
+    }
+    if (displayName.length === 0 || addName.length > MAX_NAME_LEN) {
+      setAddError(tk("members", "invalidName"));
+      return;
+    }
+
+    setAdding(true);
+    setAddError(null);
+    const res = await adminApi.addMember({
+      email,
+      displayName,
+      targetRole: addRole,
+      organizationId: phase.orgId,
+    });
+    setAdding(false);
+
+    if (res.ok) {
+      setAddOpen(false);
+      await reloadMembers(phase.orgId);
+      // Dev-only temp-password hint (mirrors the web NODE_ENV gate).
+      if (__DEV__) Alert.alert(t("members", "addUser"), t("members", "tempPasswordNotice"));
+      return;
+    }
+    if (res.kind === "sessionExpired") {
+      setAddOpen(false);
+      await handleSessionExpired();
+      return;
+    }
+    setAddError(
+      res.errorKey === "connectivity" ? t("common", "connectivity") : tk("members", res.errorKey)
+    );
+  }, [phase, adding, addEmail, addName, addRole, reloadMembers, handleSessionExpired, t, tk]);
+
   const canManage = phase.status === "ready" && phase.canManage;
 
   return (
@@ -214,6 +286,15 @@ export default function MembersScreen() {
         >
           <Text style={s.backText}>{isRTL ? `${t("members", "backToDashboard")} ›` : `‹ ${t("members", "backToDashboard")}`}</Text>
         </Pressable>
+        {canManage && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={openAdd}
+            style={({ pressed }) => [s.addBtn, pressed && s.pressed]}
+          >
+            <Text style={s.addBtnText}>＋ {t("members", "addUser")}</Text>
+          </Pressable>
+        )}
       </View>
       <Text style={[s.title, { textAlign }]}>{t("members", "title")}</Text>
       <Text style={[s.subtitle, { textAlign }]}>{t("members", "subtitle")}</Text>
@@ -300,6 +381,92 @@ export default function MembersScreen() {
               })
             )}
           </ScrollView>
+
+          {/* Add-user modal */}
+          <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
+            <KeyboardAvoidingView
+              style={s.modalOverlay}
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+            >
+              <View style={[s.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+                <Text style={[s.modalTitle, { textAlign }]}>{t("members", "addUser")}</Text>
+                <Text style={[s.modalSubtitle, { textAlign }]}>{t("members", "addUserSubtitle")}</Text>
+
+                <Text style={[s.label, { textAlign }]}>{t("members", "fieldEmail")}</Text>
+                <TextInput
+                  style={[s.input, { textAlign }]}
+                  value={addEmail}
+                  onChangeText={setAddEmail}
+                  placeholder={t("members", "fieldEmailPlaceholder")}
+                  placeholderTextColor={colors.mutedForeground}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  inputMode="email"
+                  editable={!adding}
+                />
+
+                <Text style={[s.label, { textAlign }]}>{t("members", "fieldName")}</Text>
+                <TextInput
+                  style={[s.input, { textAlign }]}
+                  value={addName}
+                  onChangeText={setAddName}
+                  placeholder={t("members", "fieldNamePlaceholder")}
+                  placeholderTextColor={colors.mutedForeground}
+                  maxLength={MAX_NAME_LEN}
+                  editable={!adding}
+                />
+
+                <Text style={[s.label, { textAlign }]}>{t("members", "fieldRole")}</Text>
+                <View style={[s.roleToggle, { flexDirection: rowDir }]}>
+                  {(["admin", "member"] as TargetRole[]).map((r) => {
+                    const active = addRole === r;
+                    return (
+                      <Pressable
+                        key={r}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => setAddRole(r)}
+                        style={[s.rolePill, active && s.rolePillActive]}
+                      >
+                        <Text style={[s.rolePillText, active && s.rolePillTextActive]}>
+                          {r === "admin" ? t("members", "roleAdmin") : t("members", "roleMember")}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {__DEV__ && (
+                  <Text style={[s.devNote, { textAlign }]}>{t("members", "tempPasswordNotice")}</Text>
+                )}
+                {addError && <Text style={[s.errorText, { textAlign }]}>{addError}</Text>}
+
+                <View style={[s.modalActions, { flexDirection: rowDir }]}>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={adding}
+                    onPress={() => setAddOpen(false)}
+                    style={({ pressed }) => [s.cancelBtn, pressed && s.pressed]}
+                  >
+                    <Text style={s.cancelText}>{t("members", "cancel")}</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={adding}
+                    onPress={submitAdd}
+                    style={({ pressed }) => [s.submitBtn, (pressed || adding) && s.pressed]}
+                  >
+                    {adding ? (
+                      <ActivityIndicator color={colors.primaryForeground} />
+                    ) : (
+                      <Text style={s.submitText}>{t("members", "addUserSubmit")}</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </Modal>
         </>
       )}
     </View>
@@ -309,9 +476,11 @@ export default function MembersScreen() {
 function makeStyles(c: ThemeColors) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: c.background, paddingHorizontal: 16 },
-    headerRow: { alignItems: "center" },
+    headerRow: { alignItems: "center", justifyContent: "space-between" },
     backBtn: { paddingVertical: 6, paddingHorizontal: 4 },
     backText: { color: c.primary, fontSize: 15, fontWeight: "600" },
+    addBtn: { backgroundColor: c.primary, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7 },
+    addBtnText: { color: c.primaryForeground, fontSize: 14, fontWeight: "700" },
     pressed: { opacity: 0.6 },
     title: { color: c.foreground, fontSize: 24, fontWeight: "800", marginTop: 2 },
     subtitle: { color: c.mutedForeground, fontSize: 14, lineHeight: 20, marginTop: 2, marginBottom: 10 },
@@ -348,5 +517,59 @@ function makeStyles(c: ThemeColors) {
     roleText: { fontSize: 13, fontWeight: "700" },
     roleTextAdmin: { color: c.primaryForeground },
     roleTextMember: { color: c.foreground },
+    // Modal
+    modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+    modalSheet: {
+      backgroundColor: c.background,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      gap: 8,
+    },
+    modalTitle: { color: c.foreground, fontSize: 20, fontWeight: "800" },
+    modalSubtitle: { color: c.mutedForeground, fontSize: 13, lineHeight: 18, marginBottom: 6 },
+    label: { color: c.foreground, fontSize: 13, fontWeight: "600", marginTop: 6 },
+    input: {
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      color: c.foreground,
+      fontSize: 16,
+    },
+    roleToggle: { gap: 8, marginTop: 2 },
+    rolePill: {
+      flex: 1,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+    },
+    rolePillActive: { backgroundColor: c.primary, borderColor: c.primary },
+    rolePillText: { color: c.foreground, fontSize: 14, fontWeight: "600" },
+    rolePillTextActive: { color: c.primaryForeground },
+    devNote: { color: c.mutedForeground, fontSize: 12, fontStyle: "italic", marginTop: 6, lineHeight: 17 },
+    modalActions: { gap: 10, marginTop: 14 },
+    cancelBtn: {
+      flex: 1,
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 12,
+      paddingVertical: 13,
+    },
+    cancelText: { color: c.foreground, fontSize: 15, fontWeight: "700" },
+    submitBtn: {
+      flex: 1,
+      alignItems: "center",
+      backgroundColor: c.primary,
+      borderRadius: 12,
+      paddingVertical: 13,
+    },
+    submitText: { color: c.primaryForeground, fontSize: 15, fontWeight: "700" },
   });
 }

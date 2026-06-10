@@ -128,9 +128,12 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `apps/web`. The shared authorize-then-act logic (`apps/web/src/lib/admin/`) is
   called by **both** the web server actions and these handlers (zero duplication);
   token validated server-side, `members.manage`/owner re-checked on an RLS-scoped
-  client before the secret key is touched. Verified 14/14
-  (`scripts/verify-admin-api.mjs`): 401/403/400/409/405 paths, tenant isolation,
-  rollback, and secret-key-absent-from-bundle. See ARCHITECTURE.md #26.
+  client before the secret key is touched. Plus a **GET** on the organizations
+  endpoint for the owner's all-orgs list (active only). The **mobile app is wired
+  to all of these** (`apps/mobile/lib/admin-api.ts`): add-user, create-org, and
+  the platform-owner screen. Verified 17/17 (`scripts/verify-admin-api.mjs`):
+  401/403/400/409/405 paths, tenant isolation, rollback, the 3 GET checks, and
+  secret-key-absent-from-bundle. See ARCHITECTURE.md #26.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
   Plus application-level **rate limiting** and the **launch-gate checklist** —
@@ -285,15 +288,18 @@ Vendor- and framework-agnostic **logging + error reporting**:
   never a vendor SDK directly
 
 ### `@platform/mobile`
-Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo. **STEP 2:
-login + session persistence.** Email/password login via the same
-`@platform/auth` `signIn` as web; the RN Supabase client persists the session in
-AsyncStorage (with `autoRefreshToken`), so the user stays logged in across app
-restarts. After login, an authenticated screen shows the user's email and
-organization(s)/role(s) via `getUserOrganizations` — same membership resolution
-as the web dashboard. Strings come from `@platform/i18n` (he/en, default RTL).
-- Client env uses Expo's `EXPO_PUBLIC_` prefix (see `apps/mobile/.env.example`);
-  the secret key is never shipped to the client, same as web.
+Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo, at **feature
+parity with the web app**: login + AsyncStorage session persistence, landing,
+dashboard with role-aware nav, realtime org chat, members management (view +
+change role), **add user**, and the **platform-owner** screen (list/create orgs).
+All identity/data logic is the shared `@platform/*` packages. Privileged
+operations that need the secret key (add user, create org, all-orgs list) go
+through the web admin API (`/api/admin/*`) with the user's Bearer token —
+`apps/mobile/lib/admin-api.ts`. Strings come from `@platform/i18n` (he/en,
+default RTL); theming from `@platform/config` tokens.
+- Client env uses Expo's `EXPO_PUBLIC_` prefix (see `apps/mobile/.env.example`),
+  incl. `EXPO_PUBLIC_API_URL` for the admin API; the secret key is never shipped
+  to the client, same as web.
 - Run with Expo Go: `pnpm --filter @platform/mobile start` and scan the QR code.
 - No dashboard/chat/members screens yet — those come in later steps.
 

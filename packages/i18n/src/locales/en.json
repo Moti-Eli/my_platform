@@ -5,7 +5,8 @@
     "error": "An error occurred",
     "comingSoon": "Coming soon",
     "comingSoonBody": "This screen isn't built yet — it's coming in a future step.",
-    "back": "Back"
+    "back": "Back",
+    "connectivity": "Couldn't reach the server. Check your connection and try again."
   },
   "home": {
     "tagline": "A multi-tenant business management platform.",

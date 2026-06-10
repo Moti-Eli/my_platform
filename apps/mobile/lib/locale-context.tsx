@@ -39,6 +39,12 @@ interface LocaleState {
   t: Translate;
   /** Raw catalog for nested content (e.g. m.landing.whatIs.points). */
   m: Catalog;
+  /**
+   * Translate a RUNTIME-resolved key in a flat namespace, e.g. an i18n error key
+   * returned by the admin API (`tk("members", errorKey)`). Falls back to the key
+   * itself if missing, so it never throws or shows blank.
+   */
+  tk: (namespace: keyof Catalog, key: string) => string;
 }
 
 const LocaleContext = createContext<LocaleState | null>(null);
@@ -69,6 +75,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LocaleState>(() => {
     const dir = getDirection(locale);
+    const catalog = getMessages(locale);
     return {
       locale,
       setLocale,
@@ -76,7 +83,12 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       dir,
       isRTL: dir === "rtl",
       t: makeT(locale),
-      m: getMessages(locale),
+      m: catalog,
+      tk: (namespace, key) => {
+        const ns = catalog[namespace] as Record<string, unknown>;
+        const value = ns?.[key];
+        return typeof value === "string" ? value : key;
+      },
     };
   }, [locale, setLocale, toggleLocale]);
 

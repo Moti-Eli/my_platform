@@ -28,13 +28,23 @@ restarts. Screens (Expo Router):
   live. Reads/writes use the authenticated RN client, so RLS is the enforcer
   (members-only reads; `sender_id = auth.uid()` anti-forgery). Own-vs-others
   bubbles, keyboard-aware composer, auto-scroll, visible connection status.
-- `app/members.tsx` — **members management** (parity with web): lists the org's
-  members + roles and lets an admin change a member's role (admin↔member) via the
-  authenticated client — the `members.manage` RLS policy and last-admin DB trigger
-  are the enforcers. Non-admins see the list read-only. (Add-user is deferred to
-  part B — it needs a server-side endpoint since mobile can't hold the secret key.)
-- `app/platform.tsx` — themed/i18n "coming soon" placeholder
-  (shared `components/coming-soon.tsx`); filled in for real in a later step.
+- `app/members.tsx` — **members management** (parity with web): lists members +
+  roles and lets an admin change a role (admin↔member) via the authenticated
+  client (RLS + last-admin trigger are the enforcers); non-admins see it read-only.
+  **Add user** (Part B) is admin-only and goes through the web admin API
+  (`/api/admin/members`) since creating an auth user needs the secret key.
+- `app/platform.tsx` — **platform-owner screen** (parity with web `/platform`):
+  lists every organization (name, member count, created date) and creates an org +
+  first admin, both via the web admin API (`/api/admin/organizations` GET/POST);
+  guarded on `isPlatformOwner` (UX; the server re-checks).
+
+**Admin API client** — `lib/admin-api.ts` calls the web app's privileged endpoints
+(base URL from `EXPO_PUBLIC_API_URL`) with the user's Bearer token for the two
+operations that need the secret key server-side. Maps 401 → sign out + login,
+403/400/409 → translated key in the endpoint's namespace, network failure →
+generic connectivity message; never shows raw error text. Dev-only temp-password
+hints are gated by `__DEV__` (mirrors the web `NODE_ENV` gate). See
+ARCHITECTURE.md #26.
 
 **App-wide context** (in `app/_layout.tsx`) so every screen inherits the choices:
 
