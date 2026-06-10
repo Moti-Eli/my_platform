@@ -5,13 +5,23 @@ Turborepo/pnpm monorepo. It shares the same packages as the web app
 (`@platform/core`, `@platform/auth`, `@platform/db`, `@platform/i18n`) instead of
 duplicating them.
 
-## Status — STEP 1 (skeleton only)
+## Status — STEP 2 (login + session persistence)
 
-One screen (`app/index.tsx`): a **Supabase health check**. It creates an
-anonymous Supabase client via the shared `@platform/db` and lists the global
-permission keys via `@platform/auth`. This proves the app runs, the shared
-packages resolve through Metro, and the device reaches Supabase. No login,
-navigation, or real screens yet.
+Email/password **login** using the same `@platform/auth` `signIn` as web. The
+RN Supabase client (via `@platform/db`'s native factory) persists the session in
+**AsyncStorage** with `autoRefreshToken`, so the user stays logged in across app
+restarts. Screens (Expo Router):
+
+- `app/index.tsx` — entry gate: reads the persisted session and redirects to
+  `/home` (logged in) or `/login`. Shows a spinner during the read, never gates
+  on the splash.
+- `app/login.tsx` — email + password form, button loading state, friendly error.
+- `app/home.tsx` — authenticated screen showing the user's email and their
+  organization(s) + role(s) (membership resolution via `getUserOrganizations`,
+  same as the web dashboard), with a logout button.
+
+Strings come from `@platform/i18n` (he/en), defaulting to Hebrew (RTL) like web.
+No dashboard/chat/members screens yet — those come in later steps.
 
 ## Environment
 

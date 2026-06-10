@@ -12,7 +12,11 @@ import {
   createServerClient,
   type CookieMethodsServer,
 } from "@supabase/ssr";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  createClient,
+  type SupabaseClient,
+  type SupportedStorage,
+} from "@supabase/supabase-js";
 
 export const dbVersion = "0.1.0";
 
@@ -43,15 +47,30 @@ export function createServerDbClient(
  *
  * Unlike the browser/server clients, this one uses the plain `supabase-js`
  * client (no `@supabase/ssr`, which depends on `document`/cookies that don't
- * exist in React Native). For now it does NOT persist a session — the mobile
- * app only performs anonymous reads. When login lands on mobile, pass a storage
- * adapter (e.g. AsyncStorage) and enable session persistence here.
+ * exist in React Native).
+ *
+ * Pass a `storage` adapter (e.g. AsyncStorage) to persist the auth session
+ * across app restarts; session persistence and token auto-refresh are then
+ * enabled automatically. With no storage adapter the client stays stateless
+ * (the original behaviour, suitable for anonymous reads / health checks).
  */
-export function createNativeDbClient(supabaseUrl: string, publishableKey: string): SupabaseClient {
+export interface NativeDbClientOptions {
+  /** Storage adapter used to persist the auth session (e.g. AsyncStorage). */
+  storage?: SupportedStorage;
+}
+
+export function createNativeDbClient(
+  supabaseUrl: string,
+  publishableKey: string,
+  options: NativeDbClientOptions = {}
+): SupabaseClient {
+  const persist = options.storage != null;
   return createClient(supabaseUrl, publishableKey, {
     auth: {
-      persistSession: false,
-      autoRefreshToken: false,
+      storage: options.storage,
+      persistSession: persist,
+      autoRefreshToken: persist,
+      // No URL-based session detection in React Native (no browser redirect).
       detectSessionInUrl: false,
     },
   });

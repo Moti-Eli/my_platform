@@ -8,6 +8,8 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
 
+import { AuthProvider } from "@/lib/auth-context";
+
 // Keep the splash up until WE decide to hide it, then hide it on mount below —
 // NOT gated on any fetch, so a slow/hung network request can't keep us stuck on
 // the splash screen.
@@ -20,8 +22,10 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <Stack />
-      <StatusBar style="auto" />
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+        <StatusBar style="auto" />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

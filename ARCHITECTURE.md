@@ -615,8 +615,15 @@ repo root, `nodeModulesPaths` = app then root). Client env uses Expo's
 `EXPO_PUBLIC_` prefix; the secret key is never shipped to the client (same rule
 as web). A new framework-agnostic `createNativeDbClient` was added to
 `@platform/db` (plain `supabase-js`, no `@supabase/ssr` — its `document`/cookie
-storage doesn't exist in React Native); for now it does anonymous reads with no
-session persistence (AsyncStorage-backed sessions land when mobile login does).
+storage doesn't exist in React Native). It now accepts an optional `storage`
+adapter: when one is passed (mobile passes **AsyncStorage**), session
+persistence and `autoRefreshToken` turn on automatically; with no adapter it
+stays stateless (the health-check path). This is what lets mobile "stay logged
+in across app restarts" — on launch `getSession()` rehydrates from AsyncStorage.
+Mobile login (STEP 2) reuses the same `@platform/auth` `signIn`/`signOut`/
+`getUserOrganizations` as web; only the client transport differs (AsyncStorage
+on mobile vs. `@supabase/ssr` cookies on web). Token auto-refresh is gated on
+`AppState` foreground, per Supabase's RN guidance.
 
 **Transitive-version pinning (pnpm).** Downgrading the SDK left a stale
 `@expo/metro-runtime@56` in the tree (pnpm `auto-install-peers` had grabbed the

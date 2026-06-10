@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@platform/auth": "workspace:*",
     "@platform/core": "workspace:*",
     "@platform/db": "workspace:*",

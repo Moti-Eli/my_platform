@@ -135,7 +135,7 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 my-platform/
 ├── apps/
 │   ├── web/          (Next.js 16 app: i18n, RTL, theming, Supabase)
-│   └── mobile/       (Expo SDK 54 + Expo Router: shares packages, Supabase health check)
+│   └── mobile/       (Expo SDK 54 + Expo Router: shares packages, login + session persistence)
 ├── packages/
 │   ├── config/       (ESLint, TS configs, design tokens, Prettier)
 │   ├── core/         (Business logic, types, API client)
@@ -274,14 +274,17 @@ Vendor- and framework-agnostic **logging + error reporting**:
   never a vendor SDK directly
 
 ### `@platform/mobile`
-Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo. **STEP 1
-skeleton:** one screen that runs a Supabase health check (lists global
-permission keys) to prove the app runs, reaches Supabase, and resolves the
-shared packages (`core`, `auth`, `db`, `i18n`) through Metro — no duplication.
+Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo. **STEP 2:
+login + session persistence.** Email/password login via the same
+`@platform/auth` `signIn` as web; the RN Supabase client persists the session in
+AsyncStorage (with `autoRefreshToken`), so the user stays logged in across app
+restarts. After login, an authenticated screen shows the user's email and
+organization(s)/role(s) via `getUserOrganizations` — same membership resolution
+as the web dashboard. Strings come from `@platform/i18n` (he/en, default RTL).
 - Client env uses Expo's `EXPO_PUBLIC_` prefix (see `apps/mobile/.env.example`);
   the secret key is never shipped to the client, same as web.
 - Run with Expo Go: `pnpm --filter @platform/mobile start` and scan the QR code.
-- No login/navigation/real screens yet — those come in later steps.
+- No dashboard/chat/members screens yet — those come in later steps.
 
 ## 🔧 Configuration Files
 
