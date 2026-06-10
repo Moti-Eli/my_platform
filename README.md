@@ -36,7 +36,10 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 **Phase 3: Authentication & RBAC** ✅
 - ✅ `@platform/auth`: email/password sign-in, sign-out, current user, and RBAC
   resolution (org membership → roles → effective permissions; admin ⇒ all)
-- ✅ Login page (`/[locale]/login`) with translated error handling (he/en)
+- ✅ Login page (`/[locale]/login`) — polished to match the landing page
+  (display serif, background atmosphere, centered card), with a home wordmark +
+  "back to home" link, language switcher and theme toggle, and translated error
+  handling (he/en, RTL/LTR, both themes)
 - ✅ Protected dashboard (`/[locale]/dashboard`) showing the user's org(s) and
   role(s); logged-out access redirects to login; logout clears the session
 - ✅ Session refresh in the proxy (`@supabase/ssr`) composed with next-intl

@@ -25,13 +25,16 @@
     "toDark": "Dark"
   },
   "login": {
+    "eyebrow": "Welcome back",
     "title": "Sign in",
+    "subtitle": "Sign in to your account to continue to the platform.",
     "email": "Email",
     "password": "Password",
     "submit": "Sign in",
     "signingIn": "Signing in...",
     "invalidCredentials": "Invalid email or password.",
     "notConfigured": "Authentication is not configured.",
+    "backToHome": "Back to home",
     "link": "Sign in"
   },
   "dashboard": {

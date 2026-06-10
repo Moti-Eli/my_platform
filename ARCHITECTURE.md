@@ -213,6 +213,18 @@ every query to that user's data, so the resolution can't leak across tenants.
 server-side) then redirects to the dashboard; errors are returned as i18n keys
 and rendered translated (he/en). Logout is a server action calling `signOut`.
 
+**Browser-back on the login page:** the normal landing → login → back path works
+(login is served `200`; every "Sign in" link is locale-prefixed, so no bare
+`/login` 307 enters history). The one case where the browser back button appears
+"stuck" on `/login` is the *auth-redirect trap*: after logout (or session
+expiry) you're sent to login, and pressing Back returns to a protected page whose
+server-side guard immediately re-redirects to login (on client navigation this
+arrives as a `REDIRECT` directive in the RSC payload, applied as a history
+replace). This is **intentional** — being able to navigate Back into a protected
+page after logout would be a security regression — so we do not weaken the guard.
+The login page instead always offers a reliable way out via a home wordmark and
+an explicit "back to home" link.
+
 ---
 
 ## 14. Permission-Checked Write Policies (DB-Enforced Authorization)

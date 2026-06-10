@@ -25,13 +25,16 @@
     "toDark": "כהה"
   },
   "login": {
+    "eyebrow": "ברוכים השבים",
     "title": "התחברות",
+    "subtitle": "התחברו לחשבונכם כדי להמשיך לפלטפורמה.",
     "email": "אימייל",
     "password": "סיסמה",
     "submit": "התחבר",
     "signingIn": "מתחבר...",
     "invalidCredentials": "אימייל או סיסמה שגויים.",
     "notConfigured": "האימות אינו מוגדר.",
+    "backToHome": "חזרה לדף הבית",
     "link": "התחברות"
   },
   "dashboard": {
