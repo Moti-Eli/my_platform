@@ -13,6 +13,8 @@ import { getAllPermissionKeys } from "@platform/auth";
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+const FETCH_TIMEOUT_MS = 15000;
+
 type State =
   | { status: "loading" }
   | { status: "error"; message: string }
@@ -31,19 +33,25 @@ export default function HealthCheckScreen() {
           status: "error",
           message:
             "Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY. " +
-            "Copy .env.example to .env.local and fill them in.",
+            "Copy .env.example to .env.local and fill them in, then restart Expo.",
         });
         return;
       }
       try {
-        // db (client) + auth (query) — the actual connectivity proof.
         const supabase = createNativeDbClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-        const keys = await getAllPermissionKeys(supabase);
+
+        // Don't let a hung network request leave the screen on "Loading…" forever
+        // with no clue — race the fetch against a visible timeout.
+        const timeout = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Request timed out after ${FETCH_TIMEOUT_MS / 1000}s`)), FETCH_TIMEOUT_MS)
+        );
+        const keys = (await Promise.race([getAllPermissionKeys(supabase), timeout])) as string[];
+
         if (active) setState({ status: "ok", keys: keys.slice().sort() });
       } catch (err) {
-        if (active) {
-          setState({ status: "error", message: err instanceof Error ? err.message : String(err) });
-        }
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("[mobile] Supabase health check failed:", message);
+        if (active) setState({ status: "error", message });
       }
     }
 
@@ -66,7 +74,7 @@ export default function HealthCheckScreen() {
       {state.status === "loading" && (
         <View style={styles.center}>
           <ActivityIndicator size="large" />
-          <Text style={styles.muted}>Fetching permissions…</Text>
+          <Text style={styles.muted}>Loading… fetching permissions</Text>
         </View>
       )}
 
