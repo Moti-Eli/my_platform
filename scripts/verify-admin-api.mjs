@@ -80,6 +80,37 @@ async function main() {
   const orgB = (await orgsFor(orgBAdmin.token))[0];
   if (!orgA?.id || !orgB?.id) throw new Error("could not resolve org ids");
 
+  // === GET /api/admin/organizations (platform owner orgs list) ================
+  const getOrgs = (token) =>
+    fetch(`${BASE}/api/admin/organizations`, {
+      method: "GET",
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+  {
+    const g1 = await getOrgs(null);
+    const g1b = await j(g1);
+    ok("G1. GET no token -> 401", g1.status === 401 && g1b?.error === "unauthorized", `status=${g1.status} error=${g1b?.error}`);
+
+    const g2 = await getOrgs(orgAAdmin.token);
+    const g2b = await j(g2);
+    ok("G2. GET non-owner -> 403", g2.status === 403 && g2b?.error === "notAllowed", `status=${g2.status} error=${g2b?.error}`);
+
+    const g3 = await getOrgs(owner.token);
+    const g3b = await j(g3);
+    const list = g3b?.organizations ?? [];
+    const hasSeeded = list.some((o) => o.id === orgA.id) && list.some((o) => o.id === orgB.id);
+    const shape = list.every(
+      (o) =>
+        typeof o.id === "string" &&
+        typeof o.name === "string" &&
+        typeof o.memberCount === "number" &&
+        typeof o.createdAt === "string"
+    );
+    ok("G3. GET owner -> 200 with seeded orgs", g3.status === 200 && hasSeeded && shape, `status=${g3.status} count=${list.length}`);
+  }
+
+  if (process.argv.includes("--get-only")) return printReport();
+
   const created = []; // {type, id} for cleanup
 
   // 1) No Authorization header -> 401, no side effects.
@@ -223,7 +254,10 @@ async function main() {
   }
   ok("Cleanup: created test users/orgs removed", leftovers.length === 0, leftovers.length ? `leftover: ${leftovers.join(", ")}` : "clean");
 
-  // --- Report ------------------------------------------------------------------
+  return printReport();
+}
+
+function printReport() {
   console.log("\n==== ADMIN API VERIFICATION ====");
   let passed = 0;
   for (const r of results) {

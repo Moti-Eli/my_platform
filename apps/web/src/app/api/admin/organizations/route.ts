@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/admin/api-auth";
 import { createOrganizationForOwner } from "@/lib/admin/create-organization";
+import { listOrganizations } from "@/lib/admin/list-organizations";
 
 /**
  * POST /api/admin/organizations — create an organization + its first admin
@@ -15,7 +16,14 @@ import { createOrganizationForOwner } from "@/lib/admin/create-organization";
  *   401 unauthorized · 400 invalidRequest|invalidOrgName|invalidEmail|invalidName ·
  *   403 notAllowed · 409 emailExists · 503 notConfigured · 500 createFailed ·
  *   200 { ok: true, organizationId, adminUserId, tempPassword? }.
- * Non-POST methods get 405 automatically (only POST is exported).
+ *
+ * GET — list every organization (id, name, memberCount, createdAt; active only),
+ * platform-owner only. Same Bearer-token auth + owner re-check (the shared
+ * `listOrganizations` is the boundary). Responses are `{ error: '<i18n key under
+ * "platform">' }`: 401 unauthorized · 403 notAllowed · 503 notConfigured ·
+ * 500 loadError · 200 { ok: true, organizations }.
+ *
+ * Other methods get 405 automatically (only POST + GET are exported).
  */
 const STATUS: Record<string, number> = {
   invalidRequest: 400,
@@ -66,4 +74,21 @@ export async function POST(req: Request): Promise<Response> {
     },
     { status: 200 }
   );
+}
+
+const GET_STATUS: Record<string, number> = {
+  notAllowed: 403,
+  notConfigured: 503,
+  loadError: 500,
+};
+
+export async function GET(req: Request): Promise<Response> {
+  const auth = await authenticateApiRequest(req);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const result = await listOrganizations(auth.client);
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: GET_STATUS[result.error] ?? 500 });
+  }
+  return NextResponse.json({ ok: true, organizations: result.organizations }, { status: 200 });
 }
