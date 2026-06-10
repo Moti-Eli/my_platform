@@ -112,8 +112,15 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   boundary (`error.tsx`) + 404 (`not-found.tsx`, via a `[...rest]` catch-all);
   no stack traces/raw messages ever reach the user (logged instead); form/action
   flows show translated errors + pending/loading feedback. See ARCHITECTURE.md #21.
+- ✅ **Input length limits** (`deleted_at`-style DB enforcement): CHECK constraints
+  bound user-supplied text (`messages.content` ≤ 4000; org/role names and
+  `display_name` ≤ 200) and forbid empty/whitespace-only values — enforced at the
+  database so the UI's bypassable `maxLength` is not the only guard (migration
+  `20260610000002`). Closes security-review M1/L2. See ARCHITECTURE.md #24.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
+  Plus application-level **rate limiting** and the **launch-gate checklist** —
+  see `packages/db/SCHEMA.md` "Deferred / pre-production".
 
 **Coming Next:**
 - Expo mobile app scaffolding

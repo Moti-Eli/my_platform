@@ -568,6 +568,29 @@ flow). See `README.md`.
 
 ---
 
+## 24. Bound User Input at the DB Layer (CHECK Constraints)
+
+**Decision:** Cap the length and forbid empty/whitespace-only values for all
+user-supplied text (`messages.content` ≤ 4000; `organizations.name`, `roles.name`,
+`users.display_name` ≤ 200) with Postgres **CHECK constraints** (migration
+`20260610000002`), rather than relying on UI `maxLength` or server-action
+validation.
+
+**Reasoning:** The boundary must hold for *every* caller, not just the browser.
+The chat composer posts **directly** to PostgREST via the authenticated client —
+there is no server action in that path — so a client that ignores the UI can send
+arbitrarily large or empty bodies; RLS permits the write (valid member, correct
+`sender_id`), so only a DB constraint can stop it. The same principle applies to
+the names written by the privileged (service-role) create paths. Enforcing in the
+database makes the rule independent of which code path (or key) performs the write.
+The raw length is capped (not the trimmed length) because a trimmed-only cap still
+allows whitespace-padding storage abuse; "non-empty" uses `~ '[^[:space:]]'` rather
+than single-arg `btrim` (which strips only spaces, missing tab/newline-only input).
+This closes security-review findings **M1** (unbounded input) and **L2** (empty
+messages). Verified service-side, 14/14, with all prior isolation harnesses green.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

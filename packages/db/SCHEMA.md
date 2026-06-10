@@ -422,6 +422,38 @@ unchanged):
 
 ---
 
+## Input Length Constraints (security review M1)
+
+User-supplied text is bounded at the **database** layer via CHECK constraints
+(migration `20260610000002`), so the guarantee holds independent of any UI or
+server action — for every caller, including the service-role key. This closes the
+"unbounded user input" finding (M1) and the empty-message finding (L2).
+
+| Column | Rule |
+|---|---|
+| `messages.content` | `char_length <= 4000` **and** contains a non-whitespace char |
+| `organizations.name` | `char_length <= 200` **and** contains a non-whitespace char |
+| `roles.name` | `char_length <= 200` **and** contains a non-whitespace char |
+| `users.display_name` | NULL, **or** `char_length <= 200` and contains a non-whitespace char |
+
+Notes:
+
+- The **raw** length is capped (not just the trimmed length): a trimmed-only cap
+  would still allow e.g. 1 MB of whitespace plus one visible character — the exact
+  storage-abuse vector M1 is about. Capping raw length removes it.
+- "Non-empty" is enforced with the regex `~ '[^[:space:]]'` (must contain at least
+  one non-whitespace character), **not** `btrim(...)` — single-argument `btrim`
+  strips only spaces and would let a tab/newline-only body through.
+- Why this matters most for chat: the chat composer posts **directly** to PostgREST
+  via the authenticated client (there is no server action to validate in), so the
+  client's `maxLength` is the only app-layer limit and is trivially bypassed. The
+  DB constraint is the real boundary.
+- Verified via `scripts/verify-input-limits.ts` (service-key, self-contained,
+  14/14): over-length and empty/whitespace-only inputs are rejected (`23514`),
+  valid inputs accepted; all prior harnesses re-run green (no regression).
+
+---
+
 ## Notes & deferred work
 
 - **`organization_id` everywhere.** Every org-scoped table carries
