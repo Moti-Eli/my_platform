@@ -19,9 +19,13 @@ restarts. Screens (Expo Router):
   switchers, hero + CTA, scrollable explainer sections (what this is /
   architecture / security / why), and a gated demo-logins section.
 - `app/login.tsx` — email + password form, button loading state, friendly error.
-- `app/home.tsx` — authenticated screen showing the user's email and their
-  organization(s) + role(s) (membership resolution via `getUserOrganizations`,
-  same as the web dashboard), with switchers and a logout button.
+- `app/home.tsx` — **dashboard** (parity with web `/dashboard`): the user's email,
+  organization(s) + role(s), and **role-aware** feature navigation — Members + Chat
+  show only with an organization; Platform admin only for platform owners
+  (`isPlatformOwner`). Plus switchers and logout.
+- `app/members.tsx`, `app/chat.tsx`, `app/platform.tsx` — themed/i18n "coming soon"
+  placeholders (shared `components/coming-soon.tsx`) so navigation works end to end;
+  filled in for real in later steps.
 
 **App-wide context** (in `app/_layout.tsx`) so every screen inherits the choices:
 

@@ -2,7 +2,10 @@
   "common": {
     "appName": "פלטפורמה",
     "loading": "טוען...",
-    "error": "חלה שגיאה"
+    "error": "חלה שגיאה",
+    "comingSoon": "בקרוב",
+    "comingSoonBody": "המסך הזה עדיין לא נבנה — הוא יגיע בשלב עתידי.",
+    "back": "חזרה"
   },
   "home": {
     "tagline": "פלטפורמה לניהול עסקי רב-דיירים.",
@@ -45,9 +48,13 @@
     "noRoles": "אין תפקידים",
     "noOrganizations": "אינך משתייך לאף ארגון עדיין.",
     "logout": "התנתק",
+    "features": "תכונות",
     "manageMembers": "ניהול חברים",
+    "manageMembersDesc": "צפייה בחברים ושינוי התפקידים שלהם.",
     "platformAdmin": "ניהול הפלטפורמה",
-    "openChat": "צ׳אט"
+    "platformAdminDesc": "ניהול ארגונים בכל הפלטפורמה.",
+    "openChat": "צ׳אט",
+    "openChatDesc": "התכתבו עם הארגון שלכם בזמן אמת."
   },
   "members": {
     "title": "חברים",

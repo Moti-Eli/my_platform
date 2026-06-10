@@ -2,7 +2,10 @@
   "common": {
     "appName": "Platform",
     "loading": "Loading...",
-    "error": "An error occurred"
+    "error": "An error occurred",
+    "comingSoon": "Coming soon",
+    "comingSoonBody": "This screen isn't built yet — it's coming in a future step.",
+    "back": "Back"
   },
   "home": {
     "tagline": "A multi-tenant business management platform.",
@@ -45,9 +48,13 @@
     "noRoles": "No roles",
     "noOrganizations": "You don't belong to any organization yet.",
     "logout": "Log out",
+    "features": "Features",
     "manageMembers": "Manage members",
+    "manageMembersDesc": "View members and change their roles.",
     "platformAdmin": "Platform admin",
-    "openChat": "Chat"
+    "platformAdminDesc": "Manage organizations across the platform.",
+    "openChat": "Chat",
+    "openChatDesc": "Message your organization in real time."
   },
   "members": {
     "title": "Members",
