@@ -1,0 +1,18 @@
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native build output (we use Expo Go / managed workflow for now)
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# Env (local secrets/values)
+.env*.local
+
+# Misc
+*.tsbuildinfo

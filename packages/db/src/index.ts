@@ -38,6 +38,26 @@ export function createServerDbClient(
 }
 
 /**
+ * Create a Supabase client for use in a native (React Native / Expo) app.
+ * Uses the publishable (anon) key, which is safe to expose client-side.
+ *
+ * Unlike the browser/server clients, this one uses the plain `supabase-js`
+ * client (no `@supabase/ssr`, which depends on `document`/cookies that don't
+ * exist in React Native). For now it does NOT persist a session — the mobile
+ * app only performs anonymous reads. When login lands on mobile, pass a storage
+ * adapter (e.g. AsyncStorage) and enable session persistence here.
+ */
+export function createNativeDbClient(supabaseUrl: string, publishableKey: string): SupabaseClient {
+  return createClient(supabaseUrl, publishableKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+/**
  * Create a privileged Supabase client using the SECRET (service-role) key.
  *
  * This client BYPASSES Row Level Security and can perform admin operations such

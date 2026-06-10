@@ -294,7 +294,12 @@ export async function hasPermission(
   return permissions.includes(permissionKey);
 }
 
-async function getAllPermissionKeys(supabase: SupabaseClient): Promise<string[]> {
+/**
+ * List every permission key defined on the platform. The `permissions` table is
+ * publicly readable (no tenant data), so this also doubles as a lightweight
+ * connectivity/health check for clients — e.g. the mobile app's startup probe.
+ */
+export async function getAllPermissionKeys(supabase: SupabaseClient): Promise<string[]> {
   const res = await supabase.from("permissions").select("key");
   if (res.error) throw new Error(`getAllPermissionKeys: ${res.error.message}`);
   return ((res.data ?? []) as Array<{ key: string }>).map((p) => p.key);

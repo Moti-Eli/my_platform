@@ -603,6 +603,27 @@ messages). Verified service-side, 14/14, with all prior isolation harnesses gree
 
 ---
 
+## 25. Mobile App — Expo + Expo Router, Sharing the Same Packages
+
+**Decision:** `apps/mobile` is an Expo (SDK 56) + Expo Router + TypeScript app in
+the same monorepo, consuming the existing `@platform/*` packages rather than
+duplicating them. Metro is given the canonical monorepo config (`watchFolders` =
+repo root, `nodeModulesPaths` = app then root). Client env uses Expo's
+`EXPO_PUBLIC_` prefix; the secret key is never shipped to the client (same rule
+as web). A new framework-agnostic `createNativeDbClient` was added to
+`@platform/db` (plain `supabase-js`, no `@supabase/ssr` — its `document`/cookie
+storage doesn't exist in React Native); for now it does anonymous reads with no
+session persistence (AsyncStorage-backed sessions land when mobile login does).
+
+**Reasoning:** The shared packages are deliberately framework-agnostic and
+React-free (decision #12/#13), so mobile reuses identity, data, and i18n logic
+unchanged — the payoff of the monorepo philosophy. Because no shared package
+pulls React, the classic Expo-monorepo "duplicate React" hazard doesn't apply
+here (only the app depends on `react`/`react-native`). STEP 1 is intentionally a
+single Supabase health-check screen proving the app runs, resolves the shared
+packages through Metro, and reaches Supabase — verified with a real `expo export`
+bundle. Screens/navigation/auth come in later, deliberate steps.
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
