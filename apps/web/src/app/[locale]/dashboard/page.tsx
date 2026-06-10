@@ -32,6 +32,11 @@ export default async function DashboardPage({ params }: Props) {
     isPlatformOwner(supabase),
   ]);
 
+  // Org-scoped links (chat, members) only make sense for users who actually
+  // belong to an organization. A platform owner with no membership, for example,
+  // sees only the platform-admin link, not these.
+  const hasOrganization = organizations.length > 0;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-16">
       <header className="flex items-center justify-between gap-4">
@@ -48,18 +53,22 @@ export default async function DashboardPage({ params }: Props) {
               {t("platformAdmin")}
             </Link>
           )}
-          <Link
-            href="/dashboard/chat"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
-          >
-            {t("openChat")}
-          </Link>
-          <Link
-            href="/dashboard/members"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
-          >
-            {t("manageMembers")}
-          </Link>
+          {hasOrganization && (
+            <>
+              <Link
+                href="/dashboard/chat"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+              >
+                {t("openChat")}
+              </Link>
+              <Link
+                href="/dashboard/members"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground hover:bg-muted"
+              >
+                {t("manageMembers")}
+              </Link>
+            </>
+          )}
           <form action={logoutAction}>
             <input type="hidden" name="locale" value={locale} />
             <button
