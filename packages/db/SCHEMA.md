@@ -454,6 +454,46 @@ Notes:
 
 ---
 
+## Deferred / Pre-Production (security review)
+
+Items from the pre-deploy security review that are intentionally **not fixed yet**,
+each with the trigger for when they must be. (M1 / L2 were fixed — see "Input
+Length Constraints" above; L3 was removed — see migration `20260610000003`. The
+review found **no critical and no high** findings.)
+
+- **M2 — application-level rate limiting** *(medium)*. There is no app-level
+  throttling on login, on chat message **inserts** (the composer posts directly to
+  PostgREST), or on the privileged add-member / create-organization server actions.
+  Supabase provides some built-in **auth** rate limiting, but the app's own write
+  paths have none. **Trigger — before public / untrusted exposure:** add per-user/IP
+  rate limiting (edge middleware, an upstream gateway, or tuned Supabase auth limits
+  plus a counter on the privileged actions). Deferred because the blast radius today
+  is limited — chat spam is org-scoped, and bulk user creation requires an admin.
+
+- **M3 — launch-gate checklist** *(medium; safe-by-default today)*. Three gates a
+  standard `NODE_ENV=production` deploy already handles, but that **must** be closed
+  before a real production launch with real users:
+  1. **Enable HIBP leaked-password protection + rotate to strong passwords in ONE
+     change** (requires Supabase **Pro**). The dev password `123456` (seed,
+     add-member, create-org) must flip in the same step HIBP turns on, or those
+     paths break. See the detailed HIBP note under "Notes & deferred work" below.
+  2. **Remove the demo-access component**
+     (`apps/web/src/components/demo-access.tsx` + its single landing-page usage) and
+     confirm `NEXT_PUBLIC_SHOW_DEMO_ACCESS` is unset — it discloses the seeded logins
+     and is for evaluation deploys only (ARCHITECTURE.md #23).
+  3. **Wire a real onboarding flow** (email invite / magic link / forced reset)
+     before the create-user paths are user-facing; until then production mints a
+     random, never-disclosed password — no backdoor, but no usable login either
+     (ARCHITECTURE.md #16 / #17).
+
+- **L1 — account-existence disclosure on create paths** *(low; accepted)*.
+  `addMemberAction` and `createOrganizationWithFirstAdmin` return a distinct
+  `emailExists` error. Both are **admin/owner-gated**, so the disclosure is limited
+  to already-trusted users — accepted as-is. **Trigger — revisit** only if either
+  path ever becomes available to a less-privileged role.
+
+---
+
 ## Notes & deferred work
 
 - **`organization_id` everywhere.** Every org-scoped table carries
