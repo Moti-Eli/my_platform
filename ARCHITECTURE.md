@@ -618,14 +618,27 @@ as web). A new framework-agnostic `createNativeDbClient` was added to
 storage doesn't exist in React Native); for now it does anonymous reads with no
 session persistence (AsyncStorage-backed sessions land when mobile login does).
 
+**Transitive-version pinning (pnpm).** Downgrading the SDK left a stale
+`@expo/metro-runtime@56` in the tree (pnpm `auto-install-peers` had grabbed the
+newest to satisfy expo-router's peer). SDK-54 `expo-router` imports
+`@expo/metro-runtime/error-overlay` — a subpath only the SDK-54 build (`6.1.2`)
+exposes — so the **dev** bundle failed to resolve it (production export silently
+passed because error-overlay is dev-only, `NODE_ENV !== 'production'`). A root
+`pnpm.overrides` alone did NOT fix it (overrides don't reliably constrain
+auto-installed peers), so `@expo/metro-runtime` is now both an explicit
+`apps/mobile` dependency (`~6.1.2`) and pinned to `6.1.2` via `pnpm.overrides`.
+Lesson: verify the **dev** bundle (the Metro dev-server path Expo Go actually
+loads), not just `expo export`.
+
 **Reasoning:** The shared packages are deliberately framework-agnostic and
 React-free (decision #12/#13), so mobile reuses identity, data, and i18n logic
 unchanged — the payoff of the monorepo philosophy. Because no shared package
 pulls React, the classic Expo-monorepo "duplicate React" hazard doesn't apply
 here (only the app depends on `react`/`react-native`). STEP 1 is intentionally a
 single Supabase health-check screen proving the app runs, resolves the shared
-packages through Metro, and reaches Supabase — verified with a real `expo export`
-bundle. Screens/navigation/auth come in later, deliberate steps.
+packages through Metro, and reaches Supabase — verified with both a production
+`expo export` and the Expo Go dev bundle. Screens/navigation/auth come in later,
+deliberate steps.
 
 ## Future Considerations
 

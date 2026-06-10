@@ -25,5 +25,10 @@
     "supabase": "^2.105.0",
     "turbo": "^2.0.0",
     "typescript": "^5.3.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@expo/metro-runtime": "6.1.2"
+    }
   }
 }
