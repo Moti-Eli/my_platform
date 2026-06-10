@@ -9,11 +9,30 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
 
 import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider, useTheme } from "@/lib/theme-context";
+import { LocaleProvider } from "@/lib/locale-context";
 
 // Keep the splash up until WE decide to hide it, then hide it on mount below —
 // NOT gated on any fetch, so a slow/hung network request can't keep us stuck on
 // the splash screen.
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Inner tree: lives under ThemeProvider so the navigator background and status
+// bar follow the active theme (no flash of the wrong palette between screens).
+function ThemedApp() {
+  const { colors, isDark } = useTheme();
+  return (
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      />
+      <StatusBar style={isDark ? "light" : "dark"} />
+    </>
+  );
+}
 
 export default function RootLayout() {
   useEffect(() => {
@@ -22,10 +41,13 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }} />
-        <StatusBar style="auto" />
-      </AuthProvider>
+      <ThemeProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <ThemedApp />
+          </AuthProvider>
+        </LocaleProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }

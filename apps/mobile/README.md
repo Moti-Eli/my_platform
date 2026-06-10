@@ -13,14 +13,25 @@ RN Supabase client (via `@platform/db`'s native factory) persists the session in
 restarts. Screens (Expo Router):
 
 - `app/index.tsx` — entry gate: reads the persisted session and redirects to
-  `/home` (logged in) or `/login`. Shows a spinner during the read, never gates
+  `/home` (logged in) or `/landing`. Shows a spinner during the read, never gates
   on the splash.
+- `app/landing.tsx` — logged-out landing, **parity with web**: language + theme
+  switchers, hero + CTA, scrollable explainer sections (what this is /
+  architecture / security / why), and a gated demo-logins section.
 - `app/login.tsx` — email + password form, button loading state, friendly error.
 - `app/home.tsx` — authenticated screen showing the user's email and their
   organization(s) + role(s) (membership resolution via `getUserOrganizations`,
-  same as the web dashboard), with a logout button.
+  same as the web dashboard), with switchers and a logout button.
 
-Strings come from `@platform/i18n` (he/en), defaulting to Hebrew (RTL) like web.
+**App-wide context** (in `app/_layout.tsx`) so every screen inherits the choices:
+
+- `lib/theme-context.tsx` — light/dark theme driven by the shared `themes` tokens
+  from `@platform/config` (single source of truth); persisted to AsyncStorage.
+- `lib/locale-context.tsx` — he/en locale with RTL/LTR direction; persisted to
+  AsyncStorage. Strings come from `@platform/i18n` (the `landing` namespace is
+  shared with web — no duplicated copy). Defaults to Hebrew (RTL) like web.
+- `components/language-switcher.tsx`, `components/theme-toggle.tsx` — reusable.
+
 No dashboard/chat/members screens yet — those come in later steps.
 
 ## Environment

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -12,12 +12,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getUserOrganizations, signOut, type UserOrganization } from "@platform/auth";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
-import { isRTL, t } from "@/lib/i18n";
+import { useI18n } from "@/lib/locale-context";
+import { useTheme, type ThemeColors } from "@/lib/theme-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /**
  * Authenticated screen. Proves the shared @platform/auth membership resolution
  * works on mobile (same as the web dashboard): shows the user's email and their
- * organization(s) + role(s), with a logout button.
+ * organization(s) + role(s), with language/theme switchers and a logout button.
  */
 type OrgState =
   | { status: "loading" }
@@ -28,11 +31,15 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { session } = useAuth();
+  const { t, isRTL } = useI18n();
+  const { colors } = useTheme();
   const [orgState, setOrgState] = useState<OrgState>({ status: "loading" });
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const userId = session?.user.id;
   const textAlign = isRTL ? "right" : "left";
+  const rowDir = isRTL ? "row-reverse" : "row";
 
   useEffect(() => {
     if (!supabase || !userId) return;
@@ -70,39 +77,45 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+    <View style={[s.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
       <Stack.Screen options={{ title: t("dashboard", "title") }} />
 
-      <Text style={[styles.title, { textAlign }]}>{t("dashboard", "title")}</Text>
+      <View style={[s.header, { flexDirection: rowDir }]}>
+        <Text style={[s.title, { textAlign }]}>{t("dashboard", "title")}</Text>
+        <View style={[s.switchers, { flexDirection: rowDir }]}>
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </View>
+      </View>
 
-      <Text style={[styles.signedIn, { textAlign }]}>
+      <Text style={[s.signedIn, { textAlign }]}>
         {t("dashboard", "signedInAs")}:{" "}
-        <Text style={styles.email}>{session.user.email}</Text>
+        <Text style={s.email}>{session.user.email}</Text>
       </Text>
 
-      <Text style={[styles.sectionTitle, { textAlign }]}>{t("dashboard", "organizations")}</Text>
+      <Text style={[s.sectionTitle, { textAlign }]}>{t("dashboard", "organizations")}</Text>
 
       {orgState.status === "loading" && (
-        <View style={styles.center}>
-          <ActivityIndicator color="#7c8cff" />
+        <View style={s.center}>
+          <ActivityIndicator color={colors.primary} />
         </View>
       )}
 
       {orgState.status === "error" && (
-        <View style={styles.errorBox}>
-          <Text style={[styles.errorText, { textAlign }]}>{orgState.message}</Text>
+        <View style={s.errorBox}>
+          <Text style={[s.errorText, { textAlign }]}>{orgState.message}</Text>
         </View>
       )}
 
       {orgState.status === "ok" && (
-        <ScrollView style={styles.flex} contentContainerStyle={styles.listContent}>
+        <ScrollView style={s.flex} contentContainerStyle={s.listContent}>
           {orgState.orgs.length === 0 ? (
-            <Text style={[styles.muted, { textAlign }]}>{t("dashboard", "noOrganizations")}</Text>
+            <Text style={[s.muted, { textAlign }]}>{t("dashboard", "noOrganizations")}</Text>
           ) : (
             orgState.orgs.map((org) => (
-              <View key={org.organizationId} style={styles.card}>
-                <Text style={[styles.orgName, { textAlign }]}>{org.organizationName}</Text>
-                <Text style={[styles.roles, { textAlign }]}>
+              <View key={org.organizationId} style={s.card}>
+                <Text style={[s.orgName, { textAlign }]}>{org.organizationName}</Text>
+                <Text style={[s.roles, { textAlign }]}>
                   {t("dashboard", "roles")}:{" "}
                   {org.roles.length > 0
                     ? org.roles.map((role) => role.name).join(", ")
@@ -118,54 +131,58 @@ export default function HomeScreen() {
         accessibilityRole="button"
         disabled={loggingOut}
         onPress={handleLogout}
-        style={({ pressed }) => [styles.logout, (pressed || loggingOut) && styles.logoutPressed]}
+        style={({ pressed }) => [s.logout, (pressed || loggingOut) && s.logoutPressed]}
       >
         {loggingOut ? (
-          <ActivityIndicator color="#f5f5f7" />
+          <ActivityIndicator color={colors.foreground} />
         ) : (
-          <Text style={styles.logoutText}>{t("dashboard", "logout")}</Text>
+          <Text style={s.logoutText}>{t("dashboard", "logout")}</Text>
         )}
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 24, backgroundColor: "#0b0b0f", gap: 10 },
-  flex: { flex: 1 },
-  title: { color: "#f5f5f7", fontSize: 28, fontWeight: "800" },
-  signedIn: { color: "#a1a1aa", fontSize: 15 },
-  email: { color: "#f5f5f7", fontWeight: "600" },
-  sectionTitle: { color: "#e4e4e7", fontSize: 18, fontWeight: "700", marginTop: 8 },
-  center: { paddingVertical: 24, alignItems: "center" },
-  listContent: { gap: 12, paddingVertical: 4 },
-  card: {
-    borderWidth: 1,
-    borderColor: "#26262e",
-    backgroundColor: "#141419",
-    borderRadius: 12,
-    padding: 16,
-    gap: 4,
-  },
-  orgName: { color: "#f5f5f7", fontSize: 16, fontWeight: "700" },
-  roles: { color: "#a1a1aa", fontSize: 14 },
-  muted: { color: "#a1a1aa", fontSize: 14 },
-  errorBox: {
-    borderWidth: 1,
-    borderColor: "#7f1d1d",
-    backgroundColor: "#1f1113",
-    borderRadius: 12,
-    padding: 16,
-  },
-  errorText: { color: "#fca5a5", fontSize: 13, lineHeight: 18 },
-  logout: {
-    borderWidth: 1,
-    borderColor: "#3f3f46",
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  logoutPressed: { opacity: 0.7 },
-  logoutText: { color: "#f5f5f7", fontSize: 16, fontWeight: "700" },
-});
+function makeStyles(c: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, paddingHorizontal: 24, backgroundColor: c.background, gap: 10 },
+    flex: { flex: 1 },
+    header: { alignItems: "center", justifyContent: "space-between", gap: 8 },
+    switchers: { alignItems: "center", gap: 8 },
+    title: { color: c.foreground, fontSize: 26, fontWeight: "800" },
+    signedIn: { color: c.mutedForeground, fontSize: 15 },
+    email: { color: c.foreground, fontWeight: "600" },
+    sectionTitle: { color: c.foreground, fontSize: 18, fontWeight: "700", marginTop: 8 },
+    center: { paddingVertical: 24, alignItems: "center" },
+    listContent: { gap: 12, paddingVertical: 4 },
+    card: {
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 16,
+      gap: 4,
+    },
+    orgName: { color: c.foreground, fontSize: 16, fontWeight: "700" },
+    roles: { color: c.mutedForeground, fontSize: 14 },
+    muted: { color: c.mutedForeground, fontSize: 14 },
+    errorBox: {
+      borderWidth: 1,
+      borderColor: c.destructive,
+      backgroundColor: c.card,
+      borderRadius: 12,
+      padding: 16,
+    },
+    errorText: { color: c.destructive, fontSize: 13, lineHeight: 18 },
+    logout: {
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: "center",
+      marginTop: 4,
+    },
+    logoutPressed: { opacity: 0.7 },
+    logoutText: { color: c.foreground, fontSize: 16, fontWeight: "700" },
+  });
+}

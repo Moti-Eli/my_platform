@@ -41,6 +41,9 @@ importers:
       '@platform/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@platform/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@platform/core':
         specifier: workspace:*
         version: link:../../packages/core
