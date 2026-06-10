@@ -73,15 +73,17 @@ export default function HomeScreen() {
     setLoggingOut(true);
     try {
       await signOut(supabase);
-      router.replace("/login");
+      router.replace("/landing");
     } finally {
       setLoggingOut(false);
     }
   }
 
-  // If the session is gone (e.g. logout elsewhere), bounce to login.
+  // If the session is gone (e.g. logout elsewhere), bounce to the logged-out
+  // entry point (landing), not straight to login — landing is where logged-out
+  // users belong, with a Sign in button onward to /login.
   if (!session) {
-    return <Redirect href="/login" />;
+    return <Redirect href="/landing" />;
   }
 
   // Role-aware feature list (same rules as web's fixed dashboard).
