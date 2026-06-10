@@ -1,0 +1,29 @@
+-- =============================================================================
+-- Migration: Remove the unused `users.invite` permission (security review L3)
+-- =============================================================================
+--
+-- `users.invite` was seeded in the original catalog (migration 20260605000001)
+-- and granted to every org's non-admin "Member" role, but it is CHECKED NOWHERE.
+-- The actual member-management gate — including the privileged "add a new user"
+-- path — is `members.manage`, enforced in the server action AND the RLS write
+-- policy on membership_roles (admin-only). So `users.invite` is dead weight that
+-- misleadingly implies "members can invite users".
+--
+-- WHY REMOVE RATHER THAN WIRE IT:
+--   The only natural way to "wire" users.invite would be to gate the add-member
+--   action on it. But the Member role HOLDS users.invite, so that would let
+--   ordinary members trigger the service-role user-creation path — a privilege
+--   expansion that contradicts ARCHITECTURE.md #16 (privileged user creation is
+--   deliberately admin-gated via members.manage). Removing it keeps members.manage
+--   as the single gate and deletes the misleading signal. Tenant isolation and the
+--   authorization model are unchanged.
+--
+-- EFFECT: deleting the permission cascades its role_permissions rows away
+-- (role_permissions.permission_id has ON DELETE CASCADE), so any Member role that
+-- was granted it simply loses a permission that did nothing. Forward-only: we do
+-- NOT edit the historical migration that seeded it; on a fresh replay 20260605…01
+-- inserts it and this migration removes it (net: absent), which is the correct
+-- forward-migration pattern.
+-- =============================================================================
+
+delete from public.permissions where key = 'users.invite';

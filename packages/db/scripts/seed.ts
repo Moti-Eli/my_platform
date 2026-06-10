@@ -32,7 +32,9 @@ const SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 /** Shared password for every seeded test user (dev only). */
 const TEST_PASSWORD = "123456";
 /** Permissions granted to the non-admin "Member" role. */
-const MEMBER_PERMISSIONS = ["users.view", "users.invite"];
+// `users.invite` was removed (security review L3, migration 20260610000003): it
+// was unused and the member-management gate is `members.manage` (admin-only).
+const MEMBER_PERMISSIONS = ["users.view"];
 
 /**
  * Dev PLATFORM OWNER (super admin). Kept deliberately SEPARATE from the org

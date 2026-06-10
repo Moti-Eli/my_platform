@@ -38,7 +38,7 @@ Powers come in two layers:
   "Manager", "Volunteer"). Roles are editable by that org's admins through the
   platform. Org A's roles are completely separate from org B's roles.
 - **Permissions** are *code*. They are the fixed vocabulary of atomic actions
-  the application knows how to check (e.g. `users.invite`, `events.create`).
+  the application knows how to check (e.g. `members.manage`, `events.create`).
   They are global, seeded by the engineering team, and never edited by end
   users.
 
@@ -82,7 +82,7 @@ enforced in application logic, not by the schema.
 
 ### `permissions` — global, code-defined
 The fixed vocabulary of atomic actions. Columns: `id`, `key` (unique, e.g.
-`users.invite`), `description`. Seeded by us via migrations; not user-editable.
+`members.manage`), `description`. Seeded by us via migrations; not user-editable.
 
 ### `role_permissions` — role → permissions
 Many-to-many join answering "which permissions does this role grant?".

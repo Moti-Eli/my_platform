@@ -47,7 +47,7 @@ only** (no cross-org RLS), so these need a privileged service-role client.
 import { getCurrentUser, hasPermission } from "@platform/auth";
 
 const user = await getCurrentUser(supabase);
-if (user && (await hasPermission(supabase, user.id, orgId, "users.invite"))) {
+if (user && (await hasPermission(supabase, user.id, orgId, "members.manage"))) {
   // ...allowed
 }
 ```

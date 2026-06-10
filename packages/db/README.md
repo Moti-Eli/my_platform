@@ -58,7 +58,7 @@ you can develop and demo tenant isolation by logging in as different org admins.
 
 It seeds **2 organizations** (Organization A, Organization B), each with **5
 users** (2 admins + 3 members), an **Admin** role (`is_admin = true`) and a
-**Member** role (granted `users.view`, `users.invite`), plus real Supabase
+**Member** role (granted `users.view`), plus real Supabase
 **auth users** + their `public.users` profiles, memberships, and role
 assignments. It also seeds one **platform owner** (super admin),
 `owner@platform.test`, flagged in `platform_admins` and belonging to **no**

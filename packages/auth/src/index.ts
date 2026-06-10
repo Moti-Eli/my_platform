@@ -345,7 +345,10 @@ export interface CreateOrganizationResult {
 }
 
 /** Permissions granted to a new org's non-admin "Member" role (matches the seed). */
-const NEW_ORG_MEMBER_PERMISSIONS = ["users.view", "users.invite"];
+// NOTE: `users.invite` was removed (security review L3) — it was checked nowhere
+// and the member-management gate is `members.manage` (admin-only). See migration
+// 20260610000003.
+const NEW_ORG_MEMBER_PERMISSIONS = ["users.view"];
 
 const ORG_ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
