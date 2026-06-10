@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 /**
  * Entry gate. While the persisted session is being read we show a spinner
  * (never the splash — see _layout); then we send the user to the authenticated
- * home screen if a session exists, or to login if not.
+ * home screen if a session exists, or to the landing screen if not.
  */
 export default function Index() {
   const { session, loading } = useAuth();
@@ -18,7 +18,7 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={session ? "/home" : "/login"} />;
+  return <Redirect href={session ? "/home" : "/landing"} />;
 }
 
 const styles = StyleSheet.create({
