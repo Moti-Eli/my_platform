@@ -47,12 +47,29 @@
       "Bash(rm -f *)",
       "Bash(supabase db reset*)",
       "Bash(supabase projects delete*)",
+      "Bash(supabase link*)",
+      "Bash(supabase * --linked*)",
+      "Bash(supabase * --db-url*)",
       "Bash(*DROP TABLE*)",
       "Bash(*DROP DATABASE*)",
       "Bash(*DROP SCHEMA*)",
       "Bash(*TRUNCATE *)",
       "Bash(pnpm publish*)",
-      "Bash(npm publish*)"
+      "Bash(npm publish*)",
+      "Bash(pnpm exec*)",
+      "Bash(pnpm dlx*)",
+      "Bash(pnpm x *)",
+      "Bash(git commit --amend*)",
+      "Bash(git push --mirror*)",
+      "Bash(git filter-branch*)",
+      "Bash(git update-ref -d*)",
+      "Bash(git reflog expire*)",
+      "Bash(git stash clear*)",
+      "Bash(git add .env*)",
+      "Bash(git add *id_rsa*)",
+      "Bash(rmdir*)",
+      "Bash(find * -delete*)",
+      "Bash(find * -exec rm*)"
     ]
   }
 }
