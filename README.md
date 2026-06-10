@@ -1,3 +1,5 @@
+pnpm --filter @platform/mobile start
+
 # my-platform
 
 Multi-domain business management platform built with Turborepo + pnpm.
@@ -120,6 +122,15 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `display_name` ≤ 200) and forbid empty/whitespace-only values — enforced at the
   database so the UI's bypassable `maxLength` is not the only guard (migration
   `20260610000002`). Closes security-review M1/L2. See ARCHITECTURE.md #24.
+- ✅ **Authenticated admin API for mobile** (`/api/admin/members`,
+  `/api/admin/organizations`): the two privileged operations (add user to org,
+  create org + first admin) exposed as Bearer-token POST route handlers in
+  `apps/web`. The shared authorize-then-act logic (`apps/web/src/lib/admin/`) is
+  called by **both** the web server actions and these handlers (zero duplication);
+  token validated server-side, `members.manage`/owner re-checked on an RLS-scoped
+  client before the secret key is touched. Verified 14/14
+  (`scripts/verify-admin-api.mjs`): 401/403/400/409/405 paths, tenant isolation,
+  rollback, and secret-key-absent-from-bundle. See ARCHITECTURE.md #26.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
   Plus application-level **rate limiting** and the **launch-gate checklist** —

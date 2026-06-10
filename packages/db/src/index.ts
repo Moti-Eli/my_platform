@@ -21,6 +21,13 @@ import {
 export const dbVersion = "0.1.0";
 
 /**
+ * Re-export the Supabase client type so app code (which depends on @platform/db,
+ * not on @supabase/supabase-js directly) can annotate clients without taking a
+ * direct dependency on the underlying SDK.
+ */
+export type { SupabaseClient } from "@supabase/supabase-js";
+
+/**
  * Create a Supabase client for use in the browser (client components).
  * Uses the publishable (anon) key, which is safe to expose client-side.
  */
@@ -73,6 +80,32 @@ export function createNativeDbClient(
       // No URL-based session detection in React Native (no browser redirect).
       detectSessionInUrl: false,
     },
+  });
+}
+
+/**
+ * Create a Supabase client scoped to a specific user's access token.
+ *
+ * Uses the publishable (anon) key but attaches `Authorization: Bearer <token>`
+ * to every PostgREST/RPC request, so the database sees the request as that user
+ * and **RLS applies as them** — exactly like an authenticated session, but built
+ * per-request from a token instead of cookies. This is what a server-side API
+ * route handler uses to act on behalf of a mobile client that authenticated with
+ * a Bearer token: validate the token (`auth.getUser(token)`), then run RLS-scoped
+ * authorization checks through this client.
+ *
+ * Carries no session (no persistence/refresh): it is a stateless, single-request
+ * client. It does NOT bypass RLS — it is the low-privilege, user-scoped counterpart
+ * to `createAdminDbClient`.
+ */
+export function createTokenDbClient(
+  supabaseUrl: string,
+  publishableKey: string,
+  accessToken: string
+): SupabaseClient {
+  return createClient(supabaseUrl, publishableKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
 }
 

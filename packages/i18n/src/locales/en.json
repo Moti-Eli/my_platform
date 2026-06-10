@@ -89,7 +89,9 @@
     "invalidName": "Please enter a display name.",
     "emailExists": "A user with this email already exists.",
     "notConfigured": "User creation isn't configured on the server.",
-    "addFailed": "Couldn't add the user. Please try again."
+    "addFailed": "Couldn't add the user. Please try again.",
+    "unauthorized": "Your session has expired. Please sign in again.",
+    "invalidRequest": "The request was invalid."
   },
   "platform": {
     "eyebrow": "Platform",
@@ -130,7 +132,9 @@
     "emailExists": "A user with this email already exists.",
     "notAllowed": "You don't have permission to do this.",
     "notConfigured": "Organization creation isn't configured on the server.",
-    "createFailed": "Couldn't create the organization. Please try again."
+    "createFailed": "Couldn't create the organization. Please try again.",
+    "unauthorized": "Your session has expired. Please sign in again.",
+    "invalidRequest": "The request was invalid."
   },
   "chat": {
     "title": "Chat",

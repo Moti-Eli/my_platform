@@ -647,6 +647,53 @@ packages through Metro, and reaches Supabase — verified with both a production
 `expo export` and the Expo Go dev bundle. Screens/navigation/auth come in later,
 deliberate steps.
 
+---
+
+## 26. Authenticated Admin API Endpoints for Mobile (Bearer Token, Re-check-then-Admin-Client)
+
+**Decision:** Privileged operations that the mobile app needs but that require the
+secret key — **add a user to an org** and **create an org + first admin** — are
+exposed as **authenticated POST route handlers in `apps/web`**
+(`/api/admin/members`, `/api/admin/organizations`), not as new mobile-side code.
+Mobile has no server and must never hold the secret key, so it sends its Supabase
+**access token** as `Authorization: Bearer <token>`; the handler validates the
+token server-side (`auth.getUser(token)`), builds a **user-scoped (RLS) client**
+from it (`@platform/db` `createTokenDbClient`), and runs the **same
+authorize-then-act** flow as the web server actions. That flow now lives in one
+shared place — `apps/web/src/lib/admin/{add-member,create-organization}.ts` —
+called by **both** the existing server actions and the new route handlers (zero
+duplication of the privileged path). The authorization re-check runs on the
+RLS-scoped client **first** (`members.manage` in the target org for add-member;
+`isPlatformOwner` for create-org), and only then is the `server-only` admin
+client constructed — unchanged from #16/#17.
+
+**Reasoning:** API routes in `apps/web` (rather than Supabase Edge Functions) let
+us **reuse `@platform/auth` and the `server-only` admin module verbatim**, keep a
+**single deploy and secrets surface** (one place holds `SUPABASE_SECRET_KEY`), and
+run the monorepo packages **natively** (no separate Deno bundle / duplicated
+logic). The Bearer-token model mirrors the web's cookie model: both produce an
+RLS-scoped client on which the *same* permission check is the real boundary, so
+tenant isolation is preserved — an Org A admin's token yields `members.manage =
+false` for Org B and is rejected (403). Token validation failures are **401**,
+permission/owner failures **403** (distinct), bad input **400**, and every
+response is a **translated i18n key** (`{ error: '<key>' }`), never a raw message;
+logs carry **identifiers only** (userId/orgId) through `@platform/observability`'s
+redaction. The new-user/first-admin passwords keep the #16 `NODE_ENV` gate (dev
+`123456`; production random + never disclosed). The `/api` path is excluded from
+the next-intl proxy matcher, so the handlers aren't locale-rewritten.
+
+**Verified** (14/14, scripted against the running dev server, `scripts/verify-admin-api.mjs`):
+no/garbage token → 401; member without `members.manage` → 403 (no user created);
+Org A admin → Org B → 403 (tenant isolation, no user created); Org A admin → Org A
+→ 200 with membership+role provisioned; duplicate email → 409 with rollback intact
+(no half-provisioned user); non-owner create-org → 403; owner create-org → 200 with
+a functional first admin (can sign in); over-length names → 400 (and the DB CHECK
+independently rejects with `23514`); non-POST → 405. The secret key remains absent
+from the client bundle (`.next/static`), while the publishable key is present
+(grep sanity). Existing web server-action flows are unchanged — they now call the
+same shared functions, exercised at runtime by the API tests, and the
+members/platform pages still render (307 to login when unauthenticated).
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
