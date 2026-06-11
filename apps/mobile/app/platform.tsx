@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +59,9 @@ export default function PlatformScreen() {
   const [adminName, setAdminName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard: `creating` state is stale across two taps
+  // fired before re-render, so a ref is what actually prevents a double submit.
+  const createBusyRef = useRef(false);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
   const textAlign = isRTL ? "right" : "left";
@@ -120,10 +123,12 @@ export default function PlatformScreen() {
   }, []);
 
   const submitCreate = useCallback(async () => {
-    if (creating) return;
+    if (createBusyRef.current) return;
     const organizationName = orgName.trim();
     const email = adminEmail.trim();
     const displayName = adminName.trim();
+    // Client-side validation for UX — these early returns do no async work, so
+    // they leave the busy ref untouched.
     if (organizationName.length === 0 || orgName.length > MAX_NAME_LEN) {
       setCreateError(tk("platform", "invalidOrgName"));
       return;
@@ -137,36 +142,41 @@ export default function PlatformScreen() {
       return;
     }
 
+    createBusyRef.current = true;
     setCreating(true);
     setCreateError(null);
-    const res = await adminApi.createOrganization({
-      organizationName,
-      adminEmail: email,
-      adminDisplayName: displayName,
-    });
-    setCreating(false);
+    try {
+      const res = await adminApi.createOrganization({
+        organizationName,
+        adminEmail: email,
+        adminDisplayName: displayName,
+      });
 
-    if (res.ok) {
-      setCreateOpen(false);
-      await loadOrgs();
-      // Dev-only: surface the first admin's temp password (mirrors web's gate).
-      if (__DEV__ && res.data.tempPassword) {
-        Alert.alert(
-          t("platform", "createdTitle"),
-          `${t("platform", "createdEmailLabel")}: ${email}\n${t("platform", "createdTempPasswordLabel")}: ${res.data.tempPassword}`
-        );
+      if (res.ok) {
+        setCreateOpen(false);
+        await loadOrgs();
+        // Dev-only: surface the first admin's temp password (mirrors web's gate).
+        if (__DEV__ && res.data.tempPassword) {
+          Alert.alert(
+            t("platform", "createdTitle"),
+            `${t("platform", "createdEmailLabel")}: ${email}\n${t("platform", "createdTempPasswordLabel")}: ${res.data.tempPassword}`
+          );
+        }
+        return;
       }
-      return;
+      if (res.kind === "sessionExpired") {
+        setCreateOpen(false);
+        await handleSessionExpired();
+        return;
+      }
+      setCreateError(
+        res.errorKey === "connectivity" ? t("common", "connectivity") : tk("platform", res.errorKey)
+      );
+    } finally {
+      createBusyRef.current = false;
+      setCreating(false);
     }
-    if (res.kind === "sessionExpired") {
-      setCreateOpen(false);
-      await handleSessionExpired();
-      return;
-    }
-    setCreateError(
-      res.errorKey === "connectivity" ? t("common", "connectivity") : tk("platform", res.errorKey)
-    );
-  }, [creating, orgName, adminEmail, adminName, loadOrgs, handleSessionExpired, t, tk]);
+  }, [orgName, adminEmail, adminName, loadOrgs, handleSessionExpired, t, tk]);
 
   if (phase.status === "notOwner") {
     return <Redirect href="/home" />;
