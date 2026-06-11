@@ -79,8 +79,9 @@ export async function addMemberToOrganization(
   if (!EMAIL_RE.test(email)) return fail("invalidEmail");
   // Reject empty (trimmed) and over-length (raw) — the DB caps the raw length.
   if (displayName.length === 0 || input.displayName.length > MAX_NAME_LEN) return fail("invalidName");
-  if (targetRole !== "admin" && targetRole !== "member") return fail("addFailed");
-  if (!organizationId) return fail("addFailed");
+  // Malformed role/org are bad-request inputs (400), not server failures (500).
+  if (targetRole !== "admin" && targetRole !== "member") return fail("invalidRequest");
+  if (!organizationId) return fail("invalidRequest");
 
   // --- Authorization (RLS-scoped client) — the security boundary ------------
   const actingUser = await getCurrentUser(authClient);
