@@ -15,6 +15,7 @@ import {
   signOut,
   type UserOrganization,
 } from "@platform/auth";
+import { captureException } from "@platform/observability";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/locale-context";
@@ -59,14 +60,15 @@ export default function HomeScreen() {
         if (active) setState({ status: "ok", orgs, owner });
       })
       .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err);
-        if (active) setState({ status: "error", message });
+        // Never render raw server/PostgREST text — log the detail, show a key.
+        captureException(err, { screen: "dashboard", action: "load" });
+        if (active) setState({ status: "error", message: t("common", "loadError") });
       });
 
     return () => {
       active = false;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   async function handleLogout() {
     if (loggingOut || !supabase) return;

@@ -10,9 +10,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Redirect, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getOrganizationMembers, getUserOrganizations } from "@platform/auth";
+import { captureException } from "@platform/observability";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/lib/locale-context";
@@ -76,6 +77,9 @@ export default function ChatScreen() {
 
   const seenIds = useRef<Set<string>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
+  // Synchronous re-entrancy guard (the `sending` state is stale across two fast
+  // taps), so a duplicate message row can't be inserted by a double-tap.
+  const sendBusyRef = useRef(false);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
   const textAlign = isRTL ? "right" : "left";
@@ -155,8 +159,9 @@ export default function ChatScreen() {
             else setConn("connecting");
           });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (active) setPhase({ status: "error", message });
+        // Never render raw server/PostgREST text — log the detail, show a key.
+        captureException(err, { screen: "chat", action: "load" });
+        if (active) setPhase({ status: "error", message: t("chat", "loadError") });
       }
     })();
 
@@ -169,28 +174,38 @@ export default function ChatScreen() {
   async function send() {
     if (phase.status !== "ready" || !supabase || !currentUserId) return;
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sendBusyRef.current) return;
+    sendBusyRef.current = true;
     setSending(true);
     setSendError(false);
-    // Post through the AUTHENTICATED client: `sender_id = auth.uid()` RLS is the
-    // enforcer (a forged sender is impossible). DB row is the source of truth.
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({ organization_id: phase.orgId, sender_id: currentUserId, content })
-      .select("id, sender_id, content, created_at")
-      .single();
-    setSending(false);
-    if (error || !data) {
-      setSendError(true);
-      return;
+    try {
+      // Post through the AUTHENTICATED client: `sender_id = auth.uid()` RLS is the
+      // enforcer (a forged sender is impossible). DB row is the source of truth.
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ organization_id: phase.orgId, sender_id: currentUserId, content })
+        .select("id, sender_id, content, created_at")
+        .single();
+      if (error || !data) {
+        setSendError(true);
+        return;
+      }
+      setDraft("");
+      addMessage(toMessage(data as MessageRow));
+    } finally {
+      sendBusyRef.current = false;
+      setSending(false);
     }
-    setDraft("");
-    addMessage(toMessage(data as MessageRow));
   }
 
   const connLabel =
     conn === "live" ? t("chat", "live") : conn === "error" ? t("chat", "connectionError") : t("chat", "connecting");
   const connColor = conn === "live" ? "#10b981" : conn === "error" ? colors.destructive : colors.mutedForeground;
+
+  // Logged-out deep link → send to the landing screen (same guard as home).
+  if (!session) {
+    return <Redirect href="/landing" />;
+  }
 
   return (
     <KeyboardAvoidingView

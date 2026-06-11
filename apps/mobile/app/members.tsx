@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { Redirect, Stack, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   getOrganizationMembers,
@@ -20,6 +20,7 @@ import {
   hasPermission,
   type OrgMember,
 } from "@platform/auth";
+import { captureException } from "@platform/observability";
 import { supabase } from "@/lib/supabase";
 import { adminApi } from "@/lib/admin-api";
 import { useAuth } from "@/lib/auth-context";
@@ -73,6 +74,9 @@ export default function MembersScreen() {
   const [addRole, setAddRole] = useState<TargetRole>("member");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  // Synchronous re-entrancy guard: `adding` state is stale across two taps fired
+  // before re-render, so a ref is what actually prevents a double submit.
+  const addBusyRef = useRef(false);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
   const textAlign = isRTL ? "right" : "left";
@@ -130,8 +134,9 @@ export default function MembersScreen() {
         setMembers(orgMembers);
         setPhase({ status: "ready", orgId, canManage, adminRole, memberRole });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (active) setPhase({ status: "error", message });
+        // Never render raw server/PostgREST text — log the detail, show a key.
+        captureException(err, { screen: "members", action: "load" });
+        if (active) setPhase({ status: "error", message: t("common", "loadError") });
       }
     })();
 
@@ -232,10 +237,11 @@ export default function MembersScreen() {
   }, []);
 
   const submitAdd = useCallback(async () => {
-    if (phase.status !== "ready" || adding) return;
+    if (phase.status !== "ready" || addBusyRef.current) return;
     const email = addEmail.trim();
     const displayName = addName.trim();
-    // Client-side validation for UX — the server remains the boundary.
+    // Client-side validation for UX — the server remains the boundary. These
+    // early returns do no async work, so they leave the busy ref untouched.
     if (!EMAIL_RE.test(email)) {
       setAddError(tk("members", "invalidEmail"));
       return;
@@ -245,34 +251,44 @@ export default function MembersScreen() {
       return;
     }
 
+    addBusyRef.current = true;
     setAdding(true);
     setAddError(null);
-    const res = await adminApi.addMember({
-      email,
-      displayName,
-      targetRole: addRole,
-      organizationId: phase.orgId,
-    });
-    setAdding(false);
+    try {
+      const res = await adminApi.addMember({
+        email,
+        displayName,
+        targetRole: addRole,
+        organizationId: phase.orgId,
+      });
 
-    if (res.ok) {
-      setAddOpen(false);
-      await reloadMembers(phase.orgId);
-      // Dev-only temp-password hint (mirrors the web NODE_ENV gate).
-      if (__DEV__) Alert.alert(t("members", "addUser"), t("members", "tempPasswordNotice"));
-      return;
+      if (res.ok) {
+        setAddOpen(false);
+        await reloadMembers(phase.orgId);
+        // Dev-only temp-password hint (mirrors the web NODE_ENV gate).
+        if (__DEV__) Alert.alert(t("members", "addUser"), t("members", "tempPasswordNotice"));
+        return;
+      }
+      if (res.kind === "sessionExpired") {
+        setAddOpen(false);
+        await handleSessionExpired();
+        return;
+      }
+      setAddError(
+        res.errorKey === "connectivity" ? t("common", "connectivity") : tk("members", res.errorKey)
+      );
+    } finally {
+      addBusyRef.current = false;
+      setAdding(false);
     }
-    if (res.kind === "sessionExpired") {
-      setAddOpen(false);
-      await handleSessionExpired();
-      return;
-    }
-    setAddError(
-      res.errorKey === "connectivity" ? t("common", "connectivity") : tk("members", res.errorKey)
-    );
-  }, [phase, adding, addEmail, addName, addRole, reloadMembers, handleSessionExpired, t, tk]);
+  }, [phase, addEmail, addName, addRole, reloadMembers, handleSessionExpired, t, tk]);
 
   const canManage = phase.status === "ready" && phase.canManage;
+
+  // Logged-out deep link → send to the landing screen (same guard as home).
+  if (!session) {
+    return <Redirect href="/landing" />;
+  }
 
   return (
     <View style={[s.container, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }]}>
