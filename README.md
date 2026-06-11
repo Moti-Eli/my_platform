@@ -318,17 +318,20 @@ cd apps/mobile
 eas build --platform android --profile production-apk
 ```
 
-Before the first build, replace the two Supabase **publishable** placeholders in
-`eas.json` with the real client values (`EXPO_PUBLIC_API_URL` is already set to
-the deployed web URL). These are public, low-privilege values — the Supabase
-**secret key is never put in `eas.json`** (it's committed), same rule as web. EAS
-prints a **build-details URL** as it runs; when the build finishes that page (and
-the *Builds* tab on expo.dev) holds the **APK download link** to hand to partners.
+`eas.json` holds only the `EXPO_PUBLIC_*` values for the build — they are public,
+low-privilege client values. **The Supabase secret / service-role key must never
+be put in `eas.json`** (the file is committed), same rule as web. `eas.json` is
+kept as **clean, comment-free strict JSON** (eas-cli/JSON tooling reject `//`
+comments), so the rationale that would otherwise be inline lives here in the
+README instead. EAS prints a **build-details URL** as it runs; when the build
+finishes that page (and the *Builds* tab on expo.dev) holds the **APK download
+link** to hand to partners.
 
-**F4 demo-access gate (deliberate).** The `production-apk` profile builds with
-`NODE_ENV=production` and **does not** set `EXPO_PUBLIC_SHOW_DEMO_ACCESS`, so the
-seeded demo logins shown on the landing screen are **never bundled into the
-partner APK**. Keep it that way — do not add that flag to this profile.
+**F4 demo-access gate (deliberate — enforced by this profile).** The
+`production-apk` profile builds with `NODE_ENV=production` and **does not** set
+`EXPO_PUBLIC_SHOW_DEMO_ACCESS`, so the seeded demo logins shown on the landing
+screen are **never bundled into the partner APK**. Keep it that way — do **not**
+add `EXPO_PUBLIC_SHOW_DEMO_ACCESS` to this profile's `env`.
 
 ## 🔧 Configuration Files
 
