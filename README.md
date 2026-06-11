@@ -300,8 +300,35 @@ default RTL); theming from `@platform/config` tokens.
 - Client env uses Expo's `EXPO_PUBLIC_` prefix (see `apps/mobile/.env.example`),
   incl. `EXPO_PUBLIC_API_URL` for the admin API; the secret key is never shipped
   to the client, same as web.
-- Run with Expo Go: `pnpm --filter @platform/mobile start` and scan the QR code.
-- No dashboard/chat/members screens yet — those come in later steps.
+- Run with Expo Go (development): `pnpm --filter @platform/mobile start` and scan
+  the QR code.
+
+**Android APK for partners (EAS Build).** A partner-distributable, sideloadable
+APK is built in the cloud with EAS. The config lives in `apps/mobile/eas.json`
+(the `production-apk` profile → `android.buildType: "apk"`) plus the
+`android.package` / `versionCode` in `apps/mobile/app.json`.
+
+```bash
+# One-time: install the EAS CLI and sign in to your Expo account
+npm install -g eas-cli
+eas login
+
+# Build the partner APK (from apps/mobile)
+cd apps/mobile
+eas build --platform android --profile production-apk
+```
+
+Before the first build, replace the two Supabase **publishable** placeholders in
+`eas.json` with the real client values (`EXPO_PUBLIC_API_URL` is already set to
+the deployed web URL). These are public, low-privilege values — the Supabase
+**secret key is never put in `eas.json`** (it's committed), same rule as web. EAS
+prints a **build-details URL** as it runs; when the build finishes that page (and
+the *Builds* tab on expo.dev) holds the **APK download link** to hand to partners.
+
+**F4 demo-access gate (deliberate).** The `production-apk` profile builds with
+`NODE_ENV=production` and **does not** set `EXPO_PUBLIC_SHOW_DEMO_ACCESS`, so the
+seeded demo logins shown on the landing screen are **never bundled into the
+partner APK**. Keep it that way — do not add that flag to this profile.
 
 ## 🔧 Configuration Files
 

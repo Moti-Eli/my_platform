@@ -9,6 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "android": {
+      "package": "com.motieli.myplatform",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f1b33"

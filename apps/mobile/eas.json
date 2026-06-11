@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    // Partner-distributable Android APK (sideload — no Play Store yet).
+    "production-apk": {
+      // --- F4 GATE (security review) — DELIBERATE -----------------------------
+      // EAS production builds run with NODE_ENV=production, and this profile
+      // intentionally DOES NOT set EXPO_PUBLIC_SHOW_DEMO_ACCESS — so the seeded
+      // demo logins on the landing screen are NEVER bundled into the partner APK.
+      // Do NOT add EXPO_PUBLIC_SHOW_DEMO_ACCESS to this profile.
+      //
+      // eas.json is COMMITTED: only PUBLIC, low-privilege values belong here. The
+      // Supabase SECRET / service-role key must never appear in this file.
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        // Replace the two Supabase placeholders with the real PUBLISHABLE values
+        // (client-safe — the anon/publishable key, NOT the secret key).
+        "EXPO_PUBLIC_SUPABASE_URL": "https://your-project.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "your-publishable-anon-key",
+        "EXPO_PUBLIC_API_URL": "https://my-platform-web.vercel.app"
+      }
+    }
+  }
+}
