@@ -5,8 +5,9 @@ This document is the system prompt for AI-assisted development on this project.
 ## Before Starting Any Work
 
 1. **Read ARCHITECTURE.md first** — Understand the key decisions and reasoning behind the structure. This prevents second-guessing established patterns.
-2. **Check the current README.md** — It describes the current project status and structure. Update it if status changes.
-3. **Review this file** — Keep these instructions in mind throughout your session.
+2. **Read FEATURES.md** — The feature-module convention: folder shape, the `@platform/core` feature registry, and how adding/removing a feature stays contained.
+3. **Check the current README.md** — It describes the current project status and structure. Update it if status changes.
+4. **Review this file** — Keep these instructions in mind throughout your session.
 
 ---
 

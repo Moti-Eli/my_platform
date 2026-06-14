@@ -13,6 +13,7 @@
   "dependencies": {
     "@platform/auth": "workspace:^",
     "@platform/config": "workspace:*",
+    "@platform/core": "workspace:*",
     "@platform/db": "workspace:*",
     "@platform/i18n": "workspace:*",
     "@platform/observability": "workspace:*",

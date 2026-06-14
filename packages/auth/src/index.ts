@@ -305,6 +305,16 @@ export async function getAllPermissionKeys(supabase: SupabaseClient): Promise<st
   return ((res.data ?? []) as Array<{ key: string }>).map((p) => p.key);
 }
 
+/**
+ * The permission keys defined in the platform catalog (seeded in migration
+ * `20260605000001_core_rbac_schema`). This is a compile-time mirror of those
+ * rows: adding a permission means seeding it via migration AND adding its key
+ * here. Used to type feature gates (see `@platform/core` `FEATURES`) and any
+ * `hasPermission` call sites that want key safety. Runtime checks still take a
+ * plain `string`, so this is purely additive and changes no behavior.
+ */
+export type PermissionKey = "users.view" | "roles.manage" | "members.manage";
+
 // ===========================================================================
 // Platform owner (super admin) — the access level ABOVE organization admins.
 // ===========================================================================

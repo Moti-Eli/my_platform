@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     "@platform/i18n",
     "@platform/db",
     "@platform/auth",
+    "@platform/core",
     "@platform/ui",
     "@platform/observability",
   ],

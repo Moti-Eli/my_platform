@@ -1,9 +1,7 @@
-import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getCurrentUser, isPlatformOwner } from "@platform/auth";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireFeatureAccess } from "@/lib/feature-guard";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logoutAction } from "../dashboard/actions";
 import { CreateOrg } from "./create-org";
@@ -29,16 +27,10 @@ export default async function PlatformPage({ params }: Props) {
   const t = await getTranslations("platform");
 
   // --- Route protection -------------------------------------------------------
-  // Must be authenticated AND a platform owner. The owner check is the boundary
-  // (the nav link hiding is only UX). A non-owner is sent to their dashboard.
-  const supabase = await createSupabaseServerClient();
-  const user = supabase ? await getCurrentUser(supabase) : null;
-  if (!supabase || !user) {
-    redirect(`/${locale}/login`);
-  }
-  if (!(await isPlatformOwner(supabase))) {
-    redirect(`/${locale}/dashboard`);
-  }
+  // Must be authenticated AND a platform owner (the boundary; the nav link hiding
+  // is only UX). Registry-driven: `platform` is `ownerOnly`, so a non-owner is
+  // sent to their dashboard and the unauthenticated to login — identical to before.
+  await requireFeatureAccess("platform", locale);
 
   // --- All-orgs listing -------------------------------------------------------
   // RLS approach (b): the authenticated/publishable client CANNOT read every

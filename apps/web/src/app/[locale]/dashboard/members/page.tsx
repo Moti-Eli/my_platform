@@ -1,14 +1,8 @@
-import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import {
-  getCurrentUser,
-  getOrganizationMembers,
-  getUserOrganizations,
-  hasPermission,
-} from "@platform/auth";
+import { getOrganizationMembers, getUserOrganizations, hasPermission } from "@platform/auth";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireFeatureAccess } from "@/lib/feature-guard";
 import { RoleSelect } from "./role-select";
 import { AddMember } from "./add-member";
 
@@ -62,11 +56,9 @@ export default async function MembersPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const t = await getTranslations("members");
 
-  const supabase = await createSupabaseServerClient();
-  const user = supabase ? await getCurrentUser(supabase) : null;
-  if (!supabase || !user) {
-    redirect(`/${locale}/login`);
-  }
+  // Access boundary: authenticated only (members has no permission/owner gate —
+  // requiredPermission is null). Returns the authed client + user to render with.
+  const { supabase, user } = await requireFeatureAccess("members", locale);
 
   const organizations = await getUserOrganizations(supabase, user.id);
 

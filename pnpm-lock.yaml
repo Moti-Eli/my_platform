@@ -108,6 +108,9 @@ importers:
       '@platform/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@platform/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@platform/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -186,6 +189,10 @@ importers:
   packages/config: {}
 
   packages/core:
+    dependencies:
+      '@platform/auth':
+        specifier: workspace:*
+        version: link:../auth
     devDependencies:
       '@platform/config':
         specifier: workspace:*

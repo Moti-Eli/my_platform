@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { getCurrentUser, getOrganizationMembers, getUserOrganizations } from "@platform/auth";
+import { getOrganizationMembers, getUserOrganizations } from "@platform/auth";
 import { routing } from "@/i18n/routing";
 import { Link } from "@/i18n/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireFeatureAccess } from "@/lib/feature-guard";
 import { Chat, type ChatMessage } from "./chat";
 
 export function generateStaticParams() {
@@ -46,12 +45,9 @@ export default async function ChatPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   const t = await getTranslations("chat");
 
-  // Login guard (same pattern as the rest of the dashboard).
-  const supabase = await createSupabaseServerClient();
-  const user = supabase ? await getCurrentUser(supabase) : null;
-  if (!supabase || !user) {
-    redirect(`/${locale}/login`);
-  }
+  // Access boundary: authenticated only (chat has no permission/owner gate —
+  // requiredPermission is null). Returns the authed client + user to render with.
+  const { supabase, user } = await requireFeatureAccess("chat", locale);
 
   const organizations = await getUserOrganizations(supabase, user.id);
   if (organizations.length === 0) {

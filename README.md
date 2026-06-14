@@ -448,6 +448,7 @@ package had a `typecheck` task). It uses Node 20 (engines: `>=20.9`) and pnpm
 ## 📚 Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Key architectural decisions and reasoning
+- [FEATURES.md](./FEATURES.md) - Feature-module convention (registry, folder shape, add/remove)
 - [CLAUDE.md](./CLAUDE.md) - Instructions for AI sessions
 
 ## 🛠️ Tech Stack

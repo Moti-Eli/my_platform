@@ -59,6 +59,7 @@
     "openChatDesc": "Message your organization in real time."
   },
   "members": {
+    "navLabel": "Manage members",
     "title": "Members",
     "subtitle": "People in this organization and their roles.",
     "count": "{count, plural, one {# member} other {# members}}",
@@ -96,6 +97,7 @@
     "invalidRequest": "The request was invalid."
   },
   "platform": {
+    "navLabel": "Platform admin",
     "eyebrow": "Platform",
     "title": "Organizations",
     "subtitle": "Every organization on the platform. Create a new one to onboard a client.",
@@ -139,6 +141,7 @@
     "invalidRequest": "The request was invalid."
   },
   "chat": {
+    "navLabel": "Chat",
     "title": "Chat",
     "subtitle": "Message your organization in real time.",
     "backToDashboard": "Back to dashboard",
