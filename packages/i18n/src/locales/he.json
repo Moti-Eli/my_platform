@@ -7,7 +7,8 @@
     "comingSoonBody": "המסך הזה עדיין לא נבנה — הוא יגיע בשלב עתידי.",
     "back": "חזרה",
     "connectivity": "לא ניתן להגיע לשרת. בדקו את החיבור ונסו שוב.",
-    "loadError": "טעינת הנתונים העדכניים נכשלה. נסו שוב."
+    "loadError": "טעינת הנתונים העדכניים נכשלה. נסו שוב.",
+    "cancel": "ביטול"
   },
   "home": {
     "tagline": "פלטפורמה לניהול עסקי רב-דיירים.",
@@ -15,7 +16,26 @@
     "healthOk": "מחובר. הרשאות שנזרעו:",
     "healthEmpty": "מחובר, אך לא הוחזרו הרשאות.",
     "healthError": "לא ניתן להתחבר ל-Supabase.",
-    "healthNotConfigured": "Supabase אינו מוגדר. יש להגדיר את NEXT_PUBLIC_SUPABASE_URL ו-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+    "healthNotConfigured": "Supabase אינו מוגדר. יש להגדיר את NEXT_PUBLIC_SUPABASE_URL ו-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+    "stripToday": "היום",
+    "cardScheduleTitle": "היומן שלי",
+    "cardScheduleDesc": "משמרות ואירועים במבט אחד.",
+    "cardTasksTitle": "המשימות שלי",
+    "cardTasksDesc": "כל מה שהוקצה לך, במקום אחד.",
+    "cardAdminTitle": "אזור הניהול",
+    "cardAdminDesc": "ניהול חברים ותפקידים.",
+    "cardOwnerTitle": "אזור בעלי הפלטפורמה",
+    "cardOwnerDesc": "תפעול הפלטפורמה כולה.",
+    "badgeAdmin": "למנהלים בלבד",
+    "badgeOwner": "לבעלים בלבד",
+    "signOutConfirm": "להתנתק מהחשבון?",
+    "drawerTitle": "תפריט",
+    "drawerProvisional": "תפריט זמני — הניווט המלא יגיע בקרוב.",
+    "tabHome": "בית",
+    "tabSchedule": "יומן",
+    "tabTasks": "משימות",
+    "tabChat": "צ'אט",
+    "tabProfile": "פרופיל"
   },
   "nav": {
     "language": "שפה",

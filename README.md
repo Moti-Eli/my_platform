@@ -134,6 +134,31 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   the platform-owner screen. Verified 17/17 (`scripts/verify-admin-api.mjs`):
   401/403/400/409/405 paths, tenant isolation, rollback, the 3 GET checks, and
   secret-key-absent-from-bundle. See ARCHITECTURE.md #26.
+- ✅ **Mobile Home design shell** (`apps/mobile/home/`): the post-login Home is
+  now a single shared screen — top bar, date strip, capability-filtered
+  "coming soon" cards (local `HOME_CARDS` registry with the same
+  ownerOnly/requiredPermission gate semantics as `@platform/core` FEATURES),
+  and a presentational tab bar. Capabilities resolve once on load via
+  `@platform/auth`; filtering is UI convenience only (no destinations behind
+  the cards yet). Existing functionality stays reachable: the avatar signs out
+  (confirm → `@platform/auth` signOut → landing) and the menu opens a
+  provisional drawer linking to the existing members/chat/platform screens,
+  gated as before (org membership / owner). Route is a thin shell
+  (`app/home.tsx`); tokens-only styling, he/en + light/dark.
+- ✅ **Dashboard restyled with the Home-shell design**
+  (`apps/web/src/features/dashboard/`; the temporary `/[locale]/home` preview
+  page was folded into it and deleted): the existing dashboard keeps ALL its
+  behavior — logout (same server action), navigation to the real chat /
+  members / platform screens, signed-in-as + organizations/roles info, and the
+  login→dashboard redirect — now rendered as capability-filtered cards
+  (`DASHBOARD_CARDS`, registry gate semantics + the old nav's org-membership
+  rule; capabilities resolved server-side). Chat/members/platform cards
+  navigate to the existing screens (each still enforces its own access);
+  schedule/tasks stay "coming soon" placeholders. NOTE: the Manage-members
+  card is now shown only with `members.manage` (plain members no longer see
+  the link; the members screen itself is unchanged). Responsive (bottom dock
+  on phones, side rail on desktop), token-driven Tailwind only, he/en +
+  light/dark.
 - ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
   Pro plan) + switch to a strong dev password — tracked as one combined step.
   Plus application-level **rate limiting** and the **launch-gate checklist** —

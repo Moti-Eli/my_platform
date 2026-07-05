@@ -7,7 +7,8 @@
     "comingSoonBody": "This screen isn't built yet — it's coming in a future step.",
     "back": "Back",
     "connectivity": "Couldn't reach the server. Check your connection and try again.",
-    "loadError": "Couldn't load the latest data. Please try again."
+    "loadError": "Couldn't load the latest data. Please try again.",
+    "cancel": "Cancel"
   },
   "home": {
     "tagline": "A multi-tenant business management platform.",
@@ -15,7 +16,26 @@
     "healthOk": "Connected. Seeded permissions:",
     "healthEmpty": "Connected, but no permissions were returned.",
     "healthError": "Could not reach Supabase.",
-    "healthNotConfigured": "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY."
+    "healthNotConfigured": "Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.",
+    "stripToday": "Today",
+    "cardScheduleTitle": "My schedule",
+    "cardScheduleDesc": "Shifts and events, at a glance.",
+    "cardTasksTitle": "My tasks",
+    "cardTasksDesc": "Everything assigned to you, in one place.",
+    "cardAdminTitle": "Admin area",
+    "cardAdminDesc": "Manage members and roles.",
+    "cardOwnerTitle": "Platform owner area",
+    "cardOwnerDesc": "Operate the whole platform.",
+    "badgeAdmin": "Admins only",
+    "badgeOwner": "Owner only",
+    "signOutConfirm": "Log out of your account?",
+    "drawerTitle": "Menu",
+    "drawerProvisional": "Temporary menu — full navigation is coming soon.",
+    "tabHome": "Home",
+    "tabSchedule": "Schedule",
+    "tabTasks": "Tasks",
+    "tabChat": "Chat",
+    "tabProfile": "Profile"
   },
   "nav": {
     "language": "Language",
