@@ -28,7 +28,20 @@ function read(): string[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string") : [];
+    // The stored shape is (and always has been) a JSON string array whose ORDER
+    // is the install order. Be defensive about anything else (old/corrupt state):
+    // ignore non-arrays, keep only strings, and de-dupe while preserving the
+    // first-seen (install) order — never throw.
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const value of parsed) {
+      if (typeof value === "string" && !seen.has(value)) {
+        seen.add(value);
+        ids.push(value);
+      }
+    }
+    return ids;
   } catch {
     return [];
   }
@@ -47,7 +60,8 @@ function write(ids: string[]): void {
 
 // ---- Public interface (storage-agnostic) ------------------------------------
 
-/** The ids of apps the user has installed, in insertion order. */
+/** The ids of apps the user has installed, in INSTALL order (first installed
+ * first, newly installed last). Consumers render in exactly this order. */
 export function listInstalled(): string[] {
   return read();
 }

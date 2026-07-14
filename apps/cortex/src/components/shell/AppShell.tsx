@@ -25,18 +25,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
 
-  // Chips show ONLY installed apps — the registry (source of truth) filtered by
-  // the user's installed set. Labels are translated at render so they follow
-  // locale. Registration order is kept (a fixed order for now).
+  // Chips show ONLY installed apps, in the user's INSTALL order (not registry
+  // order): iterate the installed list and resolve each id against the registry.
+  // Labels are translated at render so they follow locale.
   const apps = useRegisteredApps();
   const installed = useInstalledApps();
-  const tabs: ToolTab[] = apps
-    .filter((manifest) => installed.includes(manifest.id))
-    .map((manifest) => ({
-      id: manifest.id,
-      label: t(manifest.name.key as MessageKey),
-      route: appRoute(manifest.id),
-    }));
+  const byId = new Map(apps.map((manifest) => [manifest.id, manifest]));
+  const tabs: ToolTab[] = installed.flatMap((id) => {
+    const manifest = byId.get(id);
+    if (!manifest) return [];
+    return [{ id, label: t(manifest.name.key as MessageKey), route: appRoute(id) }];
+  });
 
   return (
     <div className="mx-auto flex h-dvh w-full max-w-[480px] flex-col bg-screen">

@@ -13,6 +13,8 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { LANG_COOKIE, THEME_COOKIE } from "@/lib/cookies";
 import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+// TEMP dev-only on-device console (eruda) — remove when no longer needed.
+import { DevConsole } from "@/components/dev/DevConsole";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -57,6 +59,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           dangerouslySetInnerHTML={{ __html: baseStylesheet() + "\n" + themeStylesheet() }}
         />
         <ServiceWorkerRegister />
+        <DevConsole />
         <I18nProvider initialLocale={locale}>
           <ThemeProvider initialTheme={theme}>
             <AppShell>{children}</AppShell>

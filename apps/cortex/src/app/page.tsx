@@ -57,7 +57,13 @@ export default function HomePage() {
   const apps = useRegisteredApps();
   const installed = useInstalledApps();
 
-  const installedApps = apps.filter((manifest) => installed.includes(manifest.id));
+  // Render in the user's INSTALL order (not registry order): walk the installed
+  // list and resolve each id against the registry.
+  const byId = new Map(apps.map((manifest) => [manifest.id, manifest]));
+  const installedApps = installed.flatMap((id) => {
+    const manifest = byId.get(id);
+    return manifest ? [manifest] : [];
+  });
 
   if (installedApps.length === 0) {
     return (
