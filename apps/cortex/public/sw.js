@@ -9,12 +9,13 @@
  * localhost). Over a plain-http LAN address it never registers — that is
  * expected; the app still loads and installs as a home-screen app.
  */
-const CACHE_VERSION = "cortex-shell-v1";
+const CACHE_VERSION = "cortex-shell-v2";
 const APP_SHELL = [
   "/",
   "/catalog",
   "/comms",
   "/profile",
+  "/settings",
   "/manifest.webmanifest",
   "/icons/icon.svg",
 ];

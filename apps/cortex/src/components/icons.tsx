@@ -110,3 +110,29 @@ export function PinIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function GearIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 3v2.2M12 18.8V21M4.2 7.5l1.9 1.1M17.9 15.4l1.9 1.1M4.2 16.5l1.9-1.1M17.9 8.6l1.9-1.1" />
+    </svg>
+  );
+}
+
+/** A chevron pointing to the inline-start (left in LTR); callers flip for RTL. */
+export function ChevronIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12.5l4.5 4.5L19 6.5" />
+    </svg>
+  );
+}

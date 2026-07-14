@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { HomeIcon, GridIcon, ChatIcon, UserIcon, SparkIcon } from "@/components/icons";
+import { useI18n } from "@/i18n";
 
 function TabLink({
   href,
@@ -43,18 +44,19 @@ function TabLink({
 
 export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
   const pathname = usePathname();
+  const { t } = useI18n();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
     <nav
-      aria-label="ניווט ראשי"
+      aria-label={t("common.mainNav")}
       className="relative z-20 mt-auto flex items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
     >
-      <TabLink href="/" label="בית" icon={<HomeIcon />} active={isActive("/")} />
+      <TabLink href="/" label={t("tabs.home")} icon={<HomeIcon />} active={isActive("/")} />
       <TabLink
         href="/catalog"
-        label="כל הכלים"
+        label={t("tabs.catalog")}
         icon={<GridIcon />}
         active={isActive("/catalog")}
       />
@@ -63,7 +65,7 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
       <div className="flex flex-1 justify-center">
         <button
           type="button"
-          aria-label="עוזר ה-AI"
+          aria-label={t("tabs.ai")}
           onClick={onOpenAi}
           className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo text-white shadow-hero transition active:scale-95"
         >
@@ -71,10 +73,15 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
         </button>
       </div>
 
-      <TabLink href="/comms" label="צ'אט" icon={<ChatIcon />} active={isActive("/comms")} />
+      <TabLink
+        href="/comms"
+        label={t("tabs.comms")}
+        icon={<ChatIcon />}
+        active={isActive("/comms")}
+      />
       <TabLink
         href="/profile"
-        label="פרופיל"
+        label={t("tabs.profile")}
         icon={<UserIcon />}
         active={isActive("/profile")}
       />

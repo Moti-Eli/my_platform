@@ -1,4 +1,16 @@
 /**
- * Cortex design-system public surface. Import tokens from `@/design-system`.
+ * Cortex design-system public surface. Import tokens/themes from
+ * `@/design-system`.
  */
-export { palette, radii, shadows, fontSans, tokenStylesheet } from "./tokens";
+export {
+  themes,
+  themeNames,
+  defaultTheme,
+  isThemeName,
+  radii,
+  fontSans,
+  brandColor,
+  baseStylesheet,
+  themeStylesheet,
+} from "./tokens";
+export type { ThemeName, ThemeTokens } from "./tokens";

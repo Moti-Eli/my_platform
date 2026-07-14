@@ -7,8 +7,11 @@
 import { useEffect } from "react";
 import { BellIcon, CloseIcon } from "@/components/icons";
 import { EmptyState } from "@/components/EmptyState";
+import { useI18n } from "@/i18n";
 
 export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -25,11 +28,11 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
       className="fixed inset-0 z-40 flex items-start justify-center"
       role="dialog"
       aria-modal="true"
-      aria-label="מה דחוף היום"
+      aria-label={t("urgency.title")}
     >
       <button
         type="button"
-        aria-label="סגירה"
+        aria-label={t("common.close")}
         onClick={onClose}
         className="ds-backdrop absolute inset-0 bg-ink/30"
       />
@@ -41,11 +44,11 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-coral/15 text-coral">
                 <BellIcon width={20} height={20} />
               </span>
-              <h2 className="text-base font-bold text-ink">מה דחוף היום</h2>
+              <h2 className="text-base font-bold text-ink">{t("urgency.title")}</h2>
             </div>
             <button
               type="button"
-              aria-label="סגירה"
+              aria-label={t("common.close")}
               onClick={onClose}
               className="flex h-8 w-8 items-center justify-center rounded-full bg-screen text-muted transition active:scale-95"
             >
@@ -55,8 +58,8 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
 
           <EmptyState
             icon={<BellIcon />}
-            title="אין התראות דחופות כרגע"
-            hint="דברים שדורשים תשומת לב יופיעו כאן."
+            title={t("urgency.emptyTitle")}
+            hint={t("urgency.emptyHint")}
           />
         </div>
       </div>

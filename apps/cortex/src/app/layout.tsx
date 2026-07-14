@@ -1,6 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { tokenStylesheet, palette } from "@/design-system";
+import { cookies } from "next/headers";
+import {
+  baseStylesheet,
+  themeStylesheet,
+  brandColor,
+  defaultTheme,
+  isThemeName,
+} from "@/design-system";
+import { getDirection, defaultLocale, isLocale, I18nProvider } from "@/i18n";
+import { ThemeProvider } from "@/theme/ThemeProvider";
+import { LANG_COOKIE, THEME_COOKIE } from "@/lib/cookies";
 import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
@@ -22,20 +32,36 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: palette.indigo,
+  themeColor: brandColor,
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Language + theme come from cookies so the first server paint is already
+  // correct (no flash / hydration mismatch); the client providers take over for
+  // live switching. Defaults apply when a cookie is absent or unrecognized.
+  const cookieStore = await cookies();
+  const localeCookie = cookieStore.get(LANG_COOKIE)?.value;
+  const locale = isLocale(localeCookie) ? localeCookie : defaultLocale;
+  const themeCookie = cookieStore.get(THEME_COOKIE)?.value;
+  const theme = isThemeName(themeCookie) ? themeCookie : defaultTheme;
+  const dir = getDirection(locale);
+
   return (
-    <html lang="he" dir="rtl">
+    <html lang={locale} dir={dir} data-theme={theme}>
       <body className="min-h-dvh antialiased">
-        {/* Design-system tokens as :root CSS variables (see @/design-system). */}
-        <style dangerouslySetInnerHTML={{ __html: tokenStylesheet() }} />
+        {/* Design-system tokens: structural (:root) + per-theme ([data-theme]). */}
+        <style
+          dangerouslySetInnerHTML={{ __html: baseStylesheet() + "\n" + themeStylesheet() }}
+        />
         <ServiceWorkerRegister />
-        <AppShell>{children}</AppShell>
+        <I18nProvider initialLocale={locale}>
+          <ThemeProvider initialTheme={theme}>
+            <AppShell>{children}</AppShell>
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );

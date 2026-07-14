@@ -1,6 +1,6 @@
 {
   "name": "@platform/cortex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Cortex super-app shell (Next.js App Router, phone-first PWA)",
   "scripts": {
