@@ -30,6 +30,9 @@ export function DashboardCard() {
       .then((rt) => rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX))
       .then((list) => {
         if (alive) setItems(list);
+      })
+      .catch((err: unknown) => {
+        console.error("Cortex: inventory dashboard card failed to load", err);
       });
     return () => {
       alive = false;

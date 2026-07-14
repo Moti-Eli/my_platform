@@ -20,9 +20,14 @@ export function useRegisteredApps(): AppManifest[] {
   const [apps, setApps] = useState<AppManifest[]>([]);
   useEffect(() => {
     let alive = true;
-    getRuntime().then(() => {
-      if (alive) setApps(listApps().map((app) => app.manifest));
-    });
+    getRuntime()
+      .then(() => {
+        if (alive) setApps(listApps().map((app) => app.manifest));
+      })
+      .catch((err: unknown) => {
+        // Never leave the chips/catalog silently empty — surface the failure.
+        console.error("Cortex: failed to load registered apps", err);
+      });
     return () => {
       alive = false;
     };

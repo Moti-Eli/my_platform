@@ -24,8 +24,14 @@ export function FullScreen() {
   const [adding, setAdding] = useState(false);
 
   const refresh = useCallback(async () => {
-    const rt = await getRuntime();
-    setItems(await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX));
+    try {
+      const rt = await getRuntime();
+      setItems(await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX));
+    } catch (err) {
+      // The effect below fires this without awaiting, so a rejection here would
+      // otherwise vanish and leave the screen blank with no trace.
+      console.error("Cortex: inventory list failed to load", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -34,9 +40,13 @@ export function FullScreen() {
 
   const changeQuantity = useCallback(
     async (product: string, delta: number) => {
-      const rt = await getRuntime();
-      await rt.runIntent("inventory.update_quantity", { product, delta }, DEV_CTX);
-      await refresh();
+      try {
+        const rt = await getRuntime();
+        await rt.runIntent("inventory.update_quantity", { product, delta }, DEV_CTX);
+        await refresh();
+      } catch (err) {
+        console.error("Cortex: inventory quantity update failed", err);
+      }
     },
     [refresh],
   );
@@ -139,18 +149,22 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !unit.trim()) return;
-    const rt = await getRuntime();
-    await rt.runIntent(
-      "inventory.add_product",
-      {
-        name: name.trim(),
-        quantity: Number(quantity) || 0,
-        unit: unit.trim(),
-        reorderThreshold: Number(threshold) || 0,
-      },
-      DEV_CTX,
-    );
-    await onDone();
+    try {
+      const rt = await getRuntime();
+      await rt.runIntent(
+        "inventory.add_product",
+        {
+          name: name.trim(),
+          quantity: Number(quantity) || 0,
+          unit: unit.trim(),
+          reorderThreshold: Number(threshold) || 0,
+        },
+        DEV_CTX,
+      );
+      await onDone();
+    } catch (err) {
+      console.error("Cortex: add product failed", err);
+    }
   }
 
   return (

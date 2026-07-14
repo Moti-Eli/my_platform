@@ -35,7 +35,6 @@ export interface Runtime {
   emit: EventBus["emit"];
 }
 
-let runtime: Runtime | null = null;
 let ready: Promise<Runtime> | null = null;
 
 function build(): Runtime {
@@ -116,27 +115,29 @@ async function seed(rt: Runtime): Promise<void> {
 
 /** Lazily build + seed the runtime once, then reuse it. */
 export function getRuntime(): Promise<Runtime> {
-  if (!runtime) {
-    try {
-      runtime = build();
-    } catch (err) {
-      // Registration is the app's foundation — never let a failure here vanish
-      // silently (which is what made a non-secure-origin crypto throw so hard to
-      // find). Log clearly, then rethrow so callers still see it.
-      console.error("Cortex runtime: init/registration failed", err);
-      throw err;
-    }
-  }
-  const rt = runtime;
-  if (!ready) {
-    ready = seed(rt)
-      .catch((err: unknown) => {
-        // Seeding is best-effort demo data; the apps are already registered, so a
-        // seed failure must NOT take down the runtime (the registry-backed
-        // catalog/chips must still work). Surface it loudly instead of swallowing.
-        console.error("Cortex runtime: inventory seed failed", err);
-      })
-      .then(() => rt);
-  }
+  if (ready) return ready;
+
+  // Build synchronously *inside* the promise so a registration failure becomes a
+  // REJECTED promise, never a synchronous throw — otherwise `getRuntime().catch()`
+  // at a call site can't attach in time and the failure escapes unlogged. This is
+  // the swallow that hid the non-secure-origin crypto throw for so long.
+  ready = (async (): Promise<Runtime> => {
+    const rt = build();
+    // Seeding is best-effort demo data; the apps are already registered, so a
+    // seed failure must NOT take down the runtime (the registry-backed
+    // catalog/chips must still work). Log loudly instead of swallowing.
+    await seed(rt).catch((err: unknown) => {
+      console.error("Cortex runtime: inventory seed failed", err);
+    });
+    return rt;
+  })().catch((err: unknown) => {
+    // Registration is the app's foundation — never let a failure here vanish
+    // silently. Log clearly, drop the memo so the next call retries, then
+    // re-reject so callers' own `.catch` handlers also see it.
+    console.error("Cortex runtime: init/registration failed", err);
+    ready = null;
+    throw err;
+  });
+
   return ready;
 }
