@@ -201,6 +201,25 @@ importers:
         specifier: ^5.3.0
         version: 5.9.3
 
+  packages/cortex-core:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@platform/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: ^25.9.2
+        version: 25.9.2
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
+
   packages/db:
     dependencies:
       '@supabase/ssr':

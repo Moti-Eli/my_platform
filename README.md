@@ -164,8 +164,26 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   Plus application-level **rate limiting** and the **launch-gate checklist** —
   see `packages/db/SCHEMA.md` "Deferred / pre-production".
 
+**Phase 8: Cortex Super-App Core** ✅ (core only)
+- ✅ New isolated package `@platform/cortex-core` — a thin, business-logic-free
+  engine that hosts tools, built to `Cortex-SubApp-Standard.md` (§1 types, §6 DB
+  standard, §7 data-layer). Additive: touches no existing app/auth/chat code.
+- ✅ **Registry** (`registerApp` / `getIntent` / `listIntents` / `getListeners`),
+  **data-layer** (`runIntent` — the one door: zod input → permission check →
+  handler → `ai_log` audit → zod output), and in-process **event-bus** (`emit`
+  persists to `events`, then dispatches to decoupled listeners).
+- ✅ Four **shell tables** (migration `20260714000001`, additive): `app_definitions`,
+  `app_instances`, `events`, `ai_log`, with RLS per Standard §6 SELECT (own OR
+  org-member via `auth_user_is_member_of`); shell writes go through `service_role`.
+  **Migration file written but NOT yet applied to the cloud project.**
+- ✅ Smoke demo passes end-to-end in-memory (`pnpm --filter @platform/cortex-core
+  smoke`); package typechecks under strict mode. No sub-apps / UI / AI yet.
+- See ARCHITECTURE.md #27.
+
 **Coming Next:**
 - Mobile screens (login, navigation) — STEP 1 skeleton is in place
+- Cortex: apply the shell-tables migration, then build the first sub-app (tool
+  tables + §6 write policies) and AI wiring
 - Feature development
 
 ## 🏗️ Project Structure
@@ -181,7 +199,8 @@ my-platform/
 │   ├── auth/         (RBAC, permissions, Supabase wrapper)
 │   ├── i18n/         (Translations: English, Hebrew)
 │   ├── ui/           (Shared UI components)
-│   └── db/           (Supabase client, schema, migrations)
+│   ├── db/           (Supabase client, schema, migrations)
+│   └── cortex-core/  (Cortex super-app engine: registry, data-layer, event-bus)
 ├── turbo.json        (Turborepo pipeline configuration)
 ├── pnpm-workspace.yaml
 ├── package.json
@@ -303,6 +322,28 @@ dedicated **evaluation** deploy that holds no real data, and **never** a real
 production site. It's also self-contained in one component
 (`src/components/demo-access.tsx`): delete the file + its one usage to drop it
 entirely.
+
+### `@platform/cortex-core`
+The **core engine** of Cortex — a super-app platform that *hosts* tools. A thin
+shell with **zero business logic**, built to `Cortex-SubApp-Standard.md`:
+- Contract types: `Ctx`, `AppManifest`, `Intent`, `Listener` (§1)
+- **Registry**: tools `registerApp(manifest, intents, listeners)` at startup
+- **Data-layer**: `runIntent` — the **one door** (validate → permit → run →
+  audit to `ai_log` → validate); zod on both ends (§7)
+- **Event-bus**: `emit(type, payload, ctx)` — persist to `events`, then dispatch
+  to decoupled listeners
+- Framework-agnostic `CortexDb` port (Supabase-backed in the shell, in-memory in
+  tests); only new dependency is `zod`
+- Shell tables in migration `20260714000001` (`app_definitions`, `app_instances`,
+  `events`, `ai_log`). No sub-apps / UI / AI calls yet — core only.
+
+Smoke test (registry + runIntent + event-bus + db, in-memory, no live DB):
+
+```bash
+pnpm --filter @platform/cortex-core smoke
+```
+
+See ARCHITECTURE.md #27 and `packages/cortex-core/README.md`.
 
 ### `@platform/observability`
 Vendor- and framework-agnostic **logging + error reporting**:

@@ -41,6 +41,14 @@ full explanation.
   `supabase_realtime` publication so clients can subscribe to live INSERTs
   (Postgres Changes). RLS still gates delivery, so the socket respects org
   isolation. PART 2 of the chat feature.
+- `20260714000001_cortex_shell_tables.sql` — **Cortex super-app core** shell
+  tables (additive): `app_definitions` (global tool catalog, authenticated-
+  readable), `app_instances` (owned/placed instances; polymorphic `owner_id`,
+  nullable `org_id`), `events` (event-bus log), `ai_log` (data-layer audit
+  trail). RLS follows the Cortex Standard §6 SELECT pattern (`owner_id =
+  auth.uid()` OR member of `org_id`, via `auth_user_is_member_of`); shell writes
+  go through `service_role` (no client write policies yet). See `SCHEMA.md`
+  "Cortex Shell Tables" and `packages/cortex-core`.
 
 ## Usage
 

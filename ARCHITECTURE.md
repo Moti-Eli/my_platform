@@ -714,6 +714,64 @@ endpoints; permission-aware UI hides the entry points (the server stays the
 boundary), and the dev temp-password hint is gated by `__DEV__` to mirror the
 server's `NODE_ENV` gate.
 
+## 27. Cortex Super-App Core — A Thin, Contract-Bound Engine (additive package)
+
+**Decision:** Introduce **Cortex**, a super-app platform that *hosts* tools, as a
+**new isolated package** `@platform/cortex-core` — additive, touching no existing
+code. It reuses the existing Supabase project (auth + RBAC schema) but lives in
+its own package and its own tables. The core is a **thin shell with zero business
+logic**: it exposes the shared contract types (`Ctx`, `AppManifest`, `Intent`,
+`Listener`), an in-memory **registry**, a **data-layer** (`runIntent` — the one
+door), and an in-process **event-bus** (`emit`). Built to the binding contract
+`Cortex-SubApp-Standard.md` (§1 types, §6 DB standard, §7 data-layer). This
+milestone is the **core only** — no sub-apps, no UI, no AI model calls.
+
+**The one door.** `runIntent(intentName, input, ctx)` is the ONLY way anything
+(the AI included) reads or writes tool data: resolve intent → **zod**-validate
+input → enforce the manifest's permissions → run `handler(input, ctx)` → write
+the mandatory `ai_log` audit row → **zod**-validate output. Handlers receive a
+ready-made `ctx` (userId, orgId, instanceId) and never fetch identity themselves,
+and never write SQL except through a db client they close over. The event-bus
+persists each event to `events` before dispatching to registered listeners, so
+the emitter is fully decoupled from listeners.
+
+**Framework-agnostic db port.** Like `@platform/db`, the core depends on a tiny
+`CortexDb` port (`insert(table, row)`) rather than on `@supabase/*` — the shell
+supplies a `service_role`-backed adapter (shell writes bypass RLS); tests supply
+an in-memory adapter. The lone new runtime dependency is **zod** (approved).
+
+**Four shell tables (migration `20260714000001`, additive).** `app_definitions`
+(the global tool catalog — no owner, authenticated-readable like `permissions`),
+`app_instances` (an owned/placed instance — polymorphic `owner_id`, nullable
+`org_id`), `events` (the bus log), `ai_log` (the audit trail). RLS follows
+Standard §6's **SELECT** pattern — `owner_id = auth.uid()` OR member of `org_id`,
+via the existing recursion-safe `private.auth_user_is_member_of` helper (§6's
+"permitted, preferred deviation" over inline subqueries). §6's owner/manager
+**WRITE** rule is explicitly scoped to *tool* tables; there are none yet, so
+these shell tables get **no client write policies** — writes run server-side as
+`service_role` through the data-layer, matching the repo's established
+open-writes-one-reviewed-path-at-a-time convention (#11). Tool-table write
+policies land with the first tool table in a later migration.
+
+**Reasoning:** A super-app that must host many independently-shipped tools needs
+a rigid, auditable contract at its center — one door for all data access (so
+every AI/tool read/write is validated and logged in `ai_log`), and event/intent
+indirection (so tools never reference each other). Keeping the core free of
+business logic and isolated in its own package honors the monorepo philosophy and
+makes each tool an independent unit. Reusing the existing membership helper for
+RLS keeps Cortex's tenant isolation identical to the rest of the platform rather
+than inventing a parallel mechanism.
+
+**Status / sequencing:** Core engine + the four shell tables delivered.
+`packages/cortex-core` typechecks under strict mode and its smoke demo passes
+end-to-end (registry + runIntent + event-bus + `ai_log`/`events` writes,
+in-memory). The migration file is **written but not yet applied** to the cloud
+project (apply is a separate, reviewed step). Sub-apps, the generative
+`app_records` table, tool tables (with §6 write policies), and any AI wiring are
+deliberately deferred to later prompts.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

@@ -454,6 +454,60 @@ Notes:
 
 ---
 
+## Cortex Shell Tables (super-app core)
+
+**Cortex** is a super-app platform that *hosts* tools. It reuses this Supabase
+project but lives in its own package (`@platform/cortex-core`) and its own tables.
+Migration `20260714000001` adds ONLY the four **shell** tables the core engine
+needs — additive, touching no existing table. Tool tables (inventory, orders, …)
+and the generative `app_records` table come later. Built to
+`Cortex-SubApp-Standard.md` (§1, §6, §7).
+
+### The four tables
+
+- **`app_definitions`** — the **global tool catalog**. One row per tool the
+  platform knows about (`key`, `name`, `category`, `icon`, `color`, `manifest`
+  JSONB, `is_core`). Not org-scoped and **not owned** (§6 note: the 3 mandatory
+  fields apply to *tool* tables, not shell catalog tables). Managed server-side.
+- **`app_instances`** — an **owned/placed instance** of a tool: `definition_id`
+  → `app_definitions`, `owner_type` (`'user'` | `'org'`), `owner_id`
+  (polymorphic — a user id or an org id per `owner_type`, so **not** FK-
+  constrained), nullable `org_id` → `organizations` (NULL = personal tool),
+  `config`, `is_pinned`, `usage_score`, `last_used_at`.
+- **`events`** — the **event-bus log**. Every `emit()` persists a row
+  (`type`, `payload`, `emitted_by_instance` → `app_instances` [SET NULL],
+  `org_id` → `organizations`, `user_id` → `users`) **before** listeners are
+  dispatched, so the log is the source of truth.
+- **`ai_log`** — the **audit trail** the data-layer writes for every `runIntent`
+  call (`user_id` → `users`, `intent`, `target_instance_id` → `app_instances`
+  [SET NULL], `input` JSONB, `result` JSONB). This is the one-door audit surface.
+
+### RLS (Standard §6, adapted to this repo)
+
+RLS is enabled on all four. **SELECT** follows §6 directly — a row is readable if
+`owner_id = auth.uid()` **OR** the user is a member of `org_id` — using the
+existing recursion-safe `private.auth_user_is_member_of(org_id)` helper for the
+org check (§6 calls reusing the repo helper a "permitted, preferred deviation").
+`app_definitions` is the global catalog, so it is readable by **any**
+authenticated user (like `permissions`); `ai_log` has no `org_id`, so it is
+**own-rows-only** (`user_id = auth.uid()`).
+
+**Writes are intentionally unpolicied (therefore denied)** for
+anon/authenticated on all four tables. §6's owner/manager WRITE rule is scoped to
+*tool* tables, of which there are none yet — so all shell writes (register a
+definition, create an instance, append an event, write `ai_log`) run server-side
+as `service_role` (which bypasses RLS) through the Cortex data-layer/event-bus.
+This matches the repo convention of opening writes one reviewed path at a time
+(see "Write policies" and ARCHITECTURE.md #11/#27). `service_role` keeps full DML
+via the default privileges from migration `20260608000002` (which also covers
+future tables); `anon` is granted nothing.
+
+**Status:** the migration file is **written but not yet applied** to the cloud
+project — applying it is a separate, reviewed step. See `packages/cortex-core`
+and ARCHITECTURE.md #27.
+
+---
+
 ## Deferred / Pre-Production (security review)
 
 Items from the pre-deploy security review that are intentionally **not fixed yet**,
