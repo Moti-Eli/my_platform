@@ -5,15 +5,17 @@
  * shell directly under the Header, so it appears on EVERY screen (including when
  * a sub-app is open). Presentational: it receives resolved tabs (label already
  * translated, from the core registry via AppShell) and shows them as pill chips.
- * A leading "הכל" (all) chip is selected by default; clicking any chip just sets
- * it as the selected one (visual state only — no filtering yet). The trailing
- * "+" pill links to the catalog. The row scrolls horizontally (RTL: starts at
- * the right, overflowing to the left) with the scrollbar hidden.
+ * Every chip navigates: "הכל" → Home (the glance grid), each registry tool → its
+ * real page, each placeholder chip → its throwaway page under /tools/*. The
+ * selected (dark) chip is derived from the current route. The trailing "+" pill
+ * links to the catalog. The row scrolls horizontally (RTL: starts at the right,
+ * overflowing to the left) with the scrollbar hidden.
  */
 import Link from "next/link";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { PlusIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
+import { PLACEHOLDER_APPS } from "@/lib/placeholder-apps";
 
 export interface ToolTab {
   id: string;
@@ -21,36 +23,22 @@ export interface ToolTab {
   route: string;
 }
 
-/**
- * TEMPORARY STUB DATA — presentational only, local to this row. Only the
- * inventory tool exists in the registry today; these placeholder chips exist
- * purely so the horizontal scroll is visible during the redesign. They are NOT
- * registered tools and carry no route/logic. Remove once real tools land.
- */
-const STUB_CHIPS: { id: string; label: string }[] = [
-  { id: "stub-calendar", label: "יומן" },
-  { id: "stub-tasks", label: "משימות" },
-  { id: "stub-contacts", label: "אנשי קשר" },
-  { id: "stub-expenses", label: "הוצאות" },
-  { id: "stub-docs", label: "מסמכים" },
-  { id: "stub-projects", label: "פרויקטים" },
-];
-
-const ALL_ID = "all";
-
 const CHIP_BASE =
   "shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition active:scale-95";
 
 export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const { t } = useI18n();
-  const [selected, setSelected] = useState(ALL_ID);
+  const pathname = usePathname();
 
-  // "הכל" (pinned first, source order) + real registry tools + stub chips.
-  const chips = [
-    { id: ALL_ID, label: t("home.allTab") },
-    ...tools.map((tab) => ({ id: tab.id, label: tab.label })),
-    ...STUB_CHIPS,
+  // "הכל" (Home) + real registry tools + temporary placeholder apps. Each chip
+  // carries the route it navigates to.
+  const chips: { id: string; label: string; route: string }[] = [
+    { id: "all", label: t("home.allTab"), route: "/" },
+    ...tools.map((tab) => ({ id: tab.id, label: tab.label, route: tab.route })),
+    ...PLACEHOLDER_APPS.map((app) => ({ id: app.id, label: t(app.labelKey), route: app.route })),
   ];
+
+  const isActive = (route: string) => (route === "/" ? pathname === "/" : pathname === route);
 
   return (
     <div
@@ -59,20 +47,17 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       className="no-scrollbar flex gap-2 overflow-x-auto pb-1"
     >
       {chips.map((chip) => {
-        const isSelected = chip.id === selected;
+        const active = isActive(chip.route);
         return (
-          <button
+          <Link
             key={chip.id}
-            type="button"
+            href={chip.route}
             role="tab"
-            aria-selected={isSelected}
-            onClick={() => setSelected(chip.id)}
-            className={`${CHIP_BASE} ${
-              isSelected ? "bg-ink text-screen" : "bg-hairline text-ink"
-            }`}
+            aria-selected={active}
+            className={`${CHIP_BASE} ${active ? "bg-ink text-screen" : "bg-hairline text-ink"}`}
           >
             {chip.label}
-          </button>
+          </Link>
         );
       })}
 

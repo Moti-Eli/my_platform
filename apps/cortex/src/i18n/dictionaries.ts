@@ -43,6 +43,16 @@ const he = {
     title: "התראות",
     empty: "אין התראות עדיין",
   },
+  // TEMPORARY — labels for the throwaway placeholder apps (see lib/placeholder-apps).
+  placeholders: {
+    calendar: "יומן",
+    tasks: "משימות",
+    fitness: "כושר",
+    contacts: "אנשי קשר",
+    expenses: "הוצאות",
+    notes: "פתקים",
+    comingSoon: "בקרוב — עמוד לדוגמה",
+  },
   home: {
     appTabsLabel: "לשוניות כלים",
     allTab: "הכל",
@@ -114,6 +124,16 @@ const en: Messages = {
   notifications: {
     title: "Notifications",
     empty: "No notifications yet",
+  },
+  // TEMPORARY — labels for the throwaway placeholder apps (see lib/placeholder-apps).
+  placeholders: {
+    calendar: "Calendar",
+    tasks: "Tasks",
+    fitness: "Fitness",
+    contacts: "Contacts",
+    expenses: "Expenses",
+    notes: "Notes",
+    comingSoon: "Coming soon — placeholder page",
   },
   home: {
     appTabsLabel: "Tool tabs",
