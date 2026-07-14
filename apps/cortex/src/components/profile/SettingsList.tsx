@@ -25,8 +25,19 @@ export function ListSection({ title, children }: { title: string; children: Reac
   );
 }
 
-/** A navigating row: icon · label · forward chevron. */
-export function ListRow({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
+/** A navigating row: icon · label · optional value · forward chevron. */
+export function ListRow({
+  href,
+  icon,
+  label,
+  value,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  /** Optional current value shown before the chevron (e.g. the selected language). */
+  value?: ReactNode;
+}) {
   const { dir } = useI18n();
   return (
     <Link
@@ -37,6 +48,7 @@ export function ListRow({ href, icon, label }: { href: string; icon: ReactNode; 
         {icon}
       </span>
       <span className="flex-1 text-sm font-medium text-ink">{label}</span>
+      {value != null ? <span className="shrink-0 text-sm text-muted">{value}</span> : null}
       {/* Forward/disclosure chevron points to the inline-end (RTL: left). */}
       <ChevronIcon
         width={18}

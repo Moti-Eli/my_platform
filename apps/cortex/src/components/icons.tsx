@@ -210,3 +210,24 @@ export function ClockIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Globe — language / locale. */
+export function GlobeIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M4 12h16" />
+      <path d="M12 4c2.5 2.4 2.5 13.6 0 16M12 4c-2.5 2.4-2.5 13.6 0 16" />
+    </svg>
+  );
+}
+
+/** Half-filled circle — appearance / theme (light vs dark). */
+export function ContrastIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

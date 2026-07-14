@@ -1,49 +1,44 @@
 "use client";
 
 /**
- * Settings — language (i18n), appearance (themes), and the app version. Reachable
- * from the profile menu (hamburger) and rows. Presented in the same full-bleed
- * language as the profile (fixed top bar + grouped sections); the LanguagePicker /
- * ThemePicker wiring is unchanged — only the surrounding presentation. The version
- * is read from the single source of truth (package.json via @/lib/version).
+ * Settings — a row list (same pattern as the profile). Language and appearance
+ * are ListRows showing their current value and drilling in to a dedicated page
+ * (/settings/language, /settings/appearance) that hosts the existing picker;
+ * version is a static ListValueRow (no drill-in). The pickers themselves are
+ * unchanged — this screen only routes to them. The version is read from the
+ * single source of truth (package.json via @/lib/version).
  */
-import type { ReactNode } from "react";
 import { useI18n } from "@/i18n";
+import { useTheme } from "@/theme/ThemeProvider";
 import { APP_VERSION } from "@/lib/version";
 import { Screen } from "@/components/profile/Screen";
-import { ListValueRow } from "@/components/profile/SettingsList";
-import { LanguagePicker } from "@/components/settings/LanguagePicker";
-import { ThemePicker } from "@/components/settings/ThemePicker";
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mt-6 first:mt-4">
-      <h2 className="px-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
+import { ListRow, ListValueRow } from "@/components/profile/SettingsList";
+import { GlobeIcon, ContrastIcon } from "@/components/icons";
 
 export default function SettingsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { theme } = useTheme();
+
+  const languageValue = t(locale === "he" ? "settings.languageHe" : "settings.languageEn");
+  const themeValue = t(theme === "light" ? "settings.themeLight" : "settings.themeDark");
 
   return (
     <Screen center={<h1 className="text-lg font-bold text-ink">{t("settings.title")}</h1>}>
-      <Section title={t("settings.language")}>
-        <LanguagePicker />
-      </Section>
-
-      <Section title={t("settings.appearance")}>
-        <ThemePicker />
-      </Section>
-
-      <Section title={t("settings.version")}>
-        <div className="divide-y divide-hairline overflow-hidden rounded-xl bg-card shadow-soft">
-          <ListValueRow label={t("settings.version")} value={APP_VERSION} />
-        </div>
-      </Section>
+      <div className="mt-2 divide-y divide-hairline overflow-hidden rounded-xl bg-card shadow-soft">
+        <ListRow
+          href="/settings/language"
+          icon={<GlobeIcon />}
+          label={t("settings.language")}
+          value={languageValue}
+        />
+        <ListRow
+          href="/settings/appearance"
+          icon={<ContrastIcon />}
+          label={t("settings.appearance")}
+          value={themeValue}
+        />
+        <ListValueRow label={t("settings.version")} value={APP_VERSION} />
+      </div>
 
       <p className="px-1 pt-4 text-center text-xs text-muted">{t("common.savedLocally")}</p>
     </Screen>
