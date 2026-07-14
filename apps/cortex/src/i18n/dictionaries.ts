@@ -90,8 +90,24 @@ const he = {
   },
   profile: {
     title: "פרופיל",
-    identityCore: "ליבת זהות",
-    identityHint: "כאן תופיע ליבת הזהות שלך — פרטים, הרשאות והעדפות. שלד בלבד בשלב זה.",
+    // DEV placeholder identity — no auth yet; replace with the session user.
+    name: "המשתמש",
+    contactPlaceholder: "הוספת אימייל או טלפון",
+    menu: "תפריט",
+    changePhoto: "שינוי תמונה",
+    // Section headers
+    sectionIdentity: "זהות",
+    sectionData: "הנתונים שלי",
+    sectionActivity: "פעילות",
+    sectionSystem: "מערכת",
+    // Row labels
+    identityCard: "כרטיס ביקור",
+    personalDetails: "פרטים אישיים",
+    organizations: "ארגונים",
+    appsSummary: "סיכום מהאפליקציות",
+    documents: "מסמכים",
+    recentActivity: "פעילות אחרונה",
+    aiActivity: "מה ה-AI עשה",
   },
   settings: {
     title: "הגדרות",
@@ -190,9 +206,24 @@ const en: Messages = {
   },
   profile: {
     title: "Profile",
-    identityCore: "Identity Core",
-    identityHint:
-      "Your identity core — details, permissions and preferences — will appear here. A shell for now.",
+    // DEV placeholder identity — no auth yet; replace with the session user.
+    name: "User",
+    contactPlaceholder: "Add email or phone",
+    menu: "Menu",
+    changePhoto: "Change photo",
+    // Section headers
+    sectionIdentity: "Identity",
+    sectionData: "My data",
+    sectionActivity: "Activity",
+    sectionSystem: "System",
+    // Row labels
+    identityCard: "Business card",
+    personalDetails: "Personal details",
+    organizations: "Organizations",
+    appsSummary: "Summary from apps",
+    documents: "Documents",
+    recentActivity: "Recent activity",
+    aiActivity: "What the AI did",
   },
   settings: {
     title: "Settings",

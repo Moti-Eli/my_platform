@@ -161,3 +161,52 @@ export function MinusIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Hamburger — three horizontal lines (opens the menu / settings). */
+export function MenuIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+export function IdCardIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <circle cx="8" cy="11" r="2" />
+      <path d="M13 10h5M13 14h5M5.6 15.5c.5-1.2 1.4-1.7 2.4-1.7s1.9.5 2.4 1.7" />
+    </svg>
+  );
+}
+
+export function BuildingIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 21V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v16" />
+      <path d="M14 9h4a1 1 0 0 1 1 1v11" />
+      <path d="M3 21h18" />
+      <path d="M8 8h2M8 12h2M8 16h2" />
+    </svg>
+  );
+}
+
+export function DocumentIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 3h7l4 4v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v4h4" />
+      <path d="M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  );
+}

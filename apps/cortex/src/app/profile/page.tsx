@@ -1,56 +1,129 @@
 "use client";
 
 /**
- * Profile — an EMPTY SHELL with a placeholder "Identity Core" (ליבת זהות) area
- * and a link into Settings. No real content yet; spec'd next.
+ * Profile — a full-bleed, WhatsApp-style screen (the shell hides its own header +
+ * chips for this route; see AppShell `fullBleed`). A FIXED top bar (menu · name +
+ * avatar · back) sits above a scrolling body: a large tappable avatar, the name
+ * and a contact placeholder, then grouped settings-list sections. Every row leads
+ * to a placeholder screen for now — no logic, and NO hardcoded app list (the
+ * "apps summary" row will later read the registry via intents, like the chips).
  */
 import Link from "next/link";
-import { UserIcon, GearIcon, ChevronIcon } from "@/components/icons";
-import { useI18n } from "@/i18n";
+import type { ReactNode } from "react";
+import { Screen } from "@/components/profile/Screen";
+import { BackButton } from "@/components/profile/BackButton";
+import { ListSection, ListRow } from "@/components/profile/SettingsList";
+import { placeholderRoute } from "@/components/profile/placeholders";
+import {
+  MenuIcon,
+  IdCardIcon,
+  UserIcon,
+  BuildingIcon,
+  BoxIcon,
+  DocumentIcon,
+  ClockIcon,
+  SparkIcon,
+  GearIcon,
+} from "@/components/icons";
+import { useI18n, type MessageKey } from "@/i18n";
+
+interface Row {
+  key: string;
+  href: string;
+  icon: ReactNode;
+  labelKey: MessageKey;
+}
+interface Group {
+  titleKey: MessageKey;
+  rows: Row[];
+}
+
+const GROUPS: Group[] = [
+  {
+    titleKey: "profile.sectionIdentity",
+    rows: [
+      { key: "identity-card", href: placeholderRoute("identity-card"), icon: <IdCardIcon />, labelKey: "profile.identityCard" },
+      { key: "personal-details", href: placeholderRoute("personal-details"), icon: <UserIcon />, labelKey: "profile.personalDetails" },
+      { key: "organizations", href: placeholderRoute("organizations"), icon: <BuildingIcon />, labelKey: "profile.organizations" },
+    ],
+  },
+  {
+    titleKey: "profile.sectionData",
+    rows: [
+      { key: "apps-summary", href: placeholderRoute("apps-summary"), icon: <BoxIcon />, labelKey: "profile.appsSummary" },
+      { key: "documents", href: placeholderRoute("documents"), icon: <DocumentIcon />, labelKey: "profile.documents" },
+    ],
+  },
+  {
+    titleKey: "profile.sectionActivity",
+    rows: [
+      { key: "recent-activity", href: placeholderRoute("recent-activity"), icon: <ClockIcon />, labelKey: "profile.recentActivity" },
+      { key: "ai-activity", href: placeholderRoute("ai-activity"), icon: <SparkIcon />, labelKey: "profile.aiActivity" },
+    ],
+  },
+  {
+    titleKey: "profile.sectionSystem",
+    // Settings is a real screen — the only non-placeholder row.
+    rows: [{ key: "settings", href: "/settings", icon: <GearIcon />, labelKey: "common.settings" }],
+  },
+];
 
 export default function ProfilePage() {
-  const { t, dir } = useI18n();
+  const { t } = useI18n();
+  const name = t("profile.name");
+  const initial = [...name][0] ?? "";
+
+  // Wired to a no-op for now — image upload lands later.
+  const changePhoto = () => {
+    /* placeholder: pick/upload avatar image */
+  };
 
   return (
-    <>
-      <h1 className="px-1 text-xl font-bold text-ink">{t("profile.title")}</h1>
+    <Screen
+      bar={
+        <div className="flex items-center gap-2">
+          <Link
+            href="/settings"
+            aria-label={t("profile.menu")}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
+          >
+            <MenuIcon />
+          </Link>
 
-      {/* Identity Core placeholder — structure only. */}
-      <section aria-label={t("profile.identityCore")} className="flex flex-col items-center gap-4">
-        <div className="flex w-full flex-col items-center gap-4 rounded-xl bg-card px-6 py-10 shadow-soft">
-          <span className="flex h-24 w-24 items-center justify-center rounded-full bg-screen text-muted">
-            <UserIcon width={44} height={44} />
-          </span>
-          <p className="text-base font-semibold text-ink">{t("profile.identityCore")}</p>
-          <p className="max-w-[26ch] text-center text-sm text-muted">
-            {t("profile.identityHint")}
-          </p>
-          <div className="mt-2 flex w-full flex-col gap-2">
-            <div className="h-12 w-full rounded-lg bg-screen" />
-            <div className="h-12 w-full rounded-lg bg-screen" />
-            <div className="h-12 w-3/4 rounded-lg bg-screen" />
+          <div className="flex flex-1 items-center justify-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo/15 text-xs font-bold text-indigo">
+              {initial}
+            </span>
+            <span className="text-sm font-semibold text-ink">{name}</span>
           </div>
-        </div>
-      </section>
 
-      {/* Settings entry (also reachable from the header gear). */}
-      <Link
-        href="/settings"
-        className="flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-4 shadow-soft transition active:scale-[0.99]"
-      >
-        <span className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-screen text-indigo">
-            <GearIcon />
-          </span>
-          <span className="text-sm font-semibold text-ink">{t("common.settings")}</span>
-        </span>
-        <ChevronIcon
-          width={20}
-          height={20}
-          className="text-muted"
-          style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }}
-        />
-      </Link>
-    </>
+          <BackButton />
+        </div>
+      }
+    >
+      {/* Header: large tappable avatar + name + contact placeholder. */}
+      <div className="flex flex-col items-center gap-3 pb-2 pt-6">
+        <button
+          type="button"
+          onClick={changePhoto}
+          aria-label={t("profile.changePhoto")}
+          className="flex h-28 w-28 items-center justify-center rounded-full bg-indigo/15 text-4xl font-bold text-indigo transition active:scale-95"
+        >
+          {initial}
+        </button>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-xl font-bold text-ink">{name}</span>
+          <span className="text-sm text-muted">{t("profile.contactPlaceholder")}</span>
+        </div>
+      </div>
+
+      {GROUPS.map((group) => (
+        <ListSection key={group.titleKey} title={t(group.titleKey)}>
+          {group.rows.map((row) => (
+            <ListRow key={row.key} href={row.href} icon={row.icon} label={t(row.labelKey)} />
+          ))}
+        </ListSection>
+      ))}
+    </Screen>
   );
 }

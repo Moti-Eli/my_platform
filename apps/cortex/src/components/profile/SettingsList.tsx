@@ -1,0 +1,61 @@
+"use client";
+
+/**
+ * The grouped settings-list building blocks (Instagram/WhatsApp style): a small
+ * muted section header above a card whose rows are separated by thin hairlines,
+ * each row an icon at the start, a label, and a forward chevron at the end.
+ * Shared by the profile and settings screens so they read as one language.
+ */
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { ChevronIcon } from "@/components/icons";
+import { useI18n } from "@/i18n";
+
+/** A titled group of rows. */
+export function ListSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-6 first:mt-4">
+      <h2 className="px-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+        {title}
+      </h2>
+      <div className="divide-y divide-hairline overflow-hidden rounded-xl bg-card shadow-soft">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+/** A navigating row: icon · label · forward chevron. */
+export function ListRow({ href, icon, label }: { href: string; icon: ReactNode; label: string }) {
+  const { dir } = useI18n();
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 px-4 py-3.5 transition active:bg-screen"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-indigo">
+        {icon}
+      </span>
+      <span className="flex-1 text-sm font-medium text-ink">{label}</span>
+      {/* Forward/disclosure chevron points to the inline-end (RTL: left). */}
+      <ChevronIcon
+        width={18}
+        height={18}
+        className="shrink-0 text-muted"
+        style={{ transform: dir === "rtl" ? undefined : "scaleX(-1)" }}
+      />
+    </Link>
+  );
+}
+
+/** A static (non-navigating) row: label at the start, value at the end. */
+export function ListValueRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+      <span className="text-sm font-medium text-ink">{label}</span>
+      <span className="text-sm text-muted" dir="ltr">
+        {value}
+      </span>
+    </div>
+  );
+}

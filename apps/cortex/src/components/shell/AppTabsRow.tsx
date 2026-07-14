@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
 // inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl px-4 text-sm font-medium touch-manipulation transition active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 text-sm font-medium touch-manipulation transition active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the

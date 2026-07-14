@@ -11,6 +11,7 @@
  */
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
 import { useInstalledApps } from "@/lib/installed-apps";
 import { useI18n, type MessageKey } from "@/i18n";
@@ -24,6 +25,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [aiOpen, setAiOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
+
+  // Full-bleed routes replace the shell chrome (wordmark/search/bell header + app
+  // chips row) with their OWN fixed top bar — the profile and settings screens.
+  // Same single shell, conditional chrome; the bottom TabBar always stays.
+  const pathname = usePathname();
+  const fullBleed = pathname.startsWith("/profile") || pathname.startsWith("/settings");
 
   // Chips show ONLY installed apps, in the user's INSTALL order (not registry
   // order): iterate the installed list and resolve each id against the registry.
@@ -39,16 +46,21 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto flex h-dvh w-full max-w-[480px] flex-col bg-screen">
-      {/* Single scroll area: Header + chips row + page content scroll together. */}
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
-        <Header onOpenInbox={() => setInboxOpen(true)} />
+      {fullBleed ? (
+        // The screen owns its own fixed top bar + scrolling body (see @/components/profile/Screen).
+        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+      ) : (
+        // Single scroll area: Header + chips row + page content scroll together.
+        <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+          <Header onOpenInbox={() => setInboxOpen(true)} />
 
-        <div className="px-4">
-          <AppTabsRow tools={tabs} />
+          <div className="px-4">
+            <AppTabsRow tools={tabs} />
+          </div>
+
+          <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
         </div>
-
-        <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
-      </div>
+      )}
 
       <TabBar onOpenAi={() => setAiOpen(true)} />
 
