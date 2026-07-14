@@ -43,15 +43,31 @@ const he = {
     title: "התראות",
     empty: "אין התראות עדיין",
   },
-  // TEMPORARY — labels for the throwaway placeholder apps (see lib/placeholder-apps).
-  placeholders: {
+  // App display names (registry name keys) + catalog/chip action labels. Many are
+  // TEMP stub apps today; the keys stay as tools become real.
+  apps: {
     calendar: "יומן",
     tasks: "משימות",
-    fitness: "כושר",
     contacts: "אנשי קשר",
     expenses: "הוצאות",
     notes: "פתקים",
-    comingSoon: "בקרוב — עמוד לדוגמה",
+    invoices: "חשבוניות",
+    crm: "לקוחות",
+    employees: "עובדים",
+    shifts: "משמרות",
+    payroll: "שכר",
+    suppliers: "ספקים",
+    orders: "הזמנות",
+    bookings: "תורים",
+    projects: "פרויקטים",
+    documents: "מסמכים",
+    analytics: "אנליטיקה",
+    marketing: "שיווק",
+    support: "תמיכה",
+    fitness: "כושר",
+    comingSoon: "בקרוב",
+    unavailable: "לא זמין",
+    remove: "הסרה",
   },
   home: {
     appTabsLabel: "לשוניות כלים",
@@ -59,6 +75,8 @@ const he = {
     dashboardLabel: "לוח מחוונים",
     emptyTitle: "עדיין אין כלים מוצמדים",
     emptyHint: "כלים שתצמיד יופיעו כאן על לוח המחוונים.",
+    emptyInstalledTitle: "עדיין לא הוספת כלים",
+    emptyInstalledHint: "הקש על + כדי להוסיף כלים ללוח שלך.",
   },
   catalog: {
     title: "כל הכלים",
@@ -125,15 +143,31 @@ const en: Messages = {
     title: "Notifications",
     empty: "No notifications yet",
   },
-  // TEMPORARY — labels for the throwaway placeholder apps (see lib/placeholder-apps).
-  placeholders: {
+  // App display names (registry name keys) + catalog/chip action labels. Many are
+  // TEMP stub apps today; the keys stay as tools become real.
+  apps: {
     calendar: "Calendar",
     tasks: "Tasks",
-    fitness: "Fitness",
     contacts: "Contacts",
     expenses: "Expenses",
     notes: "Notes",
-    comingSoon: "Coming soon — placeholder page",
+    invoices: "Invoices",
+    crm: "Customers",
+    employees: "Employees",
+    shifts: "Shifts",
+    payroll: "Payroll",
+    suppliers: "Suppliers",
+    orders: "Orders",
+    bookings: "Appointments",
+    projects: "Projects",
+    documents: "Documents",
+    analytics: "Analytics",
+    marketing: "Marketing",
+    support: "Support",
+    fitness: "Fitness",
+    comingSoon: "Coming soon",
+    unavailable: "Unavailable",
+    remove: "Remove",
   },
   home: {
     appTabsLabel: "Tool tabs",
@@ -141,6 +175,8 @@ const en: Messages = {
     dashboardLabel: "Dashboard",
     emptyTitle: "Nothing pinned yet",
     emptyHint: "Tools you pin will appear here on the dashboard.",
+    emptyInstalledTitle: "No apps yet",
+    emptyInstalledHint: "Tap + to add apps to your board.",
   },
   catalog: {
     title: "All tools",

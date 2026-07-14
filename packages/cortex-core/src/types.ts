@@ -40,6 +40,16 @@ export interface LocalizedKey {
 }
 
 /**
+ * Availability / lifecycle status of an app in the catalog. When absent it is
+ * treated as `"ready"` — a real, working tool.
+ *
+ * - `"ready"`        a real tool with working intents/UI.
+ * - `"coming_soon"`  installable, but opens a placeholder view (a stub).
+ * - `"unavailable"`  listed in the catalog but not installable yet (a stub).
+ */
+export type AppStatus = "ready" | "coming_soon" | "unavailable";
+
+/**
  * A tool's manifest — its self-description and the contract surface it declares.
  * Persisted as the `manifest` JSONB on `app_definitions` and registered in the
  * in-memory {@link registerApp | registry} at startup.
@@ -69,6 +79,17 @@ export interface AppManifest {
   listensTo: string[];
   /** AI topics this tool exposes through the one door. */
   aiTopics: string[];
+  /**
+   * TEMP scaffolding flag. `true` marks a not-yet-real app: it registers a
+   * normal manifest but renders a placeholder view instead of real intents/UI.
+   * A real tool omits this (or sets it `false`). Removed per-app as tools land.
+   */
+  stub?: boolean;
+  /**
+   * Availability status (see {@link AppStatus}). Absent ⇒ `"ready"`. Drives
+   * whether the catalog lets the user install the app.
+   */
+  status?: AppStatus;
 }
 
 /**

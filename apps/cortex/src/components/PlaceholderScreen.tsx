@@ -1,29 +1,37 @@
 "use client";
 
 /**
- * TEMPORARY placeholder sub-app screen — a title (icon + name) plus dummy filler
- * cards, enough to overflow the viewport so the header + chips row can be seen
- * scrolling up and off while the tab bar stays fixed. No real logic or data.
- * Driven by {@link PLACEHOLDER_APPS}; delete once real tools land.
+ * A stub sub-app's screen — resolved from the registry by id (no hardcoded
+ * list). Shows the app's title (icon + name) + a "coming soon" note + dummy
+ * filler cards, enough to overflow the viewport so the header + chips row can be
+ * seen scrolling up while the tab bar stays fixed. No real logic or data. When a
+ * real tool replaces the stub, it ships its own screen and this is unused.
  */
-import { useI18n } from "@/i18n";
-import { PLACEHOLDER_APPS } from "@/lib/placeholder-apps";
+import { useRegisteredApps } from "@/cortex/apps";
+import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { useI18n, type MessageKey } from "@/i18n";
 
 export function PlaceholderScreen({ appId }: { appId: string }) {
   const { t } = useI18n();
-  const app = PLACEHOLDER_APPS.find((a) => a.id === appId);
-  if (!app) return null;
-  const { Icon } = app;
+  const apps = useRegisteredApps();
+  const manifest = apps.find((a) => a.id === appId);
+  const Icon = manifest ? appIcon(manifest.icon) : null;
 
   return (
     <>
       <div className="flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-indigo/15 text-indigo">
-          <Icon width={22} height={22} />
-        </span>
+        {manifest && Icon ? (
+          <span
+            className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
+          >
+            <Icon width={22} height={22} />
+          </span>
+        ) : null}
         <div className="flex flex-col">
-          <h1 className="text-xl font-bold text-ink">{t(app.labelKey)}</h1>
-          <p className="text-xs text-muted">{t("placeholders.comingSoon")}</p>
+          <h1 className="text-xl font-bold text-ink">
+            {manifest ? t(manifest.name.key as MessageKey) : ""}
+          </h1>
+          <p className="text-xs text-muted">{t("apps.comingSoon")}</p>
         </div>
       </div>
 

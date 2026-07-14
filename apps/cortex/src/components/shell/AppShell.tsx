@@ -9,11 +9,10 @@
  * Also hosts the AI sheet and urgency inbox overlays, whose open state lives
  * here so they persist across route changes.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
-import { listApps, type AppManifest } from "@platform/cortex-core";
-import { getRuntime } from "@/cortex/runtime";
-import { TOOL_VIEWS } from "@/tools";
+import { appRoute, useRegisteredApps } from "@/cortex/apps";
+import { useInstalledApps } from "@/lib/installed-apps";
 import { useI18n, type MessageKey } from "@/i18n";
 import { Header } from "./Header";
 import { TabBar } from "./TabBar";
@@ -26,30 +25,18 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [aiOpen, setAiOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
 
-  // Feed the app-chips row from the core registry (moved up from the Home page
-  // so the row shows on every screen). Store raw manifests; translate labels at
-  // render so they follow locale changes.
-  const [manifests, setManifests] = useState<AppManifest[]>([]);
-  useEffect(() => {
-    let alive = true;
-    getRuntime().then(() => {
-      if (!alive) return;
-      setManifests(
-        listApps()
-          .map((app) => app.manifest)
-          .filter((manifest) => TOOL_VIEWS[manifest.id]),
-      );
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const tabs: ToolTab[] = manifests.map((manifest) => ({
-    id: manifest.id,
-    label: t(manifest.name.key as MessageKey),
-    route: TOOL_VIEWS[manifest.id]!.route,
-  }));
+  // Chips show ONLY installed apps — the registry (source of truth) filtered by
+  // the user's installed set. Labels are translated at render so they follow
+  // locale. Registration order is kept (a fixed order for now).
+  const apps = useRegisteredApps();
+  const installed = useInstalledApps();
+  const tabs: ToolTab[] = apps
+    .filter((manifest) => installed.includes(manifest.id))
+    .map((manifest) => ({
+      id: manifest.id,
+      label: t(manifest.name.key as MessageKey),
+      route: appRoute(manifest.id),
+    }));
 
   return (
     <div className="mx-auto flex h-dvh w-full max-w-[480px] flex-col bg-screen">

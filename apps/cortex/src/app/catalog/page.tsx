@@ -1,25 +1,89 @@
 "use client";
 
 /**
- * "כל הכלים" (catalog) — placeholder empty screen (slot 2). Real tool catalog
- * comes later.
+ * "כל הכלים" (catalog) — the full registry of apps in a compact icon+name grid.
+ * Reads ALL registered apps (source of truth), no hardcoded list. Available apps
+ * can be installed/uninstalled by tapping (install → it appears immediately in
+ * the chips row and on Home); apps marked `unavailable` are shown disabled and
+ * are not tappable.
  */
-import { EmptyState } from "@/components/EmptyState";
-import { GridIcon } from "@/components/icons";
-import { useI18n } from "@/i18n";
+import type { AppManifest } from "@platform/cortex-core";
+import { useRegisteredApps } from "@/cortex/apps";
+import { install, uninstall, useInstalledApps } from "@/lib/installed-apps";
+import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { CheckIcon, PlusIcon } from "@/components/icons";
+import { useI18n, type MessageKey } from "@/i18n";
+
+function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed: boolean }) {
+  const { t } = useI18n();
+  const Icon = appIcon(manifest.icon);
+  const available = manifest.status !== "unavailable";
+  const label = t(manifest.name.key as MessageKey);
+
+  const inner = (
+    <>
+      <span
+        className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
+      >
+        <Icon width={22} height={22} />
+      </span>
+      <span className="text-center text-xs font-semibold leading-tight text-ink">{label}</span>
+      {available ? (
+        <span
+          className={`absolute end-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full ${
+            installed ? "bg-teal text-white" : "bg-hairline text-muted"
+          }`}
+        >
+          {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}
+        </span>
+      ) : (
+        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-1.5 py-0.5 text-[10px] font-medium text-muted">
+          {t("apps.unavailable")}
+        </span>
+      )}
+    </>
+  );
+
+  const cardClass =
+    "relative flex h-full flex-col items-center gap-2 rounded-xl bg-card p-3 pt-6 shadow-soft transition";
+
+  if (!available) {
+    return (
+      <div aria-disabled className={`${cardClass} opacity-50`}>
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      aria-pressed={installed}
+      aria-label={label}
+      onClick={() => (installed ? uninstall(manifest.id) : install(manifest.id))}
+      className={`${cardClass} active:scale-95`}
+    >
+      {inner}
+    </button>
+  );
+}
 
 export default function CatalogPage() {
   const { t } = useI18n();
+  const apps = useRegisteredApps();
+  const installed = useInstalledApps();
 
   return (
     <>
       <h1 className="px-1 text-xl font-bold text-ink">{t("catalog.title")}</h1>
-      <section className="flex flex-1 flex-col">
-        <EmptyState
-          icon={<GridIcon />}
-          title={t("catalog.emptyTitle")}
-          hint={t("catalog.emptyHint")}
-        />
+      <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-3">
+        {apps.map((manifest) => (
+          <CatalogCard
+            key={manifest.id}
+            manifest={manifest}
+            installed={installed.includes(manifest.id)}
+          />
+        ))}
       </section>
     </>
   );

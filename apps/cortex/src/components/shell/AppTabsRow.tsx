@@ -2,20 +2,19 @@
 
 /**
  * The app "tabs" row — a YouTube-style horizontal chip strip rendered by the
- * shell directly under the Header, so it appears on EVERY screen (including when
- * a sub-app is open). Presentational: it receives resolved tabs (label already
- * translated, from the core registry via AppShell) and shows them as pill chips.
- * Every chip navigates: "הכל" → Home (the glance grid), each registry tool → its
- * real page, each placeholder chip → its throwaway page under /tools/*. The
- * selected (dark) chip is derived from the current route. The trailing "+" pill
- * links to the catalog. The row scrolls horizontally (RTL: starts at the right,
- * overflowing to the left) with the scrollbar hidden.
+ * shell directly under the Header, so it appears on EVERY screen. It shows only
+ * the INSTALLED apps (passed in, already resolved from the registry): "הכל" →
+ * Home, one chip per installed app → its page, and a trailing "+" → the catalog.
+ * The selected (dark) chip is derived from the current route. Long-pressing (or
+ * right-clicking / pressing Delete on) an installed chip opens a small menu to
+ * uninstall it. The row scrolls horizontally (RTL) with the scrollbar hidden.
  */
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PlusIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
-import { PLACEHOLDER_APPS } from "@/lib/placeholder-apps";
+import { uninstall } from "@/lib/installed-apps";
 
 export interface ToolTab {
   id: string;
@@ -26,19 +25,33 @@ export interface ToolTab {
 const CHIP_BASE =
   "shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition active:scale-95";
 
+const LONG_PRESS_MS = 500;
+
 export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const { t } = useI18n();
   const pathname = usePathname();
 
-  // "הכל" (Home) + real registry tools + temporary placeholder apps. Each chip
-  // carries the route it navigates to.
-  const chips: { id: string; label: string; route: string }[] = [
-    { id: "all", label: t("home.allTab"), route: "/" },
-    ...tools.map((tab) => ({ id: tab.id, label: tab.label, route: tab.route })),
-    ...PLACEHOLDER_APPS.map((app) => ({ id: app.id, label: t(app.labelKey), route: app.route })),
-  ];
+  // Open uninstall menu: which app + where to anchor it (viewport coords).
+  const [menu, setMenu] = useState<{ id: string; label: string; x: number; y: number } | null>(
+    null,
+  );
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set when a long-press fired so the ensuing click doesn't also navigate.
+  const suppressClick = useRef(false);
 
   const isActive = (route: string) => (route === "/" ? pathname === "/" : pathname === route);
+
+  const openMenu = (tab: ToolTab, x: number, y: number) => {
+    suppressClick.current = true;
+    setMenu({ id: tab.id, label: tab.label, x, y });
+  };
+
+  const clearTimer = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
 
   return (
     <div
@@ -46,17 +59,55 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       aria-label={t("home.appTabsLabel")}
       className="no-scrollbar flex gap-2 overflow-x-auto pb-2"
     >
-      {chips.map((chip) => {
-        const active = isActive(chip.route);
+      {/* "הכל" — Home / the glance view. Not removable. */}
+      <Link
+        href="/"
+        role="tab"
+        aria-selected={isActive("/")}
+        className={`${CHIP_BASE} ${isActive("/") ? "bg-ink text-screen" : "bg-hairline text-ink"}`}
+      >
+        {t("home.allTab")}
+      </Link>
+
+      {/* Installed apps — long-press / right-click / Delete to uninstall. */}
+      {tools.map((tab) => {
+        const active = isActive(tab.route);
         return (
           <Link
-            key={chip.id}
-            href={chip.route}
+            key={tab.id}
+            href={tab.route}
             role="tab"
             aria-selected={active}
             className={`${CHIP_BASE} ${active ? "bg-ink text-screen" : "bg-hairline text-ink"}`}
+            onClick={(e) => {
+              if (suppressClick.current) {
+                e.preventDefault();
+                suppressClick.current = false;
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              openMenu(tab, e.clientX, e.clientY);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Delete" || e.key === "Backspace" || e.key === "ContextMenu") {
+                e.preventDefault();
+                const r = e.currentTarget.getBoundingClientRect();
+                openMenu(tab, r.left, r.bottom);
+              }
+            }}
+            onPointerDown={(e) => {
+              if (e.pointerType !== "touch") return;
+              clearTimer();
+              const { clientX, clientY } = e;
+              pressTimer.current = setTimeout(() => openMenu(tab, clientX, clientY), LONG_PRESS_MS);
+            }}
+            onPointerUp={clearTimer}
+            onPointerCancel={clearTimer}
+            onPointerLeave={clearTimer}
+            onPointerMove={clearTimer}
           >
-            {chip.label}
+            {tab.label}
           </Link>
         );
       })}
@@ -69,6 +120,36 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       >
         <PlusIcon width={18} height={18} />
       </Link>
+
+      {menu ? (
+        <>
+          {/* Outside-press catcher — closes the menu. */}
+          <button
+            type="button"
+            aria-label={t("common.close")}
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setMenu(null)}
+          />
+          <div
+            role="menu"
+            aria-label={menu.label}
+            className="ds-panel fixed z-50 min-w-36 overflow-hidden rounded-xl bg-card p-1 shadow-lifted"
+            style={{ top: menu.y + 4, left: menu.x }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                uninstall(menu.id);
+                setMenu(null);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium text-coral transition active:scale-95"
+            >
+              {t("apps.remove")}
+            </button>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

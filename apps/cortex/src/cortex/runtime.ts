@@ -26,6 +26,7 @@ import { manifest } from "@/tools/inventory/manifest";
 import { createInventoryLogic } from "@/tools/inventory/logic";
 import { createInventoryIntents } from "@/tools/inventory/intents";
 import { listeners } from "@/tools/inventory/events";
+import { STUB_APPS } from "@/tools/stub-apps";
 import { DEV_CTX } from "./dev-ctx";
 
 export interface Runtime {
@@ -46,6 +47,13 @@ function build(): Runtime {
   const inventoryLogic = createInventoryLogic({ db, emit: eventBus.emit });
   if (!getApp(manifest.id)) {
     registerApp(manifest, createInventoryIntents(inventoryLogic), listeners);
+  }
+
+  // TEMP: register the placeholder apps as real registry entries (no intents),
+  // so chips/Home/catalog read a SINGLE source of truth. Replace with real
+  // manifests as tools are built.
+  for (const stub of STUB_APPS) {
+    if (!getApp(stub.id)) registerApp(stub);
   }
 
   return { db, runIntent: dataLayer.runIntent, emit: eventBus.emit };
