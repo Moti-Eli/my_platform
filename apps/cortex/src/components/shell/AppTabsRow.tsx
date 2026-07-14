@@ -6,10 +6,11 @@
  * the INSTALLED apps (passed in, already resolved from the registry): "הכל" →
  * Home, one chip per installed app → its page, and a trailing "+" → the catalog.
  * The selected (dark) chip is derived from the current route. Long-pressing (or
- * right-clicking / pressing Delete on) an installed chip opens a small menu to
- * uninstall it. The row scrolls horizontally (RTL) with the scrollbar hidden.
+ * right-clicking / pressing Delete on) an installed chip opens a small menu,
+ * anchored to that chip, to uninstall it. The row scrolls horizontally (RTL)
+ * with the scrollbar hidden.
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PlusIcon } from "@/components/icons";
@@ -26,24 +27,37 @@ const CHIP_BASE =
   "shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition active:scale-95";
 
 const LONG_PRESS_MS = 500;
+/** Gap between a chip and its popover, and a rough popover height for the
+ * below/above flip decision. */
+const MENU_GAP = 6;
+const MENU_EST_HEIGHT = 44;
+
+/** Where the open menu is anchored — the target chip's viewport geometry. */
+interface MenuAnchor {
+  id: string;
+  label: string;
+  centerX: number;
+  top: number;
+  bottom: number;
+}
 
 export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const { t } = useI18n();
   const pathname = usePathname();
 
-  // Open uninstall menu: which app + where to anchor it (viewport coords).
-  const [menu, setMenu] = useState<{ id: string; label: string; x: number; y: number } | null>(
-    null,
-  );
+  const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set when a long-press fired so the ensuing click doesn't also navigate.
   const suppressClick = useRef(false);
 
   const isActive = (route: string) => (route === "/" ? pathname === "/" : pathname === route);
 
-  const openMenu = (tab: ToolTab, x: number, y: number) => {
+  // Anchor the menu to the chip element itself (centered on it), so it's obvious
+  // which chip is being removed regardless of where the pointer/cursor was.
+  const openMenu = (tab: ToolTab, chip: HTMLElement) => {
+    const r = chip.getBoundingClientRect();
     suppressClick.current = true;
-    setMenu({ id: tab.id, label: tab.label, x, y });
+    setMenu({ id: tab.id, label: tab.label, centerX: r.left + r.width / 2, top: r.top, bottom: r.bottom });
   };
 
   const clearTimer = () => {
@@ -52,6 +66,22 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       pressTimer.current = null;
     }
   };
+
+  // Close the popover on Escape.
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenu(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menu]);
+
+  // Flip above the chip if there isn't room below it in the viewport.
+  const placeAbove =
+    menu !== null &&
+    typeof window !== "undefined" &&
+    menu.bottom + MENU_GAP + MENU_EST_HEIGHT > window.innerHeight;
 
   return (
     <div
@@ -72,13 +102,16 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       {/* Installed apps — long-press / right-click / Delete to uninstall. */}
       {tools.map((tab) => {
         const active = isActive(tab.route);
+        const menuOpen = menu?.id === tab.id;
         return (
           <Link
             key={tab.id}
             href={tab.route}
             role="tab"
             aria-selected={active}
-            className={`${CHIP_BASE} ${active ? "bg-ink text-screen" : "bg-hairline text-ink"}`}
+            className={`${CHIP_BASE} ${active ? "bg-ink text-screen" : "bg-hairline text-ink"} ${
+              menuOpen ? "ring-2 ring-coral" : ""
+            }`}
             onClick={(e) => {
               if (suppressClick.current) {
                 e.preventDefault();
@@ -87,20 +120,19 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              openMenu(tab, e.clientX, e.clientY);
+              openMenu(tab, e.currentTarget);
             }}
             onKeyDown={(e) => {
               if (e.key === "Delete" || e.key === "Backspace" || e.key === "ContextMenu") {
                 e.preventDefault();
-                const r = e.currentTarget.getBoundingClientRect();
-                openMenu(tab, r.left, r.bottom);
+                openMenu(tab, e.currentTarget);
               }
             }}
             onPointerDown={(e) => {
               if (e.pointerType !== "touch") return;
               clearTimer();
-              const { clientX, clientY } = e;
-              pressTimer.current = setTimeout(() => openMenu(tab, clientX, clientY), LONG_PRESS_MS);
+              const chip = e.currentTarget;
+              pressTimer.current = setTimeout(() => openMenu(tab, chip), LONG_PRESS_MS);
             }}
             onPointerUp={clearTimer}
             onPointerCancel={clearTimer}
@@ -112,11 +144,15 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         );
       })}
 
-      {/* Trailing "+" pill — same chip design; opens the full tool catalog. */}
+      {/* Trailing "+" pill — same chip design AND same route-active treatment. */}
       <Link
         href="/catalog"
+        role="tab"
+        aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
-        className={`${CHIP_BASE} flex items-center justify-center bg-hairline text-ink`}
+        className={`${CHIP_BASE} flex items-center justify-center ${
+          isActive("/catalog") ? "bg-ink text-screen" : "bg-hairline text-ink"
+        }`}
       >
         <PlusIcon width={18} height={18} />
       </Link>
@@ -130,11 +166,18 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setMenu(null)}
           />
+          {/* Small popover anchored to (and centered on) the target chip. Fixed
+              position so the row's horizontal overflow never clips it and the
+              row layout never shifts. */}
           <div
             role="menu"
             aria-label={menu.label}
-            className="ds-panel fixed z-50 min-w-36 overflow-hidden rounded-xl bg-card p-1 shadow-lifted"
-            style={{ top: menu.y + 4, left: menu.x }}
+            className="ds-panel fixed z-50 rounded-lg bg-card p-1 shadow-lifted"
+            style={{
+              left: menu.centerX,
+              top: placeAbove ? menu.top - MENU_GAP : menu.bottom + MENU_GAP,
+              transform: placeAbove ? "translate(-50%, -100%)" : "translateX(-50%)",
+            }}
           >
             <button
               type="button"
@@ -143,7 +186,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
                 uninstall(menu.id);
                 setMenu(null);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-start text-sm font-medium text-coral transition active:scale-95"
+              className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral transition active:scale-95"
             >
               {t("apps.remove")}
             </button>
