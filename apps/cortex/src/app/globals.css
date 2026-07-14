@@ -91,3 +91,13 @@ body {
     animation: none;
   }
 }
+
+/* Horizontal chip rows scroll but hide the scrollbar (touch/trackpad/keyboard
+ * scrolling still work). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -45,6 +45,7 @@ const he = {
   },
   home: {
     appTabsLabel: "לשוניות כלים",
+    allTab: "הכל",
     dashboardLabel: "לוח מחוונים",
     emptyTitle: "עדיין אין כלים מוצמדים",
     emptyHint: "כלים שתצמיד יופיעו כאן על לוח המחוונים.",
@@ -116,6 +117,7 @@ const en: Messages = {
   },
   home: {
     appTabsLabel: "Tool tabs",
+    allTab: "All",
     dashboardLabel: "Dashboard",
     emptyTitle: "Nothing pinned yet",
     emptyHint: "Tools you pin will appear here on the dashboard.",
