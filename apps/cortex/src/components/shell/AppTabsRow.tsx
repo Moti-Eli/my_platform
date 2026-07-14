@@ -44,7 +44,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
     <div
       role="tablist"
       aria-label={t("home.appTabsLabel")}
-      className="no-scrollbar flex gap-2 overflow-x-auto pb-1"
+      className="no-scrollbar flex gap-2 overflow-x-auto pb-2"
     >
       {chips.map((chip) => {
         const active = isActive(chip.route);

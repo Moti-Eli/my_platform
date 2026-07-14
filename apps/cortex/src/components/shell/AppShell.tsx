@@ -61,7 +61,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <AppTabsRow tools={tabs} />
         </div>
 
-        <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-2">{children}</main>
+        {/* Full-bleed hairline separating the chips row from the screen content.
+            Lives inside the scroll area, so it scrolls off with the header/chips. */}
+        <div className="h-px w-full bg-hairline" />
+
+        <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
       </div>
 
       <TabBar onOpenAi={() => setAiOpen(true)} />
