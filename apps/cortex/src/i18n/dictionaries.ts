@@ -15,6 +15,7 @@ const he = {
   common: {
     close: "סגירה",
     search: "חיפוש",
+    searchPlaceholder: "חיפוש...",
     send: "שליחה",
     mainNav: "ניווט ראשי",
     settings: "הגדרות",
@@ -37,6 +38,10 @@ const he = {
     title: "מה דחוף היום",
     emptyTitle: "אין התראות דחופות כרגע",
     emptyHint: "דברים שדורשים תשומת לב יופיעו כאן.",
+  },
+  notifications: {
+    title: "התראות",
+    empty: "אין התראות עדיין",
   },
   home: {
     appTabsLabel: "לשוניות כלים",
@@ -81,6 +86,7 @@ const en: Messages = {
   common: {
     close: "Close",
     search: "Search",
+    searchPlaceholder: "Search...",
     send: "Send",
     mainNav: "Main navigation",
     settings: "Settings",
@@ -103,6 +109,10 @@ const en: Messages = {
     title: "What's urgent today",
     emptyTitle: "Nothing urgent right now",
     emptyHint: "Things that need your attention will appear here.",
+  },
+  notifications: {
+    title: "Notifications",
+    empty: "No notifications yet",
   },
   home: {
     appTabsLabel: "Tool tabs",
