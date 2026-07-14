@@ -23,8 +23,10 @@ export interface ToolTab {
   route: string;
 }
 
+// `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
+// inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full px-4 text-sm font-medium touch-manipulation transition active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -129,6 +131,10 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
               }
             }}
             onPointerDown={(e) => {
+              // A fresh press must never be gated by a stale suppress flag left
+              // by an earlier long-press whose popover was dismissed without
+              // tapping the chip — otherwise this tap gets swallowed.
+              suppressClick.current = false;
               if (e.pointerType !== "touch") return;
               clearTimer();
               const chip = e.currentTarget;
@@ -150,7 +156,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         role="tab"
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
-        className={`${CHIP_BASE} flex items-center justify-center ${
+        className={`${CHIP_BASE} ${
           isActive("/catalog") ? "bg-ink text-screen" : "bg-hairline text-ink"
         }`}
       >
