@@ -20,12 +20,12 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex items-center gap-3 bg-screen/90 px-5 py-4 backdrop-blur">
+      <header className="flex items-center gap-3 px-5 py-4">
         <button
           type="button"
           aria-label={t("common.search")}
           onClick={() => setSearchOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-ink shadow-soft transition active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center text-ink transition active:scale-95"
         >
           <SearchIcon />
         </button>
@@ -42,7 +42,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           type="button"
           aria-label={t("urgency.title")}
           onClick={onOpenInbox}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-ink shadow-soft transition active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center text-ink transition active:scale-95"
         >
           <BellIcon />
         </button>
