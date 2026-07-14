@@ -15,6 +15,11 @@ import { useI18n } from "@/i18n";
 import { BoxIcon } from "@/components/icons";
 import type { InventoryItem } from "../logic";
 
+/** Cap on preview rows so the Home card stays a fixed height (matching the other
+ * preview cards) no matter how many items are low — the header count still shows
+ * the real total. */
+const MAX_PREVIEW_ROWS = 4;
+
 export function DashboardCard() {
   const { t } = useI18n();
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -49,7 +54,7 @@ export function DashboardCard() {
 
       {low.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
-          {low.map((item) => (
+          {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
             <li
               key={item.id}
               className="flex items-center justify-between rounded-lg bg-screen px-3 py-2"
