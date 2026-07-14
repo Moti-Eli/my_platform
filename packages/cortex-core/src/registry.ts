@@ -86,6 +86,11 @@ export function getApp(id: string): RegisteredApp | undefined {
   return apps.get(id);
 }
 
+/** Every registered app, in registration order (e.g. for the shell to render pinned tools). */
+export function listApps(): RegisteredApp[] {
+  return [...apps.values()];
+}
+
 /**
  * List available intents, optionally narrowed to a set of apps.
  *

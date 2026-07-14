@@ -54,7 +54,38 @@ sections: **שפה** (language he/en), **נראות** (theme cards light/dark), 
 **גרסה** (read-only). The app version is a single source of truth —
 `package.json`'s `version`, read via `@/lib/version` (`APP_VERSION`) — and shown
 in Settings. **Standing rule:** bump `package.json` at the end of every unit of
-work that ends in a commit (patch/minor/major); currently **0.2.0**.
+work that ends in a commit (patch/minor/major); currently **0.3.0**.
+
+## Tools (sub-apps)
+
+Tools live in `src/tools/<id>/` and follow `docs/Cortex-SubApp-Standard.md`
+(§2 file template). The shell hosts; the tool implements. Each tool is registered
+with `@platform/cortex-core` at startup by `src/cortex/runtime.ts` (the client
+composition root), and its views are mapped in `src/tools/index.ts` (`TOOL_VIEWS`)
+so Home can render it as a pinned tab + dashboard card.
+
+**First tool — Inventory** (`src/tools/inventory/`): `manifest.ts`, `intents.ts`
+(3 zod intents), `logic.ts` (the only code that touches the db client / emits
+events — handlers hold no SQL), `events.ts`, `schema.sql`, `views/`
+(`DashboardCard`, `FullScreen`), `i18n/{he,en}.json`. Opens at `/tools/inventory`.
+Updating a quantity below its reorder threshold emits `inventory.low` (persisted
+to the `events` table via the event-bus) and every call is audited to `ai_log` —
+all through `runIntent`, the one door.
+
+- **Dev context** (`src/cortex/dev-ctx.ts`, `// DEV ONLY`): a single hard-coded
+  `Ctx` passed to `runIntent` until auth is wired. **Data backend**: the runtime
+  uses the in-memory `CortexDb` (the same port a Supabase adapter will implement),
+  so the mechanism runs pre-auth. The DB migration
+  (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
+  applied** — run `db push` yourself.
+- **Acceptance smoke** (no browser/DB needed):
+
+  ```bash
+  pnpm --filter @platform/cortex smoke:inventory
+  ```
+
+  Proves: add product → update below threshold → `inventory.low` lands in
+  `events` + `ai_log` audit rows, via `runIntent`.
 
 ## Run it
 

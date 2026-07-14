@@ -31,12 +31,16 @@ export {
   registerApp,
   getIntent,
   getApp,
+  listApps,
   listIntents,
   getListeners,
   clearRegistry,
   appIdOf,
 } from "./registry";
 export type { RegisteredApp } from "./registry";
+
+// --- Tool authoring helpers (Standard §4, §5) -------------------------------
+export { defineIntent, defineListener } from "./define";
 
 // --- Data-layer / runIntent (Standard §7, task 4) ---------------------------
 export {
@@ -53,4 +57,4 @@ export type { EventBus } from "./event-bus";
 
 // --- Database port (the "provided db client" of §7) -------------------------
 export { createInMemoryDb } from "./db";
-export type { CortexDb, InMemoryDb } from "./db";
+export type { CortexDb, InMemoryDb, DbRow, DbMatch } from "./db";

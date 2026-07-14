@@ -1,0 +1,18 @@
+{
+  "name": "Inventory",
+  "lowItems": "products low",
+  "allStocked": "All stocked",
+  "lowBadge": "low",
+  "openTool": "Open inventory",
+  "addProduct": "Add product",
+  "productName": "Product name",
+  "quantity": "Quantity",
+  "unit": "Unit",
+  "threshold": "Reorder threshold",
+  "add": "Add",
+  "cancel": "Cancel",
+  "emptyTitle": "No products yet",
+  "emptyHint": "Add your first product to get started.",
+  "decrease": "Decrease",
+  "increase": "Increase"
+}

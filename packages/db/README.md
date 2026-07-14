@@ -49,6 +49,12 @@ full explanation.
   auth.uid()` OR member of `org_id`, via `auth_user_is_member_of`); shell writes
   go through `service_role` (no client write policies yet). See `SCHEMA.md`
   "Cortex Shell Tables" and `packages/cortex-core`.
+- `20260714000002_inventory_items.sql` — **Cortex Inventory tool** table
+  (additive): the first tool table, with the three mandatory fields
+  (`instance_id`, `owner_id`, `org_id`), indexes on the isolation fields, and RLS
+  (SELECT via `auth_user_is_member_of`; writes `service_role`-only until Cortex
+  auth lands — `memberships` has no `role` column for §6's owner/manager check).
+  Mirrors `apps/cortex/src/tools/inventory/schema.sql`. See ARCHITECTURE.md #30.
 
 ## Usage
 

@@ -136,3 +136,28 @@ export function CheckIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function BoxIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 8.5 12 4l8 4.5v7L12 20l-8-4.5v-7Z" />
+      <path d="M4 8.5 12 13l8-4.5M12 13v7" />
+    </svg>
+  );
+}
+
+export function PlusIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+export function MinusIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  );
+}

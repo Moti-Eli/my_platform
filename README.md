@@ -180,6 +180,52 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   smoke`); package typechecks under strict mode. No sub-apps / UI / AI yet.
 - See ARCHITECTURE.md #27.
 
+**Phase 11: Cortex — First Sub-App: Inventory** ✅
+- ✅ **Inventory** is the first real Cortex tool and the reference every future
+  tool copies, per `docs/Cortex-SubApp-Standard.md` (§2 file template, §6 DB,
+  §7 one-door data-layer). Additive to `apps/cortex` + `@platform/cortex-core`;
+  touches no web/mobile/chat/auth code. Folder:
+  `apps/cortex/src/tools/inventory/` (`manifest.ts`, `intents.ts`, `logic.ts`,
+  `events.ts`, `schema.sql`, `views/`, `i18n/`).
+- ✅ **3 intents** (zod in/out, `inventory.*`): `query_stock`, `update_quantity`
+  (emits `inventory.updated`, and `inventory.low` when below the reorder
+  threshold), `add_product`. All run through `runIntent` (audited to `ai_log`);
+  handlers contain **zero SQL** — they delegate to `logic.ts`, the only code that
+  touches the db client / emits events. No listeners yet (decoupled emitter).
+- ✅ **Migration** `20260714000002_inventory_items.sql` (additive; **not
+  applied** — run `db push` yourself): the three mandatory fields + indexes + RLS
+  (SELECT via `auth_user_is_member_of`; writes `service_role`-only for now).
+- ✅ **Views** from design-system + i18n only (amber accent; no hard-coded colors
+  or text): a Home **dashboard card** (low-stock summary) + a **full screen**
+  (`/tools/inventory`) with add-product and inline quantity update. Registered at
+  startup → shows as a pinned **tab + card** on Home.
+- ✅ **Dev context**: one `// DEV ONLY` file (`DEV_CTX`) passed to `runIntent`
+  until auth lands; runtime uses the in-memory `CortexDb` (same port a Supabase
+  adapter will implement). i18n he/en for all Inventory strings.
+- ✅ Acceptance smoke passes (`pnpm --filter @platform/cortex smoke:inventory`):
+  add → update-below-threshold → `inventory.low` in `events` + `ai_log` rows.
+  Typecheck/lint/build pass; version bumped **0.3.0**. See ARCHITECTURE.md #30.
+
+**Phase 10: Cortex Settings — i18n + Themes + Version** ✅
+- ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client
+  provider (`useI18n` → `{ locale, dir, t, setLocale }`); **not** next-intl (a
+  routing-based lib is too heavy for a shell where language is a persisted
+  setting). All existing shell strings converted to typed keys; `he` default,
+  `en` full parallel; **`dir` flips with the language**.
+- ✅ **Themes** on top of the design-system tokens (`themes` = `light` + `dark`);
+  a theme is just an alternate token set emitted per `[data-theme]`, so adding
+  more later needs no component changes. Switch flips `data-theme` on `<html>`.
+- ✅ Language + theme **persisted in cookies**, read server-side in the layout so
+  the first paint is correct (no flash) — the "saved on this device" behavior.
+- ✅ **Settings screen** (`/settings`, reached from the header gear or Profile):
+  שפה (he/en), נראות (theme cards), גרסה (read-only). Built from
+  `@/design-system` + i18n only — no hard-coded colors or strings.
+- ✅ **Version** single source of truth = `apps/cortex/package.json` (read via
+  `@/lib/version`), shown in Settings; **bumped to 0.2.0**. Standing rule: bump
+  it at the end of every unit of work that commits. Typecheck/lint/build pass;
+  runtime-verified (he↔en `dir`/text switch, dark theme, "גרסה 0.2.0"). See
+  ARCHITECTURE.md #29.
+
 **Phase 9: Cortex Shell UI + PWA** ✅ (frame only)
 - ✅ New isolated app `apps/cortex` (`@platform/cortex`) — a phone-first, RTL
   Hebrew Next.js App Router shell; does not touch `apps/web` or `apps/mobile`.
@@ -429,6 +475,15 @@ no AI model calls):
   Tailwind utilities via `@theme inline`; no hard-coded colors. Palette: indigo
   `#5B4CE0`, teal `#12A08E`, coral `#F5744F`, amber `#DE982B`, ink `#221E31`,
   screen `#F7F6FB`.
+- **Settings** (`/settings`): language (he/en i18n), appearance (light/dark
+  themes on the design-system tokens), and app version — persisted in cookies.
+  Version is a single source of truth (`package.json` → `@/lib/version`), shown
+  in Settings. Currently **v0.3.0**.
+- **Tools** (`src/tools/<id>/`): sub-apps per `docs/Cortex-SubApp-Standard.md`.
+  First tool: **Inventory** (`src/tools/inventory/`) — manifest/intents/logic/
+  events/schema/views/i18n, registered at startup, shown on Home (tab + card),
+  full screen at `/tools/inventory`. Acceptance smoke:
+  `pnpm --filter @platform/cortex smoke:inventory`.
 - **PWA**: `public/manifest.webmanifest` + a hand-rolled `public/sw.js` (offline
   app-shell). Isolated — touches no existing web/mobile code.
 

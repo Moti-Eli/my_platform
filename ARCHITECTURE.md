@@ -826,6 +826,133 @@ comms/notifications. No DB changes in this milestone.
 
 ---
 
+## 29. Cortex Settings — Client i18n, Token-Set Themes, Cookie-Persisted, Versioned
+
+**Decision:** Give the Cortex shell a Settings screen with three concerns —
+**language** (he/en), **appearance** (light/dark themes), and a read-only **app
+version** — using a **client-side typed i18n dictionary** and a **theme = token
+set** mechanism, both **persisted in cookies** and read server-side for a
+flash-free first paint. Additive to `apps/cortex` only.
+
+**i18n: a typed client dictionary, not next-intl.** `apps/web` uses next-intl,
+which is built around **locale-prefixed routing** and server message loading.
+The Cortex shell is a single installable PWA where the user picks a language in
+Settings and it persists locally, switching **live with no route change** — the
+routing model doesn't fit. So Cortex uses a minimal `src/i18n/` layer: `he`/`en`
+dictionaries, a `useI18n()` context exposing a **type-checked** `t("ns.key")`,
+and `dir` that follows the language. It adds no dependency and keeps every UI
+string out of components. (If a third locale or richer pluralization is ever
+needed, this can graduate — but it isn't now.)
+
+**Themes are alternate token sets, not new CSS.** Building on decision #28's
+design-system, a theme is just a different set of `--ds-*` values. `themes`
+holds `light` (default) and `dark`; `themeStylesheet()` emits each under
+`[data-theme="…"]`, structural tokens stay on `:root`, and switching flips
+`data-theme` on `<html>`. Because components only use token-driven utilities,
+adding Midnight/Aurora/Parchment later is **one new entry in `themes`** with zero
+component changes — the property the prompt asked for.
+
+**Cookie persistence, read server-side.** Language and theme are stored in
+cookies (not localStorage) and read in the root layout, so the very first server
+paint already has the correct `lang`/`dir`/`data-theme` — no flash, no hydration
+mismatch. This mirrors the web app's theming approach (#12) and is the "saved on
+this device" behavior. Consequence: the shell routes are now server-rendered on
+demand (reading cookies opts out of static prerender) — appropriate for an app
+shell.
+
+**Single-source version + a standing bump rule.** The app version lives in ONE
+place — `apps/cortex/package.json`'s `version` — and the UI reads it via
+`@/lib/version` (`APP_VERSION`), never hard-coding it twice. Adopted as a
+**standing rule for all Cortex work**: bump `package.json` (semver) at the end of
+every unit of work that ends in a commit — patch for fixes, minor for a new
+feature/tool, major only at a real user release. This Settings feature bumped
+Cortex **0.1.0 → 0.2.0**, shown in Settings as "גרסה 0.2.0".
+
+**Reasoning:** Keeping i18n and theming as thin, client-persisted, token-driven
+layers matches the shell's "frame, not logic" role (#27/#28) and the design-
+system-consumes-not-invents principle. Choosing a typed dictionary over next-intl
+avoids restructuring the app around locale routes for a preference that is really
+a toggle. Verified at runtime: `lang`/`dir` and copy switch he↔en, dark theme
+applies via `data-theme`, and Settings shows the single-sourced version — plus
+typecheck, lint, and a production build.
+
+**Status / sequencing:** Delivered. No DB changes, no sub-apps, no AI calls. More
+themes and localized metadata can follow additively.
+
+---
+
+## 30. Cortex Inventory — the First Sub-App (reference tool)
+
+**Decision:** Build **Inventory** as the first real Cortex tool and the reference
+implementation every future tool copies, following `docs/Cortex-SubApp-Standard.md`
+exactly: the §2 file template (`manifest.ts`, `intents.ts`, `schema.sql`,
+`logic.ts`, `events.ts`, `views/`, `i18n/`), the manifest/intents/events formats,
+the §6 three-mandatory-fields + RLS, and the §7 one-door data-layer. Additive to
+`apps/cortex` + `@platform/cortex-core`; touches no existing web/mobile/chat/auth
+code. A thin-but-complete vertical slice that exercises the whole mechanism on
+minimal content — not a full inventory product.
+
+**The one door, everywhere.** The three intents (`inventory.query_stock`,
+`inventory.update_quantity`, `inventory.add_product`) are zod-validated in and
+out and run only through `runIntent`, which writes the mandatory `ai_log` audit
+row. Handlers contain **zero SQL** — they delegate to `logic.ts`, the only place
+that touches the provided db client or emits events. `update_quantity` emits
+`inventory.updated` and, when the new quantity drops below the reorder threshold,
+`inventory.low {product, quantity, threshold}` — persisted to `events` before any
+listener runs. There are no listeners yet; the emitting tool is fully decoupled
+from whoever will later react (tasks, finance, notifications).
+
+**Core additions (additive).** `@platform/cortex-core` gained the `defineIntent`
+/ `defineListener` authoring helpers the standard's §4/§5 use, a `listApps()` for
+the shell to enumerate registered tools, and `select`/`update` on the `CortexDb`
+port (the core itself still only `insert`s; tool logic reads/updates its own
+table through the same one client — never raw SQL).
+
+**Dev context + in-memory backend (both clearly fenced, both swappable).** Cortex
+has no auth wired yet, so every call runs under a single hard-coded `DEV_CTX`
+(userId/orgId/instanceId) isolated in one `// DEV ONLY` file — delete it and
+derive `Ctx` from the real session when auth lands; nothing else changes. Until
+Supabase + auth are wired, the runtime uses the in-memory `CortexDb` (the SAME
+port a Supabase adapter will implement), so `runIntent`/`emit`/`ai_log`/`events`
+all exercise the real mechanism. The **schema migration is written but not
+applied** (`20260714000002_inventory_items.sql`); the owner runs `db push`.
+
+**RLS write policy — deferred, consistent with #27/#11.** `inventory_items`
+carries the three mandatory fields, indexes on `(instance_id)`/`(org_id)`, and a
+SELECT policy (`owner_id = auth.uid()` OR `auth_user_is_member_of(org_id)`). §6's
+`role in ('owner','manager')` write policy is **not expressible** in this repo —
+`memberships` has no `role` column (roles live in `roles`/`membership_roles` with
+`is_admin`) — so, matching the established convention, there is **no client write
+policy**; tool writes go through the data-layer as `service_role` until Cortex
+auth and a reviewed permission-checked write policy land.
+
+**Design & language consumed, not invented.** Both views (`DashboardCard`,
+`FullScreen`) are built only from design-system token utilities (amber accent
+from the palette) and i18n `t()` keys — zero hard-coded colors or text. The
+tool ships `i18n/he.json` + `en.json`, merged into the central typed dictionary
+under the `inventory` namespace (§8). Home renders pinned tools from the registry
++ a `TOOL_VIEWS` map: the tool shows as a tab + dashboard card and opens a full
+screen at `/tools/inventory`.
+
+**Reasoning:** Proving the entire contract on one small tool establishes the
+copy-paste pattern and validates that the platform's promise — uniform AI access,
+audited writes, decoupled events, tenant-isolated tables — actually holds. Doing
+it in-memory behind the real `CortexDb` port keeps it runnable pre-auth while the
+migration encodes the real DB standard for when auth arrives.
+
+**Verified:** the §9 checklist; an acceptance smoke
+(`pnpm --filter @platform/cortex smoke:inventory`) proving add → update-below-
+threshold → an `inventory.low` row in `events` + `ai_log` audit rows via
+`runIntent`; typecheck + lint + build; and the routes render he/en. Cortex version
+bumped **0.2.0 → 0.3.0** (new feature) per #29, shown in Settings.
+
+**Status / sequencing:** Delivered. No second tool, no real auth, no listeners
+yet. Next: wire the AI sheet to `runIntent`, add auth (replace `DEV_CTX` + swap
+the in-memory backend for Supabase), then a second tool + the first cross-tool
+`inventory.low` listener.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

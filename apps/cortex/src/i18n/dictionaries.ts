@@ -5,6 +5,11 @@
  * {@link MessageKey}.
  */
 import type { Locale } from "./config";
+// Tool dictionaries are supplied by each tool and merged here under the tool's
+// namespace (Standard §8: central i18n consumes tool keys). Keys become
+// type-checked (e.g. t("inventory.name")).
+import inventoryHe from "@/tools/inventory/i18n/he.json";
+import inventoryEn from "@/tools/inventory/i18n/en.json";
 
 const he = {
   common: {
@@ -64,6 +69,7 @@ const he = {
     themeLight: "בהיר",
     themeDark: "כהה",
   },
+  inventory: inventoryHe,
 } as const;
 
 /** The canonical message shape (derived from `he`). */
@@ -130,6 +136,7 @@ const en: Messages = {
     themeLight: "Light",
     themeDark: "Dark",
   },
+  inventory: inventoryEn,
 };
 
 export const dictionaries: Record<Locale, Messages> = { he, en };
