@@ -12,6 +12,8 @@
  * reads and updates its own table via `select`/`update` — still going through
  * this one client, never raw SQL in a handler.
  */
+import { safeRandomUUID } from "./id";
+
 export type DbRow = Record<string, unknown>;
 /** A shallow equality match (every key must equal the row's value). */
 export type DbMatch = Record<string, unknown>;
@@ -56,7 +58,7 @@ export function createInMemoryDb(): InMemoryDb {
   return {
     async insert(table, row) {
       tableOf(table).push({
-        id: crypto.randomUUID(),
+        id: safeRandomUUID(),
         created_at: new Date().toISOString(),
         ...row,
       });

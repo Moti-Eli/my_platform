@@ -8,7 +8,7 @@
  * scoped by `instance_id` (the tool instance) for isolation, matching the three
  * mandatory fields + RLS in `schema.sql`.
  */
-import type { Ctx, CortexDb, DbRow } from "@platform/cortex-core";
+import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
 export const INVENTORY_TABLE = "inventory_items";
 
@@ -107,7 +107,7 @@ export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit })
     },
 
     async addProduct(input, ctx) {
-      const id = crypto.randomUUID();
+      const id = safeRandomUUID();
       const now = new Date().toISOString();
       await db.insert(INVENTORY_TABLE, {
         id,

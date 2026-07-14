@@ -116,8 +116,27 @@ async function seed(rt: Runtime): Promise<void> {
 
 /** Lazily build + seed the runtime once, then reuse it. */
 export function getRuntime(): Promise<Runtime> {
-  if (!runtime) runtime = build();
+  if (!runtime) {
+    try {
+      runtime = build();
+    } catch (err) {
+      // Registration is the app's foundation — never let a failure here vanish
+      // silently (which is what made a non-secure-origin crypto throw so hard to
+      // find). Log clearly, then rethrow so callers still see it.
+      console.error("Cortex runtime: init/registration failed", err);
+      throw err;
+    }
+  }
   const rt = runtime;
-  if (!ready) ready = seed(rt).then(() => rt);
+  if (!ready) {
+    ready = seed(rt)
+      .catch((err: unknown) => {
+        // Seeding is best-effort demo data; the apps are already registered, so a
+        // seed failure must NOT take down the runtime (the registry-backed
+        // catalog/chips must still work). Surface it loudly instead of swallowing.
+        console.error("Cortex runtime: inventory seed failed", err);
+      })
+      .then(() => rt);
+  }
   return ready;
 }

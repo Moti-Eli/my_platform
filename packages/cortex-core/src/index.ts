@@ -59,3 +59,6 @@ export type { EventBus } from "./event-bus";
 // --- Database port (the "provided db client" of §7) -------------------------
 export { createInMemoryDb } from "./db";
 export type { CortexDb, InMemoryDb, DbRow, DbMatch } from "./db";
+
+// --- Utilities --------------------------------------------------------------
+export { safeRandomUUID } from "./id";
