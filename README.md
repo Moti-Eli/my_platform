@@ -180,10 +180,26 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   smoke`); package typechecks under strict mode. No sub-apps / UI / AI yet.
 - See ARCHITECTURE.md #27.
 
+**Phase 9: Cortex Shell UI + PWA** ✅ (frame only)
+- ✅ New isolated app `apps/cortex` (`@platform/cortex`) — a phone-first, RTL
+  Hebrew Next.js App Router shell; does not touch `apps/web` or `apps/mobile`.
+- ✅ **Bottom tab bar** with 5 slots and the **AI as a central hero** (elevated
+  button opening an empty AI sheet — a stub that will later call `runIntent`);
+  header logo + stub search + **urgency bell** (empty "מה דחוף היום" inbox).
+- ✅ **Home** and **Profile** as empty shells (app-tabs placeholder + "nothing
+  pinned"; Identity Core placeholder); Catalog/Comms placeholder screens.
+- ✅ **`@/design-system`** tokens (palette/radii/shadows/font) as the single
+  source of truth, mapped onto Tailwind v4 utilities via `@theme inline` — no
+  hard-coded colors in components.
+- ✅ **PWA**: web manifest + hand-rolled service worker (offline app-shell),
+  installable via Add to Home Screen. Placeholder icons. Runs on `:3001`.
+- ✅ Typechecks, lints, and builds; verified at runtime (`dir="rtl" lang="he"`,
+  all screens 200, manifest + sw served). See ARCHITECTURE.md #28.
+
 **Coming Next:**
 - Mobile screens (login, navigation) — STEP 1 skeleton is in place
-- Cortex: apply the shell-tables migration, then build the first sub-app (tool
-  tables + §6 write policies) and AI wiring
+- Cortex: apply the shell-tables migration; spec Home/Profile content; wire the
+  AI sheet to `runIntent`; build the first sub-app (tool tables + §6 write policies)
 - Feature development
 
 ## 🏗️ Project Structure
@@ -192,7 +208,8 @@ A production-ready monorepo skeleton designed to scale across multiple business 
 my-platform/
 ├── apps/
 │   ├── web/          (Next.js 16 app: i18n, RTL, theming, Supabase)
-│   └── mobile/       (Expo SDK 54 + Expo Router: shares packages, login + session persistence)
+│   ├── mobile/       (Expo SDK 54 + Expo Router: shares packages, login + session persistence)
+│   └── cortex/       (Cortex super-app shell: phone-first PWA, RTL, tab bar + AI hero)
 ├── packages/
 │   ├── config/       (ESLint, TS configs, design tokens, Prettier)
 │   ├── core/         (Business logic, types, API client)
@@ -398,6 +415,34 @@ link** to hand to partners.
 `EXPO_PUBLIC_SHOW_DEMO_ACCESS`, so the seeded demo logins shown on the landing
 screen are **never bundled into the partner APK**. Keep it that way — do **not**
 add `EXPO_PUBLIC_SHOW_DEMO_ACCESS` to this profile's `env`.
+
+### `@platform/cortex`
+The **Cortex super-app shell** — a phone-first, RTL Hebrew, installable **PWA**
+(Next.js App Router) that hosts tools. **Frame only** so far (no real sub-apps,
+no AI model calls):
+- Bottom **tab bar**, 5 slots (RTL): Home · כל הכלים · **AI hero** (center,
+  elevated) · צ'אט · Profile. The AI hero opens an empty **AI sheet**; the header
+  **bell** opens an empty urgency inbox ("מה דחוף היום").
+- **Home** and **Profile** are empty shells (app-tabs placeholder + "nothing
+  pinned"; Identity Core placeholder). Catalog/Comms are placeholder screens.
+- Colors/radii/shadows in **`@/design-system`** (single source of truth) →
+  Tailwind utilities via `@theme inline`; no hard-coded colors. Palette: indigo
+  `#5B4CE0`, teal `#12A08E`, coral `#F5744F`, amber `#DE982B`, ink `#221E31`,
+  screen `#F7F6FB`.
+- **PWA**: `public/manifest.webmanifest` + a hand-rolled `public/sw.js` (offline
+  app-shell). Isolated — touches no existing web/mobile code.
+
+**Run + install on your phone:**
+
+```bash
+pnpm --filter @platform/cortex dev      # http://localhost:3001 (binds 0.0.0.0)
+```
+
+Phone on the same Wi-Fi → open `http://<YOUR-COMPUTER-LAN-IP>:3001` (find the IP
+with `ipconfig`), then Add to Home Screen (iOS Safari: Share → Add to Home
+Screen; Android Chrome: ⋮ → Install app). Offline caching (the service worker)
+needs a secure context (localhost or https) — see `apps/cortex/README.md` for the
+https-tunnel option. Icons are placeholders.
 
 ## 🔧 Configuration Files
 

@@ -772,6 +772,60 @@ deliberately deferred to later prompts.
 
 ---
 
+## 28. Cortex Shell UI — A Separate Phone-First PWA App (additive)
+
+**Decision:** Build the Cortex shell as a **new, isolated Next.js app**
+`apps/cortex` (`@platform/cortex`), not as a route inside `apps/web`. It is
+phone-first (centered on desktop), **RTL Hebrew** (`<html lang="he" dir="rtl">`),
+and an installable **PWA**. This milestone is the **visual frame only** — no real
+sub-apps, no AI/model calls: Home and Profile are empty shells, and the AI hero
+button and urgency bell open empty-shell overlays.
+
+**Why a separate app (not a route in `apps/web`).** The requirement is strict
+isolation from existing web/mobile code, and a PWA needs app-root control
+(manifest, service worker, viewport/theme, a single-purpose layout). Adding this
+inside `apps/web` would entangle its `[locale]` layout, next-intl setup, and
+root — and a service worker there would affect the landing/dashboard. A separate
+app keeps the blast radius zero and lets Cortex evolve its own shell. Cost: its
+own `package.json` (reusing the repo's existing `next`/`react`/Tailwind versions
+— no new resolutions) and port (`3001`, so web on `3000` and Cortex can run
+together).
+
+**Design system as the single source of truth.** Per the Standard's "design &
+language are consumed, not invented", the palette/radii/shadows/font live in
+`@/design-system` (`src/design-system/tokens.ts`). `tokenStylesheet()` emits them
+as `:root` CSS variables; `globals.css` maps Tailwind utilities onto those via
+`@theme inline` — the exact pattern `@platform/config` uses for web theming.
+Components use utilities (`bg-indigo`, `rounded-xl`, `shadow-soft`) and **never
+hard-code colors**, so a token change reflows everywhere.
+
+**Tab bar with AI as hero.** Five slots in RTL order — Home, כל הכלים (catalog),
+**AI hero** (center), צ'אט (comms), Profile. The four corners are route links
+(`/`, `/catalog`, `/comms`, `/profile`) with active state from `usePathname`; the
+center AI is a larger, elevated button (it is not a route) that opens a bottom
+sheet. The AI sheet's submit is a **stub** — a later prompt wires it to
+`@platform/cortex-core`'s `runIntent` so the assistant acts through the one door.
+
+**PWA hand-rolled, no library.** A static `manifest.webmanifest` plus a small
+`sw.js` (network-first navigations, cache-first assets, app-shell precache),
+registered client-side. Chosen over a build plugin to add zero dependencies and
+keep the SW auditable. Because browsers restrict service workers to a **secure
+context**, the registration no-ops over a plain-http LAN address (the app still
+loads and installs); full offline needs `localhost` or https (a tunnel) — this is
+a browser constraint, documented for the on-phone install flow. Icons are
+placeholders (SVG) to be replaced with final PNG art pre-production.
+
+**Reasoning:** Keeping the shell a thin, isolated, token-driven frame mirrors the
+core's philosophy (#27): the shell hosts, it does not implement. Verified at
+runtime — `dir="rtl" lang="he"`, all screens return 200, and the manifest/service
+worker are served — in addition to typecheck, lint, and a production build.
+
+**Status / sequencing:** Frame delivered. Deferred to later prompts: Home/Profile
+content, wiring the AI sheet to `runIntent`, the tool catalog, and real
+comms/notifications. No DB changes in this milestone.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.

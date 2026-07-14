@@ -1,0 +1,83 @@
+"use client";
+
+/**
+ * The bottom tab bar — 5 slots with the AI button as a dominant central hero.
+ *
+ * RTL order (right → left, matching the Standard):
+ *   1. Home (right-most)   2. Catalog "כל הכלים"   3. AI hero (center)
+ *   4. Comms "צ'אט"        5. Profile (left-most)
+ *
+ * The four corner slots are route links (active state via the current path);
+ * the center AI hero is a button that opens the AI sheet (it is not a route).
+ */
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+import { HomeIcon, GridIcon, ChatIcon, UserIcon, SparkIcon } from "@/components/icons";
+
+function TabLink({
+  href,
+  label,
+  icon,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      className={`flex flex-1 flex-col items-center gap-1 py-1 transition ${
+        active ? "text-indigo" : "text-muted"
+      }`}
+    >
+      <span className="transition active:scale-90">{icon}</span>
+      <span className="text-[11px] font-medium">{label}</span>
+    </Link>
+  );
+}
+
+export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  return (
+    <nav
+      aria-label="ניווט ראשי"
+      className="relative z-20 mt-auto flex items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
+    >
+      <TabLink href="/" label="בית" icon={<HomeIcon />} active={isActive("/")} />
+      <TabLink
+        href="/catalog"
+        label="כל הכלים"
+        icon={<GridIcon />}
+        active={isActive("/catalog")}
+      />
+
+      {/* AI hero — larger, elevated above the bar. */}
+      <div className="flex flex-1 justify-center">
+        <button
+          type="button"
+          aria-label="עוזר ה-AI"
+          onClick={onOpenAi}
+          className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo text-white shadow-hero transition active:scale-95"
+        >
+          <SparkIcon width={28} height={28} />
+        </button>
+      </div>
+
+      <TabLink href="/comms" label="צ'אט" icon={<ChatIcon />} active={isActive("/comms")} />
+      <TabLink
+        href="/profile"
+        label="פרופיל"
+        icon={<UserIcon />}
+        active={isActive("/profile")}
+      />
+    </nav>
+  );
+}

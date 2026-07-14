@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/*
+ * Map Tailwind's utilities onto the design-system CSS variables emitted by
+ * tokenStylesheet() (see @/design-system). `inline` resolves the variables at
+ * use-time, so utilities like `bg-indigo`, `text-ink`, `rounded-xl`,
+ * `shadow-soft` are driven entirely by the tokens — no hard-coded colors in
+ * components (Cortex Standard §1 law 6).
+ */
+@theme inline {
+  --color-screen: var(--ds-screen);
+  --color-card: var(--ds-card);
+  --color-ink: var(--ds-ink);
+  --color-muted: var(--ds-muted);
+  --color-hairline: var(--ds-hairline);
+  --color-indigo: var(--ds-indigo);
+  --color-teal: var(--ds-teal);
+  --color-coral: var(--ds-coral);
+  --color-amber: var(--ds-amber);
+
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-xl: var(--ds-radius-xl);
+
+  --shadow-soft: var(--ds-shadow-soft);
+  --shadow-lifted: var(--ds-shadow-lifted);
+  --shadow-hero: var(--ds-shadow-hero);
+
+  --font-sans: var(--ds-font-sans);
+}
+
+html {
+  /* Respect the notch/home-indicator on installed phones. */
+  background-color: var(--color-screen);
+}
+
+body {
+  background-color: var(--color-screen);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Bottom-sheet + panel entrances — soft, organic motion. */
+@keyframes ds-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ds-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-panel-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ds-backdrop {
+  animation: ds-backdrop-in 0.2s ease-out;
+}
+
+.ds-sheet {
+  animation: ds-sheet-up 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ds-panel {
+  animation: ds-panel-down 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-backdrop,
+  .ds-sheet,
+  .ds-panel {
+    animation: none;
+  }
+}
