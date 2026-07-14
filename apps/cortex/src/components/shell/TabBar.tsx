@@ -51,7 +51,11 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
   return (
     <nav
       aria-label={t("common.mainNav")}
-      className="relative z-20 mt-auto flex items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
+      // `shrink-0`: never let the flex column compress the bar — it must keep its
+      // full height at every scroll position. The bottom padding keeps clear of
+      // the system nav bar (env safe-area) on top of the shell tracking the real
+      // visible viewport height (see AppShell), which handles Chrome's URL bar.
+      className="relative z-20 mt-auto flex shrink-0 items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
     >
       <TabLink href="/" label={t("tabs.home")} icon={<HomeIcon />} active={isActive("/")} />
       <TabLink
