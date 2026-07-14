@@ -11,7 +11,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Screen } from "@/components/profile/Screen";
-import { BackButton } from "@/components/profile/BackButton";
 import { ListSection, ListRow } from "@/components/profile/SettingsList";
 import { placeholderRoute } from "@/components/profile/placeholders";
 import {
@@ -80,25 +79,22 @@ export default function ProfilePage() {
 
   return (
     <Screen
-      bar={
-        <div className="flex items-center gap-2">
-          <Link
-            href="/settings"
-            aria-label={t("profile.menu")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
-          >
-            <MenuIcon />
-          </Link>
-
-          <div className="flex flex-1 items-center justify-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo/15 text-xs font-bold text-indigo">
-              {initial}
-            </span>
-            <span className="text-sm font-semibold text-ink">{name}</span>
-          </div>
-
-          <BackButton />
-        </div>
+      center={
+        <>
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo/15 text-xs font-bold text-indigo">
+            {initial}
+          </span>
+          <span className="text-sm font-semibold text-ink">{name}</span>
+        </>
+      }
+      right={
+        <Link
+          href="/settings"
+          aria-label={t("profile.menu")}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
+        >
+          <MenuIcon />
+        </Link>
       }
     >
       {/* Header: large tappable avatar + name + contact placeholder. */}

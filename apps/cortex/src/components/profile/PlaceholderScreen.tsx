@@ -7,20 +7,12 @@
  * the single `/profile/s/[key]` route — no bespoke pages.
  */
 import { Screen } from "./Screen";
-import { BackButton } from "./BackButton";
 import { useI18n } from "@/i18n";
 
 export function PlaceholderScreen({ title }: { title: string }) {
   const { t } = useI18n();
   return (
-    <Screen
-      bar={
-        <div className="flex items-center gap-2">
-          <BackButton />
-          <h1 className="flex-1 truncate text-lg font-bold text-ink">{title}</h1>
-        </div>
-      }
-    >
+    <Screen center={<h1 className="truncate text-lg font-bold text-ink">{title}</h1>}>
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-sm text-muted">{t("apps.comingSoon")}</p>
       </div>

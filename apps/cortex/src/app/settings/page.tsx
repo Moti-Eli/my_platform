@@ -11,7 +11,6 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/i18n";
 import { APP_VERSION } from "@/lib/version";
 import { Screen } from "@/components/profile/Screen";
-import { BackButton } from "@/components/profile/BackButton";
 import { ListValueRow } from "@/components/profile/SettingsList";
 import { LanguagePicker } from "@/components/settings/LanguagePicker";
 import { ThemePicker } from "@/components/settings/ThemePicker";
@@ -31,14 +30,7 @@ export default function SettingsPage() {
   const { t } = useI18n();
 
   return (
-    <Screen
-      bar={
-        <div className="flex items-center gap-2">
-          <BackButton />
-          <h1 className="flex-1 text-lg font-bold text-ink">{t("settings.title")}</h1>
-        </div>
-      }
-    >
+    <Screen center={<h1 className="text-lg font-bold text-ink">{t("settings.title")}</h1>}>
       <Section title={t("settings.language")}>
         <LanguagePicker />
       </Section>

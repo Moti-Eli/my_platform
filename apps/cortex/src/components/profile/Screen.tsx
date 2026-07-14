@@ -5,13 +5,40 @@
  * screens: a FIXED top bar that never scrolls, above a body that scrolls
  * beneath it. Lives inside the shell column (below the fixed TabBar) — the shell
  * skips its own header/chips for these routes (see AppShell `fullBleed`).
+ *
+ * The top bar owns placement so every screen is consistent: it is laid out
+ * LTR-physical (`dir="ltr"`) so the back control is ALWAYS on the left and points
+ * left — in both Hebrew and English, never mirrored per-locale. An optional
+ * `right` control (e.g. the profile hamburger) sits on the right, with `center`
+ * (title / avatar) centered between them. The scrolling body keeps the app's own
+ * direction (RTL for Hebrew).
  */
 import type { ReactNode } from "react";
+import { BackButton } from "./BackButton";
 
-export function Screen({ bar, children }: { bar: ReactNode; children: ReactNode }) {
+export function Screen({
+  center,
+  right,
+  children,
+}: {
+  center?: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 border-b border-hairline bg-screen px-4 pb-2.5 pt-2">{bar}</div>
+      <div
+        dir="ltr"
+        className="flex shrink-0 items-center gap-2 border-b border-hairline bg-screen px-4 pb-2.5 pt-2"
+      >
+        <BackButton />
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center">
+          {center}
+        </div>
+        {/* Fixed-width right zone (matches the back button) keeps `center` truly
+            centered whether or not a right control is present. */}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center">{right}</div>
+      </div>
       <div className="flex-1 overflow-y-auto px-4 pb-8">{children}</div>
     </div>
   );

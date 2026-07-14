@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * A back chevron that returns to the previous screen. The glyph points toward
- * the inline-start (RTL: right) — the "back" direction — flipping with locale.
+ * A back chevron that returns to the previous screen. It is ALWAYS left-pointing
+ * and (via its Screen top bar's LTR-physical layout) left-positioned — in both
+ * Hebrew and English. It is deliberately NOT mirrored per-locale.
  */
 import { useRouter } from "next/navigation";
 import { ChevronIcon } from "@/components/icons";
@@ -10,7 +11,7 @@ import { useI18n } from "@/i18n";
 
 export function BackButton() {
   const router = useRouter();
-  const { t, dir } = useI18n();
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -18,7 +19,8 @@ export function BackButton() {
       aria-label={t("common.back")}
       className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
     >
-      <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
+      {/* ChevronIcon points left by default — no per-locale flip. */}
+      <ChevronIcon />
     </button>
   );
 }
