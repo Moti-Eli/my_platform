@@ -20,7 +20,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 py-4">
+      <header className="flex items-center gap-3 px-5 py-1.5">
         <button
           type="button"
           aria-label={t("common.search")}

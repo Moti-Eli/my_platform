@@ -1,13 +1,14 @@
 "use client";
 
 /**
- * The Home "app tabs" row — a YouTube-style horizontal chip strip that sits
- * directly under the header. Presentational: it receives resolved tabs (label
- * already translated, from the core registry via page.tsx) and shows them as
- * pill chips. A leading "הכל" (all) chip is selected by default; clicking any
- * chip just sets it as the selected one (visual state only — no filtering yet).
- * The trailing "+" pill links to the catalog. The row scrolls horizontally (RTL:
- * starts at the right, overflowing to the left) with the scrollbar hidden.
+ * The app "tabs" row — a YouTube-style horizontal chip strip rendered by the
+ * shell directly under the Header, so it appears on EVERY screen (including when
+ * a sub-app is open). Presentational: it receives resolved tabs (label already
+ * translated, from the core registry via AppShell) and shows them as pill chips.
+ * A leading "הכל" (all) chip is selected by default; clicking any chip just sets
+ * it as the selected one (visual state only — no filtering yet). The trailing
+ * "+" pill links to the catalog. The row scrolls horizontally (RTL: starts at
+ * the right, overflowing to the left) with the scrollbar hidden.
  */
 import Link from "next/link";
 import { useState } from "react";
