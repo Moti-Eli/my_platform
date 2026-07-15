@@ -8,6 +8,15 @@
  * components (Cortex Standard §1 law 6).
  */
 @theme inline {
+  /* Block Tailwind's default colour palette: clearing the `--color-*` namespace
+     means bg-gray-400 / bg-white / bg-red-500 no longer resolve, so nothing can
+     bypass the token layer. Re-add only the two keyword colours utilities still
+     rely on (bg-transparent, from-transparent, currentColor); our token-backed
+     colours below repopulate the namespace. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
   /* Surfaces / neutrals */
   --color-screen: var(--ds-screen);
   --color-card: var(--ds-card);
@@ -33,14 +42,6 @@
   --color-app-amber: var(--ds-app-amber);
   --color-app-blue: var(--ds-app-blue);
   --color-app-green: var(--ds-app-green);
-
-  /* TEMPORARY — the old colour-named utilities kept alive, now pointing at the
-     new semantic vars so every existing component keeps working unchanged.
-     Removed in round 4 once components are converted to the semantic names. */
-  --color-indigo: var(--ds-accent);
-  --color-teal: var(--ds-success);
-  --color-coral: var(--ds-danger);
-  --color-amber: var(--ds-warning);
 
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);

@@ -94,15 +94,6 @@ export interface ThemeTokens {
 
   /** i18n key for this theme's display name — the theme owns its own label. */
   labelKey: string;
-
-  // --- DEPRECATED colour-named aliases (TEMPORARY — removed in round 4) ---
-  // Kept only so the still-colour-named JS reads in ThemePicker (`tokens.indigo`)
-  // keep type-checking until round 3 converts that component. Same values as the
-  // matching role. Do NOT add new usages.
-  indigo: string;
-  teal: string;
-  coral: string;
-  amber: string;
 }
 
 /**
@@ -147,12 +138,6 @@ export const themes = {
     accentRgb: "91 76 224",
     colorScheme: "light",
     labelKey: "settings.themeLight",
-
-    // Deprecated aliases (see interface).
-    indigo: "#5B4CE0",
-    teal: "#12A08E",
-    coral: "#F5744F",
-    amber: "#DE982B",
   },
   dark: {
     screen: "#141220",
@@ -188,11 +173,6 @@ export const themes = {
     accentRgb: "133 119 242",
     colorScheme: "dark",
     labelKey: "settings.themeDark",
-
-    indigo: "#8577F2",
-    teal: "#2FBEAA",
-    coral: "#FF8A66",
-    amber: "#ECAE52",
   },
 } satisfies Record<string, ThemeTokens>;
 
