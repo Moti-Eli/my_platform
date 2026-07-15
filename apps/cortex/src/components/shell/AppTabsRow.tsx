@@ -96,7 +96,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         href="/"
         role="tab"
         aria-selected={isActive("/")}
-        className={`${CHIP_BASE} ${isActive("/") ? "bg-inverse text-screen" : "bg-hairline text-ink"}`}
+        className={`${CHIP_BASE} ${isActive("/") ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"}`}
       >
         {t("home.allTab")}
       </Link>
@@ -111,7 +111,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             href={tab.route}
             role="tab"
             aria-selected={active}
-            className={`${CHIP_BASE} ${active ? "bg-inverse text-screen" : "bg-hairline text-ink"} ${
+            className={`${CHIP_BASE} ${active ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"} ${
               menuOpen ? "ring-2 ring-danger" : ""
             }`}
             onClick={(e) => {
@@ -157,7 +157,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
         className={`${CHIP_BASE} ${
-          isActive("/catalog") ? "bg-inverse text-screen" : "bg-hairline text-ink"
+          isActive("/catalog") ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"
         }`}
       >
         <PlusIcon width={18} height={18} />
