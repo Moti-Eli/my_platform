@@ -242,3 +242,14 @@ export function InfoIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Compose / new conversation — a square with a pencil over its top-right corner
+ * (the standard "new message" glyph, distinct from a bare pencil = "edit"). */
+export function ComposeIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3l-8.5 8.5-4 1 1-4z" />
+    </svg>
+  );
+}
