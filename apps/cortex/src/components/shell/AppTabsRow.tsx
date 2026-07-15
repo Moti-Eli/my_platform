@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
 // inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md type-label touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -96,7 +96,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         href="/"
         role="tab"
         aria-selected={isActive("/")}
-        className={`${CHIP_BASE} ${isActive("/") ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"}`}
+        className={`${CHIP_BASE} ${isActive("/") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"}`}
       >
         {t("home.allTab")}
       </Link>
@@ -111,7 +111,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             href={tab.route}
             role="tab"
             aria-selected={active}
-            className={`${CHIP_BASE} ${active ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"} ${
+            className={`${CHIP_BASE} ${active ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"} ${
               menuOpen ? "ring-2 ring-danger" : ""
             }`}
             onClick={(e) => {
@@ -157,7 +157,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
         className={`${CHIP_BASE} ${
-          isActive("/catalog") ? "bg-inverse text-inverse-ink" : "bg-hairline text-ink"
+          isActive("/catalog") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"
         }`}
       >
         <PlusIcon width={18} height={18} />

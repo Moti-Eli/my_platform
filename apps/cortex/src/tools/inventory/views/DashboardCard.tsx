@@ -56,11 +56,11 @@ export function DashboardCard() {
       </div>
 
       {low.length > 0 ? (
-        <ul className="flex flex-col gap-xs">
+        <ul className="flex flex-col divide-y divide-hairline">
           {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
             <li
               key={item.id}
-              className="flex items-center justify-between rounded-lg bg-screen px-sm py-xs"
+              className="flex items-center justify-between px-sm py-sm"
             >
               <span className="type-body text-ink">{item.name}</span>
               <span className="type-label text-muted" dir="ltr">
