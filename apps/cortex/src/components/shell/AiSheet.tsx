@@ -248,8 +248,9 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
           ) : null}
         </div>
 
-        {/* Composer */}
-        <div className="relative shrink-0 px-3 pb-10 pt-1">
+        {/* Composer — pinned to the bottom of the sheet (messages take the rest),
+            with only a small comfortable margin above the tab bar. */}
+        <div className="relative shrink-0 px-3 pb-3 pt-1">
           <div className="flex items-end gap-1 rounded-3xl bg-screen p-1.5">
             {/* RTL start (right): mic ⇆ send */}
             {hasText ? (
