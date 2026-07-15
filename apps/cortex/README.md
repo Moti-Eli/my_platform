@@ -7,6 +7,22 @@ empty shells; the AI button and urgency bell are empty shells too.
 
 Additive and isolated — it does **not** touch `apps/web` or `apps/mobile`.
 
+## Local development
+
+Dev server: `pnpm --filter @platform/cortex dev` → http://localhost:3001
+
+**Testing on a real phone:** do NOT use the dev server over a LAN IP (e.g.
+http://10.0.0.3:3001). Next.js's HMR WebSocket fails to connect from a
+non-localhost origin, React hydration never completes, and no `useEffect` runs —
+so the app registry never initializes and the catalog/chips render empty. Nothing
+is broken; it's a dev-server limitation.
+
+Use one of these instead:
+
+- `pnpm --filter @platform/cortex build && pnpm --filter @platform/cortex start`
+  then open the LAN IP (no hot-reload — rebuild after each change)
+- `vercel --prod` from the repo root
+
 ## Layout
 
 - **Phone-first**, centered on desktop (`max-w-[480px]` column).
