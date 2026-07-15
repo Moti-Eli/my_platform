@@ -253,3 +253,73 @@ export function ComposeIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Microphone — voice input (composer). */
+export function MicIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3" />
+    </svg>
+  );
+}
+
+/** Up arrow — send (composer). */
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 20V5" />
+      <path d="m6 11 6-6 6 6" />
+    </svg>
+  );
+}
+
+/** Camera — attach from camera. */
+export function CameraIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 7h3l1.5-2h7L17 7h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
+/** Image — attach photos. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.8" />
+      <path d="m21 16-5-5-6 6" />
+    </svg>
+  );
+}
+
+/** Paperclip — attach files. */
+export function PaperclipIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M20 11.5 11 20.5a4.5 4.5 0 0 1-6.4-6.4l9-9a3 3 0 0 1 4.3 4.3l-9 9a1.5 1.5 0 0 1-2.1-2.1l8.3-8.3" />
+    </svg>
+  );
+}
+
+/** Two overlapping squares — copy. */
+export function CopyIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+    </svg>
+  );
+}
+
+/** Chevron pointing down — expand/collapse toggle (rotate for the other state). */
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}

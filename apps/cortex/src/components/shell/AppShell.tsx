@@ -81,6 +81,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const fullBleed = pathname.startsWith("/profile") || pathname.startsWith("/settings");
 
+  // Overlays are dismissed on navigation so a new screen never opens under them.
+  useEffect(() => {
+    setAiOpen(false);
+    setInboxOpen(false);
+  }, [pathname]);
+
   // Chips show ONLY installed apps, in the user's INSTALL order (not registry
   // order): iterate the installed list and resolve each id against the registry.
   // Labels are translated at render so they follow locale.
@@ -100,26 +106,31 @@ export function AppShell({ children }: { children: ReactNode }) {
       // 100dvh until/if the VisualViewport API sets --app-vh.
       style={{ height: "var(--app-vh, 100dvh)" }}
     >
-      {fullBleed ? (
-        // The screen owns its own fixed top bar + scrolling body (see @/components/profile/Screen).
-        <main className="flex min-h-0 flex-1 flex-col">{children}</main>
-      ) : (
-        // Single scroll area: Header + chips row + page content scroll together.
-        <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
-          <Header onOpenInbox={() => setInboxOpen(true)} />
+      {/* Content + overlays share this box, which stops at the TabBar's top edge —
+          so the AI sheet (absolute, bottom-0) rises to exactly there and the tab
+          bar (a sibling below, higher z) is never covered and stays tappable. */}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        {fullBleed ? (
+          // The screen owns its own fixed top bar + scrolling body (see @/components/profile/Screen).
+          <main className="flex min-h-0 flex-1 flex-col">{children}</main>
+        ) : (
+          // Single scroll area: Header + chips row + page content scroll together.
+          <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+            <Header onOpenInbox={() => setInboxOpen(true)} />
 
-          <div className="px-4">
-            <AppTabsRow tools={tabs} />
+            <div className="px-4">
+              <AppTabsRow tools={tabs} />
+            </div>
+
+            <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
           </div>
+        )}
 
-          <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
-        </div>
-      )}
+        <AiSheet open={aiOpen} onClose={() => setAiOpen(false)} />
+        <UrgencyInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />
+      </div>
 
-      <TabBar onOpenAi={() => setAiOpen(true)} />
-
-      <AiSheet open={aiOpen} onClose={() => setAiOpen(false)} />
-      <UrgencyInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />
+      <TabBar aiOpen={aiOpen} onToggleAi={() => setAiOpen((v) => !v)} />
     </div>
   );
 }

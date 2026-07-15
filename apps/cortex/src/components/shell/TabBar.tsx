@@ -8,7 +8,11 @@
  *   4. Comms "צ'אט"        5. Profile (left-most)
  *
  * The four corner slots are route links (active state via the current path);
- * the center AI hero is a button that opens the AI sheet (it is not a route).
+ * the center AI hero is a button that TOGGLES the AI sheet (it is not a route) —
+ * tapping it while the sheet is open closes it, like the profile tab.
+ *
+ * The bar sits at `z-50`, above every overlay (AI sheet, urgency inbox), so it is
+ * always visible and tappable — the sheet opens above it, never over it.
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -45,7 +49,7 @@ function TabLink({
   );
 }
 
-export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
+export function TabBar({ aiOpen, onToggleAi }: { aiOpen: boolean; onToggleAi: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
@@ -69,7 +73,7 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
       // full height at every scroll position. The bottom padding keeps clear of
       // the system nav bar (env safe-area) on top of the shell tracking the real
       // visible viewport height (see AppShell), which handles Chrome's URL bar.
-      className="relative z-20 mt-auto flex shrink-0 items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
+      className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
     >
       <TabLink href="/" label={t("tabs.home")} icon={<HomeIcon />} active={isActive("/")} />
       <TabLink
@@ -84,8 +88,11 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
         <button
           type="button"
           aria-label={t("tabs.ai")}
-          onClick={onOpenAi}
-          className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo text-white shadow-hero touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95"
+          aria-pressed={aiOpen}
+          onClick={onToggleAi}
+          className={`-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full text-white shadow-hero touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95 ${
+            aiOpen ? "bg-ink" : "bg-indigo"
+          }`}
         >
           <SparkIcon width={28} height={28} />
         </button>
