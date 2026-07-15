@@ -87,7 +87,7 @@ export function FullScreen() {
           <p className="max-w-[24ch] type-label text-muted">{t("inventory.emptyHint")}</p>
         </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-hairline px-md">
+        <ul className="flex flex-col divide-y divide-hairline">
           {items.map((item) => {
             const low = item.quantity < item.reorderThreshold;
             return (

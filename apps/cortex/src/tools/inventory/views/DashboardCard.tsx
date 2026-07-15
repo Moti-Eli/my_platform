@@ -56,7 +56,7 @@ export function DashboardCard() {
       </div>
 
       {low.length > 0 ? (
-        <ul className="flex flex-col divide-y divide-hairline px-sm">
+        <ul className="flex flex-col divide-y divide-hairline">
           {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
             <li
               key={item.id}
