@@ -106,16 +106,20 @@ all through `runIntent`, the one door.
 ## Run it
 
 ```bash
-pnpm --filter @platform/cortex dev      # http://localhost:3001  (binds 0.0.0.0)
+pnpm --filter @platform/cortex dev      # http://localhost:3001
 ```
 
-The dev server binds to `0.0.0.0`, so it's reachable from your phone on the same
-Wi-Fi at `http://<YOUR-COMPUTER-LAN-IP>:3001`.
+To open it from a **phone on the same Wi-Fi**, serve a production build
+(`build && start`) or use the Vercel URL and open the LAN IP — the dev server
+does **not** work over a LAN IP (see [Local development](#local-development)).
 
 ### Install on your phone ("Add to Home Screen")
 
 1. Find your computer's LAN IP (Windows: `ipconfig` → IPv4, e.g. `192.168.1.23`).
-2. Phone on the **same Wi-Fi** → open `http://192.168.1.23:3001` in the browser.
+2. Phone on the **same Wi-Fi** → open that LAN IP (e.g.
+   `http://192.168.1.23:3001`) served via a **production build** (`build && start`)
+   or the **Vercel URL**, not the dev server (see
+   [Local development](#local-development)).
 3. **iOS Safari**: Share → *Add to Home Screen*. **Android Chrome**: ⋮ menu →
    *Add to Home screen* / *Install app*. It launches standalone (no browser
    chrome) thanks to the manifest.
