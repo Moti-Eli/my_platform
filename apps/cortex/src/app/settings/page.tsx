@@ -6,8 +6,9 @@
  * host the existing pickers unchanged; version shows the number + a short
  * description of the app.
  */
-import { useI18n } from "@/i18n";
+import { useI18n, type MessageKey } from "@/i18n";
 import { useTheme } from "@/theme/ThemeProvider";
+import { themes } from "@/design-system";
 import { APP_VERSION } from "@/lib/version";
 import { Screen } from "@/components/profile/Screen";
 import { ListRow } from "@/components/profile/SettingsList";
@@ -18,7 +19,9 @@ export default function SettingsPage() {
   const { theme } = useTheme();
 
   const languageValue = t(locale === "he" ? "settings.languageHe" : "settings.languageEn");
-  const themeValue = t(theme === "light" ? "settings.themeLight" : "settings.themeDark");
+  // Read the active theme's own label from the registry — single source of truth,
+  // so this works for all six themes (no parallel light/dark mapping here).
+  const themeValue = t(themes[theme].labelKey as MessageKey);
 
   return (
     <Screen center={<h1 className="type-title text-ink">{t("settings.title")}</h1>}>

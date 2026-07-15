@@ -103,51 +103,62 @@ export interface ThemeTokens {
 }
 
 /**
- * All themes, keyed by name. `satisfies` validates each entry against
- * {@link ThemeTokens} while keeping the literal keys, so {@link ThemeName} is
- * derived from this object (one source of truth — no hand-written union).
+ * All themes, keyed by name, ordered DARKEST → LIGHTEST (the order the picker
+ * shows — it maps `Object.keys(themes)`). `satisfies` validates each entry
+ * against {@link ThemeTokens} while keeping the literal keys, so {@link ThemeName}
+ * is derived from this object (one source of truth — no hand-written union).
+ * Adding a theme = ONE entry here + its `labelKey` strings in i18n. Nothing else.
+ *
+ * BRAND RULE (locked): `accent` is ONE hue — the indigo/violet — in EVERY theme,
+ * only TUNED per background for legibility (lighter/more saturated on the dark
+ * themes, deeper on the light ones). It is NEVER changed to a different hue. The
+ * SINGLE exception is `clay`, whose accent is a warm dark brown by explicit
+ * brief. A future theme author must not drift the accent to another colour.
+ *
+ * Constraints every theme must hold: `card` visibly distinct from `screen`
+ * (surface tone is the only separation now); `hairline` visible on `card`;
+ * `onFill` is ONE token so all saturated fills sit in one lightness band;
+ * `inverse` opposes `screen`; `scrim` ALWAYS darkens (even dark themes);
+ * overlays are black-on-light / white-on-dark; `accentRgb` matches `accent`.
  */
 export const themes = {
-  light: {
-    screen: "#F7F6FB",
-    card: "#FFFFFF",
-    ink: "#221E31",
-    muted: "#7A7690",
-    hairline: "#ECEAF4",
+  // 1. Abyss — the darkest; near-black, deep.
+  abyss: {
+    screen: "#0B0B12",
+    card: "#191922",
+    ink: "#F3F2F8",
+    muted: "#9C9AAB",
+    hairline: "#2E2E3A",
 
-    accent: "#5B4CE0",
-    success: "#12A08E",
-    warning: "#DE982B",
-    danger: "#F5744F",
-    // inverse = today's light `ink`; inverseInk = white → the toast looks the same.
-    inverse: "#221E31",
-    inverseInk: "#FFFFFF",
-    // scrim ALWAYS darkens (identical in both themes) — deliberate, not a copy
-    // of ink; deriving it from ink would LIGHTEN the backdrop in the dark theme.
-    scrim: "rgba(20, 18, 32, 0.45)",
-    ring: "#5B4CE0",
+    accent: "#8F82F5",
+    success: "#34C6B2",
+    warning: "#ECAE52",
+    danger: "#FF8E72",
+    inverse: "#F3F2F8",
+    inverseInk: "#0B0B12",
+    // scrim ALWAYS darkens — never a light wash, even on the darkest theme.
+    scrim: "rgba(6, 6, 12, 0.55)",
+    ring: "#8F82F5",
     onFill: "#FFFFFF",
-    // Overlays — black at low alpha in the light theme.
-    overlayHover: "rgba(0, 0, 0, 0.04)",
-    overlayPressed: "rgba(0, 0, 0, 0.08)",
+    overlayHover: "rgba(255, 255, 255, 0.06)",
+    overlayPressed: "rgba(255, 255, 255, 0.10)",
 
-    // Coincide with the roles today; independent knobs going forward.
-    appViolet: "#5B4CE0",
-    appTeal: "#12A08E",
-    appCoral: "#F5744F",
-    appAmber: "#DE982B",
-    appBlue: "#3B6FD4",
-    appGreen: "#1FA15C",
+    appViolet: "#8F82F5",
+    appTeal: "#34C6B2",
+    appCoral: "#FF8E72",
+    appAmber: "#ECAE52",
+    appBlue: "#6E9BF5",
+    appGreen: "#47C97D",
 
-    shadowLifted: "0 11px 30px rgba(34, 30, 49, 0.09)",
-    // Was rgba(91, 76, 224, 0.42) — now derived from accentRgb (identical colour).
-    shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
+    shadowLifted: "0 12px 32px rgba(0, 0, 0, 0.55)",
+    shadowHero: "0 14px 36px rgb(var(--ds-accent-rgb) / 0.5)",
 
-    accentRgb: "91 76 224",
-    colorScheme: "light",
-    labelKey: "settings.themeLight",
+    accentRgb: "143 130 245",
+    colorScheme: "dark",
+    labelKey: "settings.themeAbyss",
   },
-  dark: {
+  // 2. Midnight — the previous `dark` theme, values unchanged.
+  midnight: {
     screen: "#141220",
     card: "#211D30",
     ink: "#F4F2FA",
@@ -158,14 +169,11 @@ export const themes = {
     success: "#2FBEAA",
     warning: "#ECAE52",
     danger: "#FF8A66",
-    // inverse = today's dark `ink` (near-white); inverseInk = dark → FIXES the
-    // old bg-ink+text-white toast/hero bug (white-on-near-white in dark).
     inverse: "#F4F2FA",
     inverseInk: "#141220",
     scrim: "rgba(20, 18, 32, 0.45)",
     ring: "#8577F2",
     onFill: "#FFFFFF",
-    // Overlays — white at low alpha in the dark theme.
     overlayHover: "rgba(255, 255, 255, 0.06)",
     overlayPressed: "rgba(255, 255, 255, 0.10)",
 
@@ -177,12 +185,150 @@ export const themes = {
     appGreen: "#47C97D",
 
     shadowLifted: "0 12px 31px rgba(0, 0, 0, 0.4)",
-    // Was rgba(133, 119, 242, 0.5) — now derived from accentRgb (identical colour).
     shadowHero: "0 14px 36px rgb(var(--ds-accent-rgb) / 0.5)",
 
     accentRgb: "133 119 242",
     colorScheme: "dark",
-    labelKey: "settings.themeDark",
+    labelKey: "settings.themeMidnight",
+  },
+  // 3. Slate — dark but soft; cool grey, lower contrast than midnight.
+  slate: {
+    screen: "#1E232B",
+    card: "#2A3039",
+    ink: "#E7ECF2",
+    muted: "#9BA6B3",
+    hairline: "#3A424D",
+
+    accent: "#8B7DF0",
+    success: "#3BB89E",
+    warning: "#E5B15C",
+    danger: "#F58A6E",
+    inverse: "#E7ECF2",
+    inverseInk: "#1E232B",
+    scrim: "rgba(10, 12, 18, 0.5)",
+    ring: "#8B7DF0",
+    onFill: "#FFFFFF",
+    overlayHover: "rgba(255, 255, 255, 0.06)",
+    overlayPressed: "rgba(255, 255, 255, 0.10)",
+
+    appViolet: "#8B7DF0",
+    appTeal: "#3BB89E",
+    appCoral: "#F58A6E",
+    appAmber: "#E5B15C",
+    appBlue: "#6E9BF5",
+    appGreen: "#4FC07E",
+
+    shadowLifted: "0 12px 30px rgba(0, 0, 0, 0.35)",
+    shadowHero: "0 14px 36px rgb(var(--ds-accent-rgb) / 0.5)",
+
+    accentRgb: "139 125 240",
+    colorScheme: "dark",
+    labelKey: "settings.themeSlate",
+  },
+  // 4. Dawn — transitional: a dim, warm-neutral LIGHT surface (dark text on light).
+  dawn: {
+    screen: "#DDD8CF",
+    card: "#ECE8E0",
+    ink: "#2B2620",
+    muted: "#665E54",
+    hairline: "#CFC9BE",
+
+    accent: "#574AD6",
+    success: "#0E9080",
+    warning: "#C9871F",
+    danger: "#E5643F",
+    inverse: "#2B2620",
+    inverseInk: "#F1ECE4",
+    scrim: "rgba(18, 15, 12, 0.42)",
+    ring: "#574AD6",
+    onFill: "#FFFFFF",
+    overlayHover: "rgba(0, 0, 0, 0.04)",
+    overlayPressed: "rgba(0, 0, 0, 0.08)",
+
+    appViolet: "#574AD6",
+    appTeal: "#0E9080",
+    appCoral: "#E5643F",
+    appAmber: "#C9871F",
+    appBlue: "#2F6BD0",
+    appGreen: "#1C9455",
+
+    shadowLifted: "0 11px 30px rgba(40, 30, 20, 0.12)",
+    shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
+
+    accentRgb: "87 74 214",
+    colorScheme: "light",
+    labelKey: "settings.themeDawn",
+  },
+  // 5. Quiet Light — the previous `light` theme, values unchanged. THE DEFAULT.
+  quietLight: {
+    screen: "#F7F6FB",
+    card: "#FFFFFF",
+    ink: "#221E31",
+    muted: "#7A7690",
+    hairline: "#ECEAF4",
+
+    accent: "#5B4CE0",
+    success: "#12A08E",
+    warning: "#DE982B",
+    danger: "#F5744F",
+    inverse: "#221E31",
+    inverseInk: "#FFFFFF",
+    scrim: "rgba(20, 18, 32, 0.45)",
+    ring: "#5B4CE0",
+    onFill: "#FFFFFF",
+    overlayHover: "rgba(0, 0, 0, 0.04)",
+    overlayPressed: "rgba(0, 0, 0, 0.08)",
+
+    appViolet: "#5B4CE0",
+    appTeal: "#12A08E",
+    appCoral: "#F5744F",
+    appAmber: "#DE982B",
+    appBlue: "#3B6FD4",
+    appGreen: "#1FA15C",
+
+    shadowLifted: "0 11px 30px rgba(34, 30, 49, 0.09)",
+    shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
+
+    accentRgb: "91 76 224",
+    colorScheme: "light",
+    labelKey: "settings.themeQuietLight",
+  },
+  // 6. Clay — warm cream/paper; the "Claude" theme. Accent is a warm dark brown,
+  //    the ONE deliberate exception to the brand rule above.
+  clay: {
+    screen: "#EDE7DC",
+    card: "#F7F2E9",
+    ink: "#3A2E24",
+    muted: "#6E6051",
+    hairline: "#DED5C6",
+
+    accent: "#6B4A2E",
+    success: "#2F7D5B",
+    warning: "#B5791E",
+    danger: "#C0533A",
+    inverse: "#3A2E24",
+    inverseInk: "#F7F2E9",
+    scrim: "rgba(28, 20, 12, 0.42)",
+    ring: "#6B4A2E",
+    onFill: "#FFFFFF",
+    overlayHover: "rgba(0, 0, 0, 0.04)",
+    overlayPressed: "rgba(0, 0, 0, 0.08)",
+
+    // The app palette keeps its own hues — `appViolet` stays violet even though
+    // the shell accent here is brown (the palette is independent of the accent).
+    appViolet: "#5A47C4",
+    appTeal: "#2F8A78",
+    appCoral: "#C0533A",
+    appAmber: "#B5791E",
+    appBlue: "#2F6BD0",
+    appGreen: "#2F7D5B",
+
+    shadowLifted: "0 11px 30px rgba(60, 40, 20, 0.10)",
+    shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
+
+    accentRgb: "107 74 46",
+    colorScheme: "light",
+    labelKey: "settings.themeClay",
   },
 } satisfies Record<string, ThemeTokens>;
 
@@ -190,7 +336,7 @@ export const themes = {
 export type ThemeName = keyof typeof themes;
 
 export const themeNames = Object.keys(themes) as ThemeName[];
-export const defaultTheme: ThemeName = "light";
+export const defaultTheme: ThemeName = "quietLight";
 
 /**
  * Narrow an untrusted string (e.g. a cookie value) to a known theme. Uses

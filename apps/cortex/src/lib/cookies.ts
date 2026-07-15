@@ -16,3 +16,16 @@ export function setPreferenceCookie(name: string, value: string): void {
   if (typeof document === "undefined") return;
   document.cookie = `${name}=${value}; path=/; max-age=${ONE_YEAR_SECONDS}; samesite=lax`;
 }
+
+/**
+ * MIGRATION SHIM (temporary — safe to delete a few months after the six-theme
+ * rename shipped, ~late 2026): the theme cookie may still hold the old "light" /
+ * "dark" keys. Map them so a returning user keeps their choice instead of
+ * silently falling back to the default; any other value passes through unchanged
+ * to be narrowed by `isThemeName`. Applied at the read site (the root layout).
+ */
+export function migrateLegacyTheme(value: string | undefined): string | undefined {
+  if (value === "light") return "quietLight";
+  if (value === "dark") return "midnight";
+  return value;
+}

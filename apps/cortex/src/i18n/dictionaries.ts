@@ -143,8 +143,13 @@ const he = {
     version: "גרסה",
     languageHe: "עברית",
     languageEn: "English",
-    themeLight: "בהיר",
-    themeDark: "כהה",
+    // Theme names are product names (VS Code-inspired) — English in BOTH locales.
+    themeAbyss: "Abyss",
+    themeMidnight: "Midnight",
+    themeSlate: "Slate",
+    themeDawn: "Dawn",
+    themeQuietLight: "Quiet Light",
+    themeClay: "Clay",
     versionAbout:
       "Cortex הוא סופר-אפליקציה לניהול העסק שלך: כל הכלים שאתה צריך במקום אחד, עם עוזר AI שמחבר ביניהם.",
   },
@@ -288,8 +293,13 @@ const en: Messages = {
     version: "Version",
     languageHe: "עברית",
     languageEn: "English",
-    themeLight: "Light",
-    themeDark: "Dark",
+    // Theme names are product names (VS Code-inspired) — English in BOTH locales.
+    themeAbyss: "Abyss",
+    themeMidnight: "Midnight",
+    themeSlate: "Slate",
+    themeDawn: "Dawn",
+    themeQuietLight: "Quiet Light",
+    themeClay: "Clay",
     versionAbout:
       "Cortex is a super-app for running your business: every tool you need in one place, tied together by an AI assistant.",
   },

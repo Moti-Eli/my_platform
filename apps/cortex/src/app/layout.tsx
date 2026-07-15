@@ -10,7 +10,7 @@ import {
 } from "@/design-system";
 import { getDirection, defaultLocale, isLocale, I18nProvider } from "@/i18n";
 import { ThemeProvider } from "@/theme/ThemeProvider";
-import { LANG_COOKIE, THEME_COOKIE } from "@/lib/cookies";
+import { LANG_COOKIE, THEME_COOKIE, migrateLegacyTheme } from "@/lib/cookies";
 import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
@@ -45,7 +45,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const cookieStore = await cookies();
   const localeCookie = cookieStore.get(LANG_COOKIE)?.value;
   const locale = isLocale(localeCookie) ? localeCookie : defaultLocale;
-  const themeCookie = cookieStore.get(THEME_COOKIE)?.value;
+  // Map any legacy "light"/"dark" cookie to its new key before narrowing.
+  const themeCookie = migrateLegacyTheme(cookieStore.get(THEME_COOKIE)?.value);
   const theme = isThemeName(themeCookie) ? themeCookie : defaultTheme;
   const dir = getDirection(locale);
 
