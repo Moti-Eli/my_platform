@@ -13,7 +13,7 @@ export default function CommsPage() {
 
   return (
     <>
-      <h1 className="px-1 text-xl font-bold text-ink">{t("comms.title")}</h1>
+      <h1 className="px-1 type-title text-ink">{t("comms.title")}</h1>
       <section className="flex flex-1 flex-col">
         <EmptyState
           icon={<ChatIcon />}

@@ -34,7 +34,7 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
         >
           <Icon width={20} height={20} />
         </span>
-        <span className="text-sm font-bold text-ink">{t(manifest.name.key as MessageKey)}</span>
+        <span className="type-heading text-ink">{t(manifest.name.key as MessageKey)}</span>
       </div>
 
       <ul className="flex flex-col gap-1.5">

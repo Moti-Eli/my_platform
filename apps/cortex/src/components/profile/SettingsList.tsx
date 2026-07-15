@@ -17,7 +17,7 @@ import { useI18n } from "@/i18n";
 export function ListSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-6 first:mt-4">
-      <h2 className="px-1 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
+      <h2 className="px-1 pb-1 type-label uppercase text-muted">
         {title}
       </h2>
       <div>{children}</div>
@@ -47,8 +47,8 @@ export function ListRow({
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-accent">
         {icon}
       </span>
-      <span className="flex-1 text-sm font-medium text-ink">{label}</span>
-      {value != null ? <span className="shrink-0 text-sm text-muted">{value}</span> : null}
+      <span className="flex-1 type-heading text-ink">{label}</span>
+      {value != null ? <span className="shrink-0 type-label text-muted">{value}</span> : null}
       {/* Forward/disclosure chevron points to the inline-end (RTL: left). */}
       <ChevronIcon
         width={18}

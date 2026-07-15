@@ -76,7 +76,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/15 text-danger">
                 <BellIcon width={20} height={20} />
               </span>
-              <h2 className="text-base font-bold text-ink">{t("urgency.title")}</h2>
+              <h2 className="type-heading text-ink">{t("urgency.title")}</h2>
             </div>
             <button
               type="button"
@@ -111,17 +111,17 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                       >
                         <Icon width={18} height={18} />
                       </span>
-                      <span className="truncate text-sm font-bold text-ink">
+                      <span className="truncate type-label text-ink">
                         {t(manifest.name.key as MessageKey)}
                       </span>
-                      <span className="ms-auto shrink-0 text-xs text-muted">
+                      <span className="ms-auto shrink-0 type-caption text-muted">
                         {relativeTime(n.timestamp, locale)}
                       </span>
                     </div>
-                    <p className="mt-1.5 truncate text-sm font-semibold text-ink">
+                    <p className="mt-1.5 truncate type-heading text-ink">
                       {t(n.title as MessageKey)}
                     </p>
-                    <p className="mt-0.5 truncate text-sm text-muted">
+                    <p className="mt-0.5 truncate type-label text-muted">
                       {t(n.description as MessageKey)}
                     </p>
                   </Link>

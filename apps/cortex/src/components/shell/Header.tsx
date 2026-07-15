@@ -32,7 +32,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
 
         <span
           dir="ltr"
-          className="flex-1 text-center text-3xl leading-none text-accent"
+          className="flex-1 text-center type-display text-accent"
           style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Brush Script MT", cursive' }}
         >
           cortex
@@ -103,7 +103,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t("common.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent px-1 py-2 text-base text-ink outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent px-1 py-2 type-body text-ink outline-none placeholder:text-muted"
           />
         </div>
       </div>

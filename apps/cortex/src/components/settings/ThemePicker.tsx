@@ -46,7 +46,7 @@ export function ThemePicker() {
               />
             </span>
             <span className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-ink">
+              <span className="type-label text-ink">
                 {t(themes[name].labelKey as MessageKey)}
               </span>
               {active ? <CheckIcon width={18} height={18} className="text-accent" /> : null}

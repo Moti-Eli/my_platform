@@ -20,8 +20,8 @@ export function EmptyState({
           {icon}
         </div>
       ) : null}
-      <p className="text-base font-semibold text-ink">{title}</p>
-      {hint ? <p className="max-w-[24ch] text-sm text-muted">{hint}</p> : null}
+      <p className="type-heading text-ink">{title}</p>
+      {hint ? <p className="max-w-[24ch] type-label text-muted">{hint}</p> : null}
     </div>
   );
 }

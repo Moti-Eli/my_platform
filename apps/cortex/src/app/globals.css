@@ -53,7 +53,35 @@
   --shadow-hero: var(--ds-shadow-hero);
 
   --font-sans: var(--ds-font-sans);
+
+  /* Typography scale (structural). Clear Tailwind's default font-size namespace
+     so text-sm / text-xs / text-3xl / text-[11px] no longer resolve — type is a
+     closed set of role utilities, like colours. Then register our six roles, each
+     carrying its own line-height. Weight is applied by the `.type-*` classes
+     below (size + weight are one decision and can't drift apart). */
+  --text-*: initial;
+  --text-display: var(--ds-text-display-size);
+  --text-display--line-height: var(--ds-text-display-line);
+  --text-title: var(--ds-text-title-size);
+  --text-title--line-height: var(--ds-text-title-line);
+  --text-heading: var(--ds-text-heading-size);
+  --text-heading--line-height: var(--ds-text-heading-line);
+  --text-body: var(--ds-text-body-size);
+  --text-body--line-height: var(--ds-text-body-line);
+  --text-label: var(--ds-text-label-size);
+  --text-label--line-height: var(--ds-text-label-line);
+  --text-caption: var(--ds-text-caption-size);
+  --text-caption--line-height: var(--ds-text-caption-line);
 }
+
+/* Type roles — size + line-height + weight bundled into one class so weight can't
+   drift from size. letter-spacing is ALWAYS normal (Hebrew: never tighten). */
+.type-display { font-size: var(--ds-text-display-size); line-height: var(--ds-text-display-line); font-weight: var(--ds-text-display-weight); letter-spacing: normal; }
+.type-title { font-size: var(--ds-text-title-size); line-height: var(--ds-text-title-line); font-weight: var(--ds-text-title-weight); letter-spacing: normal; }
+.type-heading { font-size: var(--ds-text-heading-size); line-height: var(--ds-text-heading-line); font-weight: var(--ds-text-heading-weight); letter-spacing: normal; }
+.type-body { font-size: var(--ds-text-body-size); line-height: var(--ds-text-body-line); font-weight: var(--ds-text-body-weight); letter-spacing: normal; }
+.type-label { font-size: var(--ds-text-label-size); line-height: var(--ds-text-label-line); font-weight: var(--ds-text-label-weight); letter-spacing: normal; }
+.type-caption { font-size: var(--ds-text-caption-size); line-height: var(--ds-text-caption-line); font-weight: var(--ds-text-caption-weight); letter-spacing: normal; }
 
 html {
   /* Respect the notch/home-indicator on installed phones. */

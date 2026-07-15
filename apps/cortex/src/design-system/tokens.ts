@@ -199,6 +199,27 @@ export const radii = {
   pill: "999px",
 } as const;
 
+/**
+ * Typographic scale — STRUCTURAL, not themeable (lives in {@link baseStylesheet}
+ * with the radii; it never changes per theme, so it is NOT part of ThemeTokens).
+ *
+ * Each role bundles size + line-height + weight as ONE decision — a component
+ * picks a role, never a loose size/weight pair, so the two can't drift apart.
+ *
+ * LOCKED RULE — Hebrew: letter-spacing is ALWAYS `normal` (0) for every role
+ * (enforced by the `.type-*` classes in globals.css). Negative tracking is a
+ * Latin-display trick that DAMAGES Hebrew rendering — Hebrew letters are not
+ * designed to be tightened. This is not a placeholder; never add tracking.
+ */
+export const type = {
+  display: { size: "28px", line: "34px", weight: "600" }, // screen-level title, used sparingly
+  title: { size: "20px", line: "26px", weight: "600" }, //   section + screen headers
+  heading: { size: "17px", line: "23px", weight: "600" }, // card titles, list-row primary text
+  body: { size: "15px", line: "22px", weight: "400" }, //     default reading text
+  label: { size: "13px", line: "18px", weight: "500" }, //    secondary text, meta, row subtitles
+  caption: { size: "11px", line: "14px", weight: "500" }, //  tab-bar labels, badges, timestamps
+} as const;
+
 /** Clean, system sans-serif stack (includes a Hebrew fallback). */
 export const fontSans =
   'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans Hebrew", "Arial Hebrew", sans-serif';
@@ -210,14 +231,23 @@ export const fontSans =
  */
 export const brandColor = "#5B4CE0";
 
-/** `:root` structural tokens (radii, font) — shared by every theme. */
+/** `:root` structural tokens (radii, font, typography) — shared by every theme. */
 export function baseStylesheet(): string {
+  const typeVars = Object.entries(type)
+    .map(
+      ([role, t]) =>
+        `  --ds-text-${role}-size:${t.size};\n` +
+        `  --ds-text-${role}-line:${t.line};\n` +
+        `  --ds-text-${role}-weight:${t.weight};`,
+    )
+    .join("\n");
   return `:root{
   --ds-radius-md:${radii.md};
   --ds-radius-lg:${radii.lg};
   --ds-radius-xl:${radii.xl};
   --ds-radius-pill:${radii.pill};
   --ds-font-sans:${fontSans};
+${typeVars}
 }`;
 }
 

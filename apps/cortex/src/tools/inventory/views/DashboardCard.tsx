@@ -48,9 +48,9 @@ export function DashboardCard() {
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-app-amber/15 text-app-amber">
             <BoxIcon width={20} height={20} />
           </span>
-          <span className="text-sm font-bold text-ink">{t("inventory.name")}</span>
+          <span className="type-heading text-ink">{t("inventory.name")}</span>
         </div>
-        <span className={`text-sm font-semibold ${low.length > 0 ? "text-warning" : "text-muted"}`}>
+        <span className={`type-label ${low.length > 0 ? "text-warning" : "text-muted"}`}>
           {low.length > 0 ? `${low.length} ${t("inventory.lowItems")}` : t("inventory.allStocked")}
         </span>
       </div>
@@ -62,8 +62,8 @@ export function DashboardCard() {
               key={item.id}
               className="flex items-center justify-between rounded-lg bg-screen px-3 py-2"
             >
-              <span className="text-sm text-ink">{item.name}</span>
-              <span className="text-xs text-muted" dir="ltr">
+              <span className="type-body text-ink">{item.name}</span>
+              <span className="type-label text-muted" dir="ltr">
                 {item.quantity} {item.unit}
               </span>
             </li>

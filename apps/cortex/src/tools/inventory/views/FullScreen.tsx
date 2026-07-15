@@ -62,11 +62,11 @@ export function FullScreen() {
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
-        <h1 className="flex-1 text-xl font-bold text-ink">{t("inventory.name")}</h1>
+        <h1 className="flex-1 type-title text-ink">{t("inventory.name")}</h1>
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-app-amber px-4 py-2 text-sm font-semibold text-on-fill shadow-soft transition active:scale-95"
+          className="rounded-pill bg-app-amber px-4 py-2 type-label text-on-fill shadow-soft transition active:scale-95"
         >
           {t("inventory.addProduct")}
         </button>
@@ -83,8 +83,8 @@ export function FullScreen() {
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl bg-card px-6 py-14 text-center shadow-soft">
-          <p className="text-base font-semibold text-ink">{t("inventory.emptyTitle")}</p>
-          <p className="max-w-[24ch] text-sm text-muted">{t("inventory.emptyHint")}</p>
+          <p className="type-heading text-ink">{t("inventory.emptyTitle")}</p>
+          <p className="max-w-[24ch] type-label text-muted">{t("inventory.emptyHint")}</p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
@@ -96,15 +96,15 @@ export function FullScreen() {
                 className="flex items-center justify-between gap-3 rounded-xl bg-card px-4 py-3 shadow-soft"
               >
                 <div className="flex min-w-0 flex-col">
-                  <span className="flex items-center gap-2 truncate text-sm font-semibold text-ink">
+                  <span className="flex items-center gap-2 truncate type-heading text-ink">
                     {item.name}
                     {low ? (
-                      <span className="rounded-pill bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
+                      <span className="rounded-pill bg-warning/15 px-2 py-0.5 type-caption text-warning">
                         {t("inventory.lowBadge")}
                       </span>
                     ) : null}
                   </span>
-                  <span className="text-xs text-muted" dir="ltr">
+                  <span className="type-label text-muted" dir="ltr">
                     {item.quantity} {item.unit}
                   </span>
                 </div>
@@ -144,7 +144,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
   const [threshold, setThreshold] = useState("0");
 
   const inputClass =
-    "w-full rounded-lg bg-screen px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted";
+    "w-full rounded-lg bg-screen px-3 py-2.5 type-body text-ink outline-none placeholder:text-muted";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -169,12 +169,12 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-soft">
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+      <label className="flex flex-col gap-1 type-label text-muted">
         {t("inventory.productName")}
         <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <div className="grid grid-cols-3 gap-2">
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+        <label className="flex flex-col gap-1 type-label text-muted">
           {t("inventory.quantity")}
           <input
             className={inputClass}
@@ -183,11 +183,11 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
             onChange={(e) => setQuantity(e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+        <label className="flex flex-col gap-1 type-label text-muted">
           {t("inventory.unit")}
           <input className={inputClass} value={unit} onChange={(e) => setUnit(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted">
+        <label className="flex flex-col gap-1 type-label text-muted">
           {t("inventory.threshold")}
           <input
             className={inputClass}
@@ -199,7 +199,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
       </div>
       <button
         type="submit"
-        className="rounded-lg bg-app-amber py-2.5 text-sm font-semibold text-on-fill shadow-soft transition active:scale-[0.99]"
+        className="rounded-lg bg-app-amber py-2.5 type-label text-on-fill shadow-soft transition active:scale-[0.99]"
       >
         {t("inventory.add")}
       </button>

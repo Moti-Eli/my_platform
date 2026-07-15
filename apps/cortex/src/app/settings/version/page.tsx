@@ -12,12 +12,12 @@ import { useI18n } from "@/i18n";
 export default function VersionSettingsPage() {
   const { t } = useI18n();
   return (
-    <Screen center={<h1 className="text-lg font-bold text-ink">{t("settings.version")}</h1>}>
+    <Screen center={<h1 className="type-title text-ink">{t("settings.version")}</h1>}>
       <div className="mt-6 space-y-3">
-        <p className="text-3xl font-bold text-ink" dir="ltr">
+        <p className="type-display text-ink" dir="ltr">
           {APP_VERSION}
         </p>
-        <p className="text-sm leading-relaxed text-muted">{t("settings.versionAbout")}</p>
+        <p className="type-body text-muted">{t("settings.versionAbout")}</p>
       </div>
     </Screen>
   );

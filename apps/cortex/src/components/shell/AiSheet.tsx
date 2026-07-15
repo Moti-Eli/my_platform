@@ -219,7 +219,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("ai.searchPlaceholder")}
-              className="h-10 w-full rounded-xl bg-screen px-3 text-sm text-ink outline-none placeholder:text-muted"
+              className="h-10 w-full rounded-xl bg-screen px-3 type-body text-ink outline-none placeholder:text-muted"
             />
           </div>
         ) : null}
@@ -230,7 +230,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
             m.role === "user" ? (
               <div
                 key={m.id}
-                className="max-w-[80%] self-start rounded-2xl bg-screen px-3.5 py-2.5 text-sm leading-relaxed text-ink"
+                className="max-w-[80%] self-start rounded-2xl bg-screen px-3.5 py-2.5 type-body text-ink"
               >
                 {m.text}
               </div>
@@ -244,7 +244,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
             ),
           )}
           {messages.length === 0 ? (
-            <p className="mt-10 text-center text-sm text-muted">{t("ai.notConnected")}</p>
+            <p className="mt-10 text-center type-label text-muted">{t("ai.notConnected")}</p>
           ) : null}
         </div>
 
@@ -281,7 +281,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
                 resizeTextarea();
               }}
               placeholder={t("ai.placeholder")}
-              className="max-h-[7.5rem] flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-relaxed text-ink outline-none placeholder:text-muted"
+              className="max-h-[7.5rem] flex-1 resize-none bg-transparent px-2 py-2 type-body text-ink outline-none placeholder:text-muted"
             />
 
             {/* RTL end (left): plus → attach menu */}
@@ -321,7 +321,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
       {/* Copy toast — at the root (outside the transformed sheet). */}
       {toast ? (
-        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 text-xs font-medium text-inverse-ink shadow-lifted">
+        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 type-caption text-inverse-ink shadow-lifted">
           {t("ai.copied")}
         </div>
       ) : null}
@@ -335,7 +335,7 @@ function AttachItem({ icon, labelKey }: { icon: React.ReactNode; labelKey: Messa
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-start text-sm text-ink touch-manipulation transition active:transition-none active:bg-screen"
+      className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-ink">
         {icon}
@@ -372,7 +372,7 @@ function AiMessage({
         onClick={() => {
           if (!expanded) setExpanded(true);
         }}
-        className={`relative block w-full text-start text-sm leading-relaxed text-ink ${
+        className={`relative block w-full text-start type-body text-ink ${
           expanded ? "" : "max-h-[7.5rem] overflow-hidden"
         }`}
       >
@@ -520,7 +520,7 @@ function HistoryPanel({
           transition: dragging ? "none" : undefined,
         }}
       >
-        <h3 className="shrink-0 px-4 pb-2 pt-4 text-sm font-bold text-ink">{t("ai.history")}</h3>
+        <h3 className="shrink-0 px-4 pb-2 pt-4 type-heading text-ink">{t("ai.history")}</h3>
         <ul className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
           {store.conversations.map((c) => (
             <li key={c.id}>
@@ -535,13 +535,13 @@ function HistoryPanel({
                     if (e.key === "Enter") commitRename();
                     if (e.key === "Escape") setRenamingId(null);
                   }}
-                  className="w-full rounded-lg bg-screen px-3 py-2 text-sm text-ink outline-none"
+                  className="w-full rounded-lg bg-screen px-3 py-2 type-body text-ink outline-none"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={(e) => openRowMenu(c.id, c.title, e.currentTarget)}
-                  className="flex w-full items-center rounded-lg px-3 py-2.5 text-start text-sm text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="flex w-full items-center rounded-lg px-3 py-2.5 text-start type-body text-ink touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   <span className="truncate">{c.title}</span>
                 </button>
@@ -575,7 +575,7 @@ function HistoryPanel({
                     setRenamingId(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start text-xs font-medium text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   {t("ai.rename")}
                 </button>
@@ -586,7 +586,7 @@ function HistoryPanel({
                     store.deleteConversation(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start text-xs font-medium text-danger touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start type-label text-danger touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   {t("ai.delete")}
                 </button>

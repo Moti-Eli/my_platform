@@ -44,7 +44,7 @@ function TabLink({
       }`}
     >
       <span className="transition active:transition-none motion-safe:active:scale-90">{icon}</span>
-      <span className="text-[11px] font-medium">{label}</span>
+      <span className="type-caption">{label}</span>
     </Link>
   );
 }

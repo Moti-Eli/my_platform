@@ -12,7 +12,7 @@ import { useI18n } from "@/i18n";
 export default function AppearanceSettingsPage() {
   const { t } = useI18n();
   return (
-    <Screen center={<h1 className="text-lg font-bold text-ink">{t("settings.appearance")}</h1>}>
+    <Screen center={<h1 className="type-title text-ink">{t("settings.appearance")}</h1>}>
       <div className="mt-2">
         <ThemePicker />
       </div>

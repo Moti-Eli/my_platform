@@ -27,7 +27,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
       >
         <Icon width={22} height={22} />
       </span>
-      <span className="text-center text-xs font-semibold leading-tight text-ink">{label}</span>
+      <span className="text-center type-label text-ink">{label}</span>
       {available ? (
         <span
           className={`absolute end-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full ${
@@ -37,7 +37,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
           {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}
         </span>
       ) : (
-        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-1.5 py-0.5 text-[10px] font-medium text-muted">
+        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-1.5 py-0.5 type-caption text-muted">
           {t("apps.unavailable")}
         </span>
       )}
@@ -75,7 +75,7 @@ export default function CatalogPage() {
 
   return (
     <>
-      <h1 className="px-1 text-xl font-bold text-ink">{t("catalog.title")}</h1>
+      <h1 className="px-1 type-title text-ink">{t("catalog.title")}</h1>
       <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-3">
         {apps.map((manifest) => (
           <CatalogCard

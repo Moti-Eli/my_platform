@@ -24,11 +24,11 @@ export default function NotificationsPage() {
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
-        <h1 className="text-xl font-bold text-ink">{t("notifications.title")}</h1>
+        <h1 className="type-title text-ink">{t("notifications.title")}</h1>
       </div>
 
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-muted/60">{t("notifications.empty")}</p>
+        <p className="type-label text-muted/60">{t("notifications.empty")}</p>
       </div>
     </>
   );

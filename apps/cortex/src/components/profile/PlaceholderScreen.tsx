@@ -12,9 +12,9 @@ import { useI18n } from "@/i18n";
 export function PlaceholderScreen({ title }: { title: string }) {
   const { t } = useI18n();
   return (
-    <Screen center={<h1 className="truncate text-lg font-bold text-ink">{title}</h1>}>
+    <Screen center={<h1 className="truncate type-title text-ink">{title}</h1>}>
       <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-sm text-muted">{t("apps.comingSoon")}</p>
+        <p className="type-label text-muted">{t("apps.comingSoon")}</p>
       </div>
     </Screen>
   );

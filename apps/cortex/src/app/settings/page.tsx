@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const themeValue = t(theme === "light" ? "settings.themeLight" : "settings.themeDark");
 
   return (
-    <Screen center={<h1 className="text-lg font-bold text-ink">{t("settings.title")}</h1>}>
+    <Screen center={<h1 className="type-title text-ink">{t("settings.title")}</h1>}>
       <div className="mt-2">
         <ListRow
           href="/settings/language"
@@ -43,7 +43,7 @@ export default function SettingsPage() {
         />
       </div>
 
-      <p className="px-1 pt-4 text-center text-xs text-muted">{t("common.savedLocally")}</p>
+      <p className="px-1 pt-4 text-center type-caption text-muted">{t("common.savedLocally")}</p>
     </Screen>
   );
 }

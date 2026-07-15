@@ -28,10 +28,10 @@ export function PlaceholderScreen({ appId }: { appId: string }) {
           </span>
         ) : null}
         <div className="flex flex-col">
-          <h1 className="text-xl font-bold text-ink">
+          <h1 className="type-title text-ink">
             {manifest ? t(manifest.name.key as MessageKey) : ""}
           </h1>
-          <p className="text-xs text-muted">{t("apps.comingSoon")}</p>
+          <p className="type-label text-muted">{t("apps.comingSoon")}</p>
         </div>
       </div>
 
