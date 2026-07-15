@@ -87,13 +87,13 @@ export function FullScreen() {
           <p className="max-w-[24ch] type-label text-muted">{t("inventory.emptyHint")}</p>
         </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-hairline">
+        <ul className="flex flex-col divide-y divide-hairline px-md">
           {items.map((item) => {
             const low = item.quantity < item.reorderThreshold;
             return (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-sm px-md py-sm"
+                className="flex items-center justify-between gap-sm py-sm"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="flex items-center gap-xs truncate type-heading text-ink">
@@ -114,7 +114,7 @@ export function FullScreen() {
                     type="button"
                     aria-label={t("inventory.decrease")}
                     onClick={() => changeQuantity(item.name, -1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink interactive motion-safe:active:scale-[0.97]"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-hairline text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <MinusIcon width={18} height={18} />
                   </button>
@@ -122,7 +122,7 @@ export function FullScreen() {
                     type="button"
                     aria-label={t("inventory.increase")}
                     onClick={() => changeQuantity(item.name, 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink interactive motion-safe:active:scale-[0.97]"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-hairline text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <PlusIcon width={18} height={18} />
                   </button>
