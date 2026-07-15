@@ -8,19 +8,44 @@
  * components (Cortex Standard §1 law 6).
  */
 @theme inline {
+  /* Surfaces / neutrals */
   --color-screen: var(--ds-screen);
   --color-card: var(--ds-card);
   --color-ink: var(--ds-ink);
   --color-muted: var(--ds-muted);
   --color-hairline: var(--ds-hairline);
-  --color-indigo: var(--ds-indigo);
-  --color-teal: var(--ds-teal);
-  --color-coral: var(--ds-coral);
-  --color-amber: var(--ds-amber);
+
+  /* Family A — semantic roles */
+  --color-accent: var(--ds-accent);
+  --color-success: var(--ds-success);
+  --color-warning: var(--ds-warning);
+  --color-danger: var(--ds-danger);
+  --color-inverse: var(--ds-inverse);
+  --color-inverse-ink: var(--ds-inverse-ink);
+  --color-scrim: var(--ds-scrim);
+  --color-ring: var(--ds-ring);
+  --color-on-fill: var(--ds-on-fill);
+
+  /* Family B — app identity palette */
+  --color-app-violet: var(--ds-app-violet);
+  --color-app-teal: var(--ds-app-teal);
+  --color-app-coral: var(--ds-app-coral);
+  --color-app-amber: var(--ds-app-amber);
+  --color-app-blue: var(--ds-app-blue);
+  --color-app-green: var(--ds-app-green);
+
+  /* TEMPORARY — the old colour-named utilities kept alive, now pointing at the
+     new semantic vars so every existing component keeps working unchanged.
+     Removed in round 4 once components are converted to the semantic names. */
+  --color-indigo: var(--ds-accent);
+  --color-teal: var(--ds-success);
+  --color-coral: var(--ds-danger);
+  --color-amber: var(--ds-warning);
 
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);
   --radius-xl: var(--ds-radius-xl);
+  --radius-pill: var(--ds-radius-pill);
 
   --shadow-soft: var(--ds-shadow-soft);
   --shadow-lifted: var(--ds-shadow-lifted);
