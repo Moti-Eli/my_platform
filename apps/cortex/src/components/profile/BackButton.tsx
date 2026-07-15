@@ -17,7 +17,7 @@ export function BackButton() {
       type="button"
       onClick={() => router.back()}
       aria-label={t("common.back")}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
     >
       {/* ChevronIcon points left by default — no per-locale flip. */}
       <ChevronIcon />

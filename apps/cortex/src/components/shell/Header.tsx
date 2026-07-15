@@ -25,7 +25,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           type="button"
           aria-label={t("common.search")}
           onClick={() => setSearchOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center text-ink transition active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
         >
           <SearchIcon />
         </button>
@@ -42,7 +42,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           type="button"
           aria-label={t("urgency.title")}
           onClick={onOpenInbox}
-          className="flex h-10 w-10 shrink-0 items-center justify-center text-ink transition active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
         >
           <BellIcon />
         </button>
@@ -84,7 +84,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         type="button"
         aria-label={t("common.close")}
         onClick={onClose}
-        className="ds-backdrop absolute inset-0 bg-ink/30"
+        className="ds-backdrop absolute inset-0 bg-ink/30 touch-manipulation"
       />
 
       <div className="ds-panel relative z-10 mt-3 w-full max-w-[480px] px-3">
@@ -93,7 +93,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             aria-label={t("common.back")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
           >
             <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
           </button>

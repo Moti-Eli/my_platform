@@ -61,7 +61,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
       aria-pressed={installed}
       aria-label={label}
       onClick={() => (installed ? uninstall(manifest.id) : install(manifest.id))}
-      className={`${cardClass} active:scale-95`}
+      className={`${cardClass} touch-manipulation active:transition-none active:bg-hairline motion-safe:active:scale-95`}
     >
       {inner}
     </button>

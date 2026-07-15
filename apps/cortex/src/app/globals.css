@@ -32,6 +32,9 @@
 html {
   /* Respect the notch/home-indicator on installed phones. */
   background-color: var(--color-screen);
+  /* Kill the browser's grey tap flash everywhere (inherited) so our own instant
+   * active: states are the only press feedback. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {

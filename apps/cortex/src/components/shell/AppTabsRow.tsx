@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
 // inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 text-sm font-medium touch-manipulation transition active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 text-sm font-medium touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -169,7 +169,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
           <button
             type="button"
             aria-label={t("common.close")}
-            className="fixed inset-0 z-40 cursor-default"
+            className="fixed inset-0 z-40 cursor-default touch-manipulation"
             onClick={() => setMenu(null)}
           />
           {/* Small popover anchored to (and centered on) the target chip. Fixed
@@ -192,7 +192,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
                 uninstall(menu.id);
                 setMenu(null);
               }}
-              className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral transition active:scale-95"
+              className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
             >
               {t("apps.remove")}
             </button>

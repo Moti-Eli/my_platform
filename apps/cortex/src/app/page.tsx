@@ -83,7 +83,11 @@ export default function HomePage() {
         const view = !manifest.stub ? TOOL_VIEWS[manifest.id] : undefined;
         const Card = view?.DashboardCard;
         return (
-          <Link key={manifest.id} href={appRoute(manifest.id)} className="block">
+          <Link
+            key={manifest.id}
+            href={appRoute(manifest.id)}
+            className="block touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
+          >
             {Card ? <Card /> : <PlaceholderPreviewCard manifest={manifest} />}
           </Link>
         );

@@ -35,11 +35,11 @@ function TabLink({
       onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`flex flex-1 flex-col items-center gap-1 py-1 transition ${
+      className={`flex flex-1 flex-col items-center gap-1 py-1 touch-manipulation transition active:transition-none active:opacity-80 ${
         active ? "text-indigo" : "text-muted"
       }`}
     >
-      <span className="transition active:scale-90">{icon}</span>
+      <span className="transition active:transition-none motion-safe:active:scale-90">{icon}</span>
       <span className="text-[11px] font-medium">{label}</span>
     </Link>
   );
@@ -85,7 +85,7 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
           type="button"
           aria-label={t("tabs.ai")}
           onClick={onOpenAi}
-          className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo text-white shadow-hero transition active:scale-95"
+          className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-indigo text-white shadow-hero touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95"
         >
           <SparkIcon width={28} height={28} />
         </button>
