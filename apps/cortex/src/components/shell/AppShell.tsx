@@ -13,7 +13,7 @@
  * (the `--app-vh` variable), not just `100dvh` — see that hook for why Android
  * Chrome's collapsing URL bar makes `dvh` insufficient on its own.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
@@ -87,6 +87,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     setInboxOpen(false);
   }, [pathname]);
 
+  // Re-tapping the home tab while already on home scrolls this container to the
+  // top (smoothly, unless the user prefers reduced motion). See TabBar.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollToTop = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  };
+
   // Chips show ONLY installed apps, in the user's INSTALL order (not registry
   // order): iterate the installed list and resolve each id against the registry.
   // Labels are translated at render so they follow locale.
@@ -115,7 +127,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main className="flex min-h-0 flex-1 flex-col">{children}</main>
         ) : (
           // Single scroll area: Header + chips row + page content scroll together.
-          <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+          <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <Header onOpenInbox={() => setInboxOpen(true)} />
 
             <div className="px-4">
@@ -130,7 +142,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <UrgencyInbox open={inboxOpen} onClose={() => setInboxOpen(false)} />
       </div>
 
-      <TabBar aiOpen={aiOpen} onToggleAi={() => setAiOpen((v) => !v)} />
+      <TabBar
+        aiOpen={aiOpen}
+        onToggleAi={() => setAiOpen((v) => !v)}
+        onHomeReselect={scrollToTop}
+      />
     </div>
   );
 }

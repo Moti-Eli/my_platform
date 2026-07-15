@@ -49,12 +49,28 @@ function TabLink({
   );
 }
 
-export function TabBar({ aiOpen, onToggleAi }: { aiOpen: boolean; onToggleAi: () => void }) {
+export function TabBar({
+  aiOpen,
+  onToggleAi,
+  onHomeReselect,
+}: {
+  aiOpen: boolean;
+  onToggleAi: () => void;
+  onHomeReselect: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  // Re-tapping the home tab while already on home scrolls to the top instead of a
+  // no-op re-navigation. Off home → the Link navigates to "/" as normal.
+  const onHomeScreen = pathname === "/";
+  const reselectHome = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    onHomeReselect();
+  };
 
   // Toggle the profile tab: when already ON the profile screen, tapping it closes
   // it exactly like the top-bar back chevron (router.back()) instead of a no-op
@@ -75,7 +91,13 @@ export function TabBar({ aiOpen, onToggleAi }: { aiOpen: boolean; onToggleAi: ()
       // visible viewport height (see AppShell), which handles Chrome's URL bar.
       className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-1 rounded-t-xl bg-card px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-lifted"
     >
-      <TabLink href="/" label={t("tabs.home")} icon={<HomeIcon />} active={isActive("/")} />
+      <TabLink
+        href="/"
+        label={t("tabs.home")}
+        icon={<HomeIcon />}
+        active={isActive("/")}
+        onClick={onHomeScreen ? reselectHome : undefined}
+      />
       <TabLink
         href="/catalog"
         label={t("tabs.catalog")}

@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
 // inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 text-sm font-medium touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 text-sm font-semibold touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -89,7 +89,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
     <div
       role="tablist"
       aria-label={t("home.appTabsLabel")}
-      className="no-scrollbar flex gap-2 overflow-x-auto pb-2"
+      className="no-scrollbar flex gap-2 overflow-x-auto pb-1.5"
     >
       {/* "הכל" — Home / the glance view. Not removable. */}
       <Link
@@ -174,28 +174,40 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
           />
           {/* Small popover anchored to (and centered on) the target chip. Fixed
               position so the row's horizontal overflow never clips it and the
-              row layout never shifts. */}
+              row layout never shifts.
+
+              The centering `translateX(-50%)` lives on this OUTER wrapper, which
+              is NOT animated — while the `ds-panel` entrance animation (which
+              animates `transform`) lives on the INNER element. If both were on
+              one element, the keyframes would override the inline centering for
+              the animation's duration, so it would paint off-center and then snap
+              into place. Split, they compose: centered from the very first frame,
+              with only the vertical drop-in animating. */}
           <div
-            role="menu"
-            aria-label={menu.label}
-            className="ds-panel fixed z-50 rounded-lg bg-card p-1 shadow-lifted"
+            className="fixed z-50"
             style={{
               left: menu.centerX,
               top: placeAbove ? menu.top - MENU_GAP : menu.bottom + MENU_GAP,
               transform: placeAbove ? "translate(-50%, -100%)" : "translateX(-50%)",
             }}
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                uninstall(menu.id);
-                setMenu(null);
-              }}
-              className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+            <div
+              role="menu"
+              aria-label={menu.label}
+              className="ds-panel rounded-lg bg-card p-1 shadow-lifted"
             >
-              {t("apps.remove")}
-            </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  uninstall(menu.id);
+                  setMenu(null);
+                }}
+                className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+              >
+                {t("apps.remove")}
+              </button>
+            </div>
           </div>
         </>
       ) : null}
