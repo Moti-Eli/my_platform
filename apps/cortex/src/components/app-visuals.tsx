@@ -45,10 +45,10 @@ export function appIcon(icon: string): IconComponent {
 
 /** Tinted-circle classes (`bg-<color>/15 text-<color>`) for a palette token. */
 const COLOR_CLASSES: Record<string, string> = {
-  indigo: "bg-indigo/15 text-indigo",
-  teal: "bg-teal/15 text-teal",
-  coral: "bg-coral/15 text-coral",
-  amber: "bg-amber/15 text-amber",
+  indigo: "bg-app-violet/15 text-app-violet",
+  teal: "bg-app-teal/15 text-app-teal",
+  coral: "bg-app-coral/15 text-app-coral",
+  amber: "bg-app-amber/15 text-app-amber",
 };
 
 /** The tinted icon-circle classes for a manifest `color` token. */

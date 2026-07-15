@@ -66,14 +66,14 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
         type="button"
         aria-label={t("common.close")}
         onClick={onClose}
-        className="ds-backdrop absolute inset-0 bg-ink/30"
+        className="ds-backdrop absolute inset-0 bg-scrim"
       />
 
       <div className="ds-panel relative z-10 mt-3 w-full max-w-[480px] px-3">
         <div className="flex max-h-[80dvh] flex-col rounded-2xl bg-screen p-3 shadow-lifted">
           <div className="mb-2 flex shrink-0 items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-coral/15 text-coral">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/15 text-danger">
                 <BellIcon width={20} height={20} />
               </span>
               <h2 className="text-base font-bold text-ink">{t("urgency.title")}</h2>

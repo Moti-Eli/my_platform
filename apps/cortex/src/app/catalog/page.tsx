@@ -31,7 +31,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
       {available ? (
         <span
           className={`absolute end-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full ${
-            installed ? "bg-teal text-white" : "bg-hairline text-muted"
+            installed ? "bg-success text-on-fill" : "bg-hairline text-muted"
           }`}
         >
           {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}

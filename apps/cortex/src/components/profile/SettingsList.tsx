@@ -44,7 +44,7 @@ export function ListRow({
       href={href}
       className="flex items-center gap-3 px-1 py-2 touch-manipulation transition active:transition-none active:bg-hairline"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-indigo">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-accent">
         {icon}
       </span>
       <span className="flex-1 text-sm font-medium text-ink">{label}</span>

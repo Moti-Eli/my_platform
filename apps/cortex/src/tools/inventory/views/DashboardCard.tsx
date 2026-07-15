@@ -45,12 +45,12 @@ export function DashboardCard() {
     <div className="rounded-xl bg-card p-4 shadow-soft">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber/15 text-amber">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-app-amber/15 text-app-amber">
             <BoxIcon width={20} height={20} />
           </span>
           <span className="text-sm font-bold text-ink">{t("inventory.name")}</span>
         </div>
-        <span className={`text-sm font-semibold ${low.length > 0 ? "text-amber" : "text-muted"}`}>
+        <span className={`text-sm font-semibold ${low.length > 0 ? "text-warning" : "text-muted"}`}>
           {low.length > 0 ? `${low.length} ${t("inventory.lowItems")}` : t("inventory.allStocked")}
         </span>
       </div>

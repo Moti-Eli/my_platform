@@ -32,7 +32,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
 
         <span
           dir="ltr"
-          className="flex-1 text-center text-3xl leading-none text-indigo"
+          className="flex-1 text-center text-3xl leading-none text-accent"
           style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Brush Script MT", cursive' }}
         >
           cortex
@@ -84,7 +84,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         type="button"
         aria-label={t("common.close")}
         onClick={onClose}
-        className="ds-backdrop absolute inset-0 bg-ink/30 touch-manipulation"
+        className="ds-backdrop absolute inset-0 bg-scrim touch-manipulation"
       />
 
       <div className="ds-panel relative z-10 mt-3 w-full max-w-[480px] px-3">

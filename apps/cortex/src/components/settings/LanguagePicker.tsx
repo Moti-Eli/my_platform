@@ -30,7 +30,7 @@ export function LanguagePicker() {
             }`}
           >
             <span>{t(LABEL_KEY[code])}</span>
-            {active ? <CheckIcon width={18} height={18} className="text-indigo" /> : null}
+            {active ? <CheckIcon width={18} height={18} className="text-accent" /> : null}
           </button>
         );
       })}

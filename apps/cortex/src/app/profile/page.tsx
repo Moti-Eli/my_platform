@@ -81,7 +81,7 @@ export default function ProfilePage() {
     <Screen
       center={
         <>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo/15 text-xs font-bold text-indigo">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15 text-xs font-bold text-accent">
             {initial}
           </span>
           <span className="text-sm font-semibold text-ink">{name}</span>
@@ -103,7 +103,7 @@ export default function ProfilePage() {
           type="button"
           onClick={changePhoto}
           aria-label={t("profile.changePhoto")}
-          className="flex h-28 w-28 items-center justify-center rounded-full bg-indigo/15 text-4xl font-bold text-indigo transition active:scale-95"
+          className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 text-4xl font-bold text-accent transition active:scale-95"
         >
           {initial}
         </button>

@@ -96,7 +96,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         href="/"
         role="tab"
         aria-selected={isActive("/")}
-        className={`${CHIP_BASE} ${isActive("/") ? "bg-ink text-screen" : "bg-hairline text-ink"}`}
+        className={`${CHIP_BASE} ${isActive("/") ? "bg-inverse text-screen" : "bg-hairline text-ink"}`}
       >
         {t("home.allTab")}
       </Link>
@@ -111,8 +111,8 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             href={tab.route}
             role="tab"
             aria-selected={active}
-            className={`${CHIP_BASE} ${active ? "bg-ink text-screen" : "bg-hairline text-ink"} ${
-              menuOpen ? "ring-2 ring-coral" : ""
+            className={`${CHIP_BASE} ${active ? "bg-inverse text-screen" : "bg-hairline text-ink"} ${
+              menuOpen ? "ring-2 ring-danger" : ""
             }`}
             onClick={(e) => {
               if (suppressClick.current) {
@@ -157,7 +157,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
         className={`${CHIP_BASE} ${
-          isActive("/catalog") ? "bg-ink text-screen" : "bg-hairline text-ink"
+          isActive("/catalog") ? "bg-inverse text-screen" : "bg-hairline text-ink"
         }`}
       >
         <PlusIcon width={18} height={18} />
@@ -203,7 +203,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
                   uninstall(menu.id);
                   setMenu(null);
                 }}
-                className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-coral touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+                className="whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium text-danger touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
               >
                 {t("apps.remove")}
               </button>

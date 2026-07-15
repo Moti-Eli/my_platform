@@ -66,7 +66,7 @@ export function FullScreen() {
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-amber px-4 py-2 text-sm font-semibold text-white shadow-soft transition active:scale-95"
+          className="rounded-pill bg-app-amber px-4 py-2 text-sm font-semibold text-on-fill shadow-soft transition active:scale-95"
         >
           {t("inventory.addProduct")}
         </button>
@@ -99,7 +99,7 @@ export function FullScreen() {
                   <span className="flex items-center gap-2 truncate text-sm font-semibold text-ink">
                     {item.name}
                     {low ? (
-                      <span className="rounded-pill bg-amber/15 px-2 py-0.5 text-[11px] font-semibold text-amber">
+                      <span className="rounded-pill bg-warning/15 px-2 py-0.5 text-[11px] font-semibold text-warning">
                         {t("inventory.lowBadge")}
                       </span>
                     ) : null}
@@ -199,7 +199,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
       </div>
       <button
         type="submit"
-        className="rounded-lg bg-amber py-2.5 text-sm font-semibold text-white shadow-soft transition active:scale-[0.99]"
+        className="rounded-lg bg-app-amber py-2.5 text-sm font-semibold text-on-fill shadow-soft transition active:scale-[0.99]"
       >
         {t("inventory.add")}
       </button>

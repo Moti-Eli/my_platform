@@ -150,7 +150,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
         type="button"
         aria-label={t("common.close")}
         onClick={onClose}
-        className={`absolute inset-0 bg-ink/30 motion-safe:transition-opacity motion-safe:duration-300 ${
+        className={`absolute inset-0 bg-scrim motion-safe:transition-opacity motion-safe:duration-300 ${
           open ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -258,7 +258,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
                 type="button"
                 aria-label={t("common.send")}
                 onClick={send}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo text-white touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-on-fill touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95"
               >
                 <ArrowUpIcon width={20} height={20} />
               </button>
@@ -321,7 +321,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
       {/* Copy toast — at the root (outside the transformed sheet). */}
       {toast ? (
-        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-ink px-3 py-2 text-xs font-medium text-white shadow-lifted">
+        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 text-xs font-medium text-inverse-ink shadow-lifted">
           {t("ai.copied")}
         </div>
       ) : null}
@@ -405,7 +405,7 @@ function AiMessage({
           type="button"
           aria-label={t("ai.deleteMessage")}
           onClick={onDelete}
-          className={`${actionBtn} text-coral`}
+          className={`${actionBtn} text-danger`}
         >
           <CloseIcon width={16} height={16} />
         </button>
@@ -586,7 +586,7 @@ function HistoryPanel({
                     store.deleteConversation(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start text-xs font-medium text-coral touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start text-xs font-medium text-danger touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   {t("ai.delete")}
                 </button>
