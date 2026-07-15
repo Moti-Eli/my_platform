@@ -58,6 +58,17 @@ const he = {
   notifications: {
     title: "התראות",
     empty: "אין התראות עדיין",
+    // DEV demo notification content (temporary — see useNotifications).
+    inventoryTitle: "מוצרים חסרים במלאי",
+    inventoryDesc: "6 מוצרים ירדו מתחת לסף ההזמנה מחדש.",
+    calendarTitle: "פגישה בעוד שעתיים",
+    calendarDesc: "פגישת צוות שבועית ב-14:00 באולם הישיבות.",
+    expensesTitle: "חריגה מהתקציב החודשי",
+    expensesDesc: "ההוצאות החודש עברו את התקציב ב-12%.",
+    tasksTitle: "משימה שעברה את התאריך",
+    tasksDesc: "‘הגשת דוח רבעוני’ הייתה אמורה להסתיים אתמול.",
+    contactsTitle: "ליד חדש ממתין למענה",
+    contactsDesc: "התקבלה פנייה חדשה מהאתר שטרם טופלה.",
   },
   // App display names (registry name keys) + catalog/chip action labels. Many are
   // TEMP stub apps today; the keys stay as tools become real.
@@ -192,6 +203,17 @@ const en: Messages = {
   notifications: {
     title: "Notifications",
     empty: "No notifications yet",
+    // DEV demo notification content (temporary — see useNotifications).
+    inventoryTitle: "Products low in stock",
+    inventoryDesc: "6 products dropped below the reorder threshold.",
+    calendarTitle: "Meeting in two hours",
+    calendarDesc: "Weekly team meeting at 14:00 in the conference room.",
+    expensesTitle: "Monthly budget exceeded",
+    expensesDesc: "This month's spend is 12% over budget.",
+    tasksTitle: "Task past its due date",
+    tasksDesc: "‘Submit quarterly report’ was due yesterday.",
+    contactsTitle: "New lead awaiting reply",
+    contactsDesc: "A new inquiry from the website hasn't been handled yet.",
   },
   // App display names (registry name keys) + catalog/chip action labels. Many are
   // TEMP stub apps today; the keys stay as tools become real.
