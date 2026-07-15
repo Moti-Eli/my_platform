@@ -535,13 +535,13 @@ function HistoryPanel({
                     if (e.key === "Enter") commitRename();
                     if (e.key === "Escape") setRenamingId(null);
                   }}
-                  className="w-full rounded-lg bg-screen px-3 py-2 type-body text-ink outline-none"
+                  className="w-full rounded-lg bg-screen px-3 py-2 type-heading text-ink outline-none"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={(e) => openRowMenu(c.id, c.title, e.currentTarget)}
-                  className="flex w-full items-center rounded-lg px-3 py-2.5 text-start type-body text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="flex w-full items-center rounded-lg px-3 py-2.5 text-start type-heading text-ink touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   <span className="truncate">{c.title}</span>
                 </button>

@@ -14,7 +14,7 @@ export default function VersionSettingsPage() {
   return (
     <Screen center={<h1 className="type-title text-ink">{t("settings.version")}</h1>}>
       <div className="mt-6 space-y-3">
-        <p className="type-display text-ink" dir="ltr">
+        <p className="type-title text-ink" dir="ltr">
           {APP_VERSION}
         </p>
         <p className="type-body text-muted">{t("settings.versionAbout")}</p>
