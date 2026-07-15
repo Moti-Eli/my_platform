@@ -250,7 +250,7 @@ export const themes = {
 
     accent: "#574AD6",
     success: "#0B7568",
-    warning: "#C9871F",
+    warning: "#8C5E16",
     danger: "#BA3D19",
     inverse: "#2B2620",
     inverseInk: "#F1ECE4",
@@ -284,7 +284,7 @@ export const themes = {
 
     accent: "#5B4CE0",
     success: "#0F8476",
-    warning: "#DE982B",
+    warning: "#A06B19",
     danger: "#DA3A0C",
     inverse: "#221E31",
     inverseInk: "#FFFFFF",
@@ -319,7 +319,7 @@ export const themes = {
 
     accent: "#6B4A2E",
     success: "#2E7B59",
-    warning: "#B5791E",
+    warning: "#966419",
     danger: "#B54E37",
     inverse: "#3A2E24",
     inverseInk: "#F7F2E9",
