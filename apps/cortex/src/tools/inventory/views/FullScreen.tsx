@@ -58,7 +58,7 @@ export function FullScreen() {
           type="button"
           onClick={() => router.back()}
           aria-label={t("common.back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink shadow-soft transition active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink transition active:scale-95"
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
@@ -66,7 +66,7 @@ export function FullScreen() {
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-app-amber px-md py-xs type-label text-on-fill shadow-soft transition active:scale-95"
+          className="rounded-pill bg-app-amber px-md py-xs type-label text-on-fill transition active:scale-95"
         >
           {t("inventory.addProduct")}
         </button>
@@ -82,7 +82,7 @@ export function FullScreen() {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-xs rounded-xl bg-card px-lg py-2xl text-center shadow-soft">
+        <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
           <p className="type-heading text-ink">{t("inventory.emptyTitle")}</p>
           <p className="max-w-[24ch] type-label text-muted">{t("inventory.emptyHint")}</p>
         </div>
@@ -93,7 +93,7 @@ export function FullScreen() {
             return (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-sm rounded-xl bg-card px-md py-sm shadow-soft"
+                className="flex items-center justify-between gap-sm rounded-lg bg-card px-md py-sm"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="flex items-center gap-xs truncate type-heading text-ink">
@@ -144,7 +144,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
   const [threshold, setThreshold] = useState("0");
 
   const inputClass =
-    "w-full rounded-lg bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
+    "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -168,7 +168,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-xl bg-card p-md shadow-soft">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-lg bg-card p-md">
       <label className="flex flex-col gap-2xs type-label text-muted">
         {t("inventory.productName")}
         <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
@@ -199,7 +199,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
       </div>
       <button
         type="submit"
-        className="rounded-lg bg-app-amber py-sm type-label text-on-fill shadow-soft transition active:scale-[0.99]"
+        className="rounded-md bg-app-amber py-sm type-label text-on-fill transition active:scale-[0.99]"
       >
         {t("inventory.add")}
       </button>

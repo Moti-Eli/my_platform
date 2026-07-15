@@ -27,7 +27,7 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
   const Icon = appIcon(manifest.icon);
 
   return (
-    <div className="rounded-xl bg-card p-md shadow-soft">
+    <div className="rounded-lg bg-card p-md">
       <div className="mb-sm flex items-center gap-xs">
         <span
           className={`flex h-9 w-9 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}

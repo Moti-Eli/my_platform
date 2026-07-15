@@ -89,7 +89,7 @@ export function TabBar({
       // full height at every scroll position. The bottom padding keeps clear of
       // the system nav bar (env safe-area) on top of the shell tracking the real
       // visible viewport height (see AppShell), which handles Chrome's URL bar.
-      className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-2xs rounded-t-xl bg-card px-sm pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-xs shadow-lifted"
+      className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-2xs rounded-t-xl border-t border-hairline bg-card px-sm pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-xs"
     >
       <TabLink
         href="/"

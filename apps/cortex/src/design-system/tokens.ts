@@ -80,10 +80,10 @@ export interface ThemeTokens {
   appBlue: string;
   appGreen: string;
 
-  // --- Shadows ---
-  /** Soft, diffuse shadows (no hard borders). */
-  shadowSoft: string;
+  // --- Shadows (ONLY for things that genuinely float; a card does not) ---
+  /** Bottom sheets, popovers, toast — softened depth, not drama. */
   shadowLifted: string;
+  /** The AI hero button only. */
   shadowHero: string;
 
   /** Accent as space-separated RGB channels (e.g. "91 76 224") for `rgb(… / a)`. */
@@ -130,8 +130,7 @@ export const themes = {
     appBlue: "#3B6FD4",
     appGreen: "#1FA15C",
 
-    shadowSoft: "0 8px 30px rgba(34, 30, 49, 0.08)",
-    shadowLifted: "0 16px 44px rgba(34, 30, 49, 0.14)",
+    shadowLifted: "0 11px 30px rgba(34, 30, 49, 0.09)",
     // Was rgba(91, 76, 224, 0.42) — now derived from accentRgb (identical colour).
     shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
 
@@ -165,8 +164,7 @@ export const themes = {
     appBlue: "#6E9BF5",
     appGreen: "#47C97D",
 
-    shadowSoft: "0 8px 30px rgba(0, 0, 0, 0.45)",
-    shadowLifted: "0 18px 46px rgba(0, 0, 0, 0.6)",
+    shadowLifted: "0 12px 31px rgba(0, 0, 0, 0.4)",
     // Was rgba(133, 119, 242, 0.5) — now derived from accentRgb (identical colour).
     shadowHero: "0 14px 36px rgb(var(--ds-accent-rgb) / 0.5)",
 
@@ -191,12 +189,16 @@ export function isThemeName(value: string | undefined): value is ThemeName {
   return value !== undefined && Object.hasOwn(themes, value);
 }
 
-/** Structural (theme-independent) tokens: the "organic" radii and the font. */
+/**
+ * Structural (theme-independent) radii. Tightened under the "Quiet Structure"
+ * line — structure comes from tone + spacing, not big soft corners.
+ */
 export const radii = {
-  md: "16px",
-  lg: "20px",
-  xl: "24px",
-  pill: "999px",
+  sm: "10px", //   badges, small tags, inline chips-in-content
+  md: "12px", //   buttons, inputs, tiles, non-circular icon discs
+  lg: "14px", //   cards, list rows, panels
+  xl: "18px", //   bottom sheets / large floating surfaces only
+  pill: "999px", // chips, pills (locked)
 } as const;
 
 /**
@@ -266,6 +268,7 @@ export function baseStylesheet(): string {
     .map(([name, value]) => `  --ds-space-${name}:${value};`)
     .join("\n");
   return `:root{
+  --ds-radius-sm:${radii.sm};
   --ds-radius-md:${radii.md};
   --ds-radius-lg:${radii.lg};
   --ds-radius-xl:${radii.xl};
@@ -301,7 +304,6 @@ function themeVars(t: ThemeTokens): string {
   --ds-app-blue:${t.appBlue};
   --ds-app-green:${t.appGreen};
   --ds-accent-rgb:${t.accentRgb};
-  --ds-shadow-soft:${t.shadowSoft};
   --ds-shadow-lifted:${t.shadowLifted};
   --ds-shadow-hero:${t.shadowHero};`;
 }

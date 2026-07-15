@@ -45,7 +45,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
   );
 
   const cardClass =
-    "relative flex h-full flex-col items-center gap-xs rounded-xl bg-card p-md pt-lg shadow-soft transition";
+    "relative flex h-full flex-col items-center gap-xs rounded-lg bg-card p-md pt-lg transition";
 
   if (!available) {
     return (

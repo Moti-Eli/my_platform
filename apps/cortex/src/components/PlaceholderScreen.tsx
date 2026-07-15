@@ -37,7 +37,7 @@ export function PlaceholderScreen({ appId }: { appId: string }) {
 
       {/* Dummy filler — repeated skeleton cards to overflow the viewport. */}
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="rounded-xl bg-card p-md shadow-soft">
+        <div key={i} className="rounded-lg bg-card p-md">
           <div className="mb-xs h-4 w-1/2 rounded-full bg-screen" />
           <div className="mb-xs h-3 w-full rounded-full bg-screen" />
           <div className="h-3 w-3/4 rounded-full bg-screen" />

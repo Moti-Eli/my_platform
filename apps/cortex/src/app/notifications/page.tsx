@@ -20,7 +20,7 @@ export default function NotificationsPage() {
           type="button"
           onClick={() => router.back()}
           aria-label={t("common.back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink shadow-soft transition active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink transition active:scale-95"
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>

@@ -42,7 +42,7 @@ export function DashboardCard() {
   const low = items.filter((item) => item.quantity < item.reorderThreshold);
 
   return (
-    <div className="rounded-xl bg-card p-md shadow-soft">
+    <div className="rounded-lg bg-card p-md">
       <div className="mb-sm flex items-center justify-between">
         <div className="flex items-center gap-xs">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-app-amber/15 text-app-amber">

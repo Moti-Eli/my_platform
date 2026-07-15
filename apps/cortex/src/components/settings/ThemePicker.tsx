@@ -27,7 +27,7 @@ export function ThemePicker() {
             type="button"
             onClick={() => setTheme(name)}
             aria-pressed={active}
-            className={`flex flex-col gap-sm rounded-xl bg-card p-md text-start shadow-soft transition active:scale-[0.99] ${
+            className={`flex flex-col gap-sm rounded-lg bg-card p-md text-start transition active:scale-[0.99] ${
               active ? "ring-2 ring-ring" : "ring-1 ring-hairline"
             }`}
           >

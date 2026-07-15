@@ -43,12 +43,16 @@
   --color-app-blue: var(--ds-app-blue);
   --color-app-green: var(--ds-app-green);
 
+  /* Radii — ADDED on top of Tailwind's defaults (not cleared), so `rounded-full`
+     / `rounded-none` (circles/shape utilities) keep working untouched. */
+  --radius-sm: var(--ds-radius-sm);
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);
   --radius-xl: var(--ds-radius-xl);
   --radius-pill: var(--ds-radius-pill);
 
-  --shadow-soft: var(--ds-shadow-soft);
+  /* Shadows — only for genuinely floating surfaces (sheet/popover/toast/hero).
+     shadowSoft (the card float) was removed this step. */
   --shadow-lifted: var(--ds-shadow-lifted);
   --shadow-hero: var(--ds-shadow-hero);
 

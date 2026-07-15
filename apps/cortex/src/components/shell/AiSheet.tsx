@@ -157,7 +157,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
       {/* Sheet */}
       <div
-        className="absolute inset-x-0 bottom-0 flex max-h-full flex-col overflow-hidden rounded-t-2xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out"
+        className="absolute inset-x-0 bottom-0 flex max-h-full flex-col overflow-hidden rounded-t-xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out"
         style={{
           height: "calc(var(--app-vh, 100dvh) * 0.66)",
           transform: open ? `translateY(${dragY}px)` : "translateY(110%)",
@@ -219,7 +219,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("ai.searchPlaceholder")}
-              className="h-10 w-full rounded-xl bg-screen px-sm type-body text-ink outline-none placeholder:text-muted"
+              className="h-10 w-full rounded-md bg-screen px-sm type-body text-ink outline-none placeholder:text-muted"
             />
           </div>
         ) : null}
@@ -230,7 +230,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
             m.role === "user" ? (
               <div
                 key={m.id}
-                className="max-w-[80%] self-start rounded-2xl bg-screen px-md py-sm type-body text-ink"
+                className="max-w-[80%] self-start rounded-lg bg-screen px-md py-sm type-body text-ink"
               >
                 {m.text}
               </div>
@@ -251,7 +251,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
         {/* Composer — pinned to the bottom of the sheet (messages take the rest),
             with only a small comfortable margin above the tab bar. */}
         <div className="relative shrink-0 px-sm pb-sm pt-2xs">
-          <div className="flex items-end gap-2xs rounded-3xl bg-screen p-xs">
+          <div className="flex items-end gap-2xs rounded-md bg-screen p-xs">
             {/* RTL start (right): mic ⇆ send */}
             {hasText ? (
               <button
@@ -296,7 +296,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
               </button>
 
               {plusOpen ? (
-                <div className="absolute bottom-full left-0 z-20 mb-xs flex min-w-44 flex-col rounded-2xl bg-card p-xs shadow-lifted">
+                <div className="absolute bottom-full left-0 z-20 mb-xs flex min-w-44 flex-col rounded-lg bg-card p-xs shadow-lifted">
                   <AttachItem icon={<CameraIcon width={19} height={19} />} labelKey="ai.attachCamera" />
                   <AttachItem icon={<ImageIcon width={19} height={19} />} labelKey="ai.attachPhotos" />
                   <AttachItem icon={<PaperclipIcon width={19} height={19} />} labelKey="ai.attachFiles" />
@@ -321,7 +321,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
       {/* Copy toast — at the root (outside the transformed sheet). */}
       {toast ? (
-        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-sm py-xs type-caption text-inverse-ink shadow-lifted">
+        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-md bg-inverse px-sm py-xs type-caption text-inverse-ink shadow-lifted">
           {t("ai.copied")}
         </div>
       ) : null}
@@ -335,7 +335,7 @@ function AttachItem({ icon, labelKey }: { icon: React.ReactNode; labelKey: Messa
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-sm rounded-xl px-xs py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
+      className="flex w-full items-center gap-sm rounded-md px-xs py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-ink">
         {icon}
@@ -363,7 +363,7 @@ function AiMessage({
   const [expanded, setExpanded] = useState(false);
 
   const actionBtn =
-    "flex h-8 w-8 items-center justify-center rounded-lg touch-manipulation transition active:transition-none active:bg-screen";
+    "flex h-8 w-8 items-center justify-center rounded-md touch-manipulation transition active:transition-none active:bg-screen";
 
   return (
     <div className="w-full">
@@ -512,7 +512,7 @@ function HistoryPanel({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className={`absolute inset-y-0 left-0 z-30 flex w-[60%] touch-pan-y flex-col rounded-s-2xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out ${
+        className={`absolute inset-y-0 left-0 z-30 flex w-[60%] touch-pan-y flex-col rounded-s-xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out ${
           open ? "" : "pointer-events-none"
         }`}
         style={{
@@ -535,7 +535,7 @@ function HistoryPanel({
                     if (e.key === "Enter") commitRename();
                     if (e.key === "Escape") setRenamingId(null);
                   }}
-                  className="w-full rounded-lg bg-screen px-sm py-xs type-heading text-ink outline-none"
+                  className="w-full rounded-md bg-screen px-sm py-xs type-heading text-ink outline-none"
                 />
               ) : (
                 <button

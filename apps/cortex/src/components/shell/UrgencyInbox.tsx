@@ -70,7 +70,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
       />
 
       <div className="ds-panel relative z-10 mt-sm w-full max-w-[480px] px-sm">
-        <div className="flex max-h-[80dvh] flex-col rounded-2xl bg-screen p-md shadow-lifted">
+        <div className="flex max-h-[80dvh] flex-col rounded-lg bg-screen p-md shadow-lifted">
           <div className="mb-xs flex shrink-0 items-center justify-between px-2xs">
             <div className="flex items-center gap-xs">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/15 text-danger">
@@ -103,7 +103,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                     key={n.id}
                     href={appRoute(n.appId)}
                     onClick={onClose}
-                    className="block rounded-xl bg-card p-md shadow-soft touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
+                    className="block rounded-lg bg-card p-md touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
                   >
                     <div className="flex items-center gap-xs">
                       <span

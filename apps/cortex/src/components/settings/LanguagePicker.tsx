@@ -16,7 +16,7 @@ export function LanguagePicker() {
   const { t, locale, setLocale } = useI18n();
 
   return (
-    <div className="flex flex-col gap-xs rounded-xl bg-card p-xs shadow-soft">
+    <div className="flex flex-col gap-xs rounded-lg bg-card p-xs">
       {locales.map((code) => {
         const active = code === locale;
         return (
