@@ -19,12 +19,21 @@
  *     appBlue, appGreen. They visually coincide with the roles TODAY but are now
  *     independent knobs; later themes may diverge them.
  *
- * THE onFill RULE (locked constraint for theme authors): `onFill` is ONE token,
- * not one per fill. Every saturated fill in a theme — accent, success, warning,
- * danger, and every app-* colour — MUST sit in the same lightness band so that a
- * single contrasting text colour (`onFill`) reads on all of them. Today every
- * fill is dark enough for white, so onFill = #FFFFFF in both themes. A new theme
- * that wants pale fills must move ALL fills together and flip onFill.
+ * THE onFill RULE (locked constraint for theme authors): `onFill` is ONE token
+ * PER THEME — and it is NOT always white. Every saturated fill in a theme
+ * (accent, success, danger, and every app-* colour) MUST sit in ONE lightness
+ * band so the SAME `onFill` reaches >=4.5:1 on ALL of them. The LIGHT themes keep
+ * dark fills + a white `onFill`; the DARK themes keep light fills + a DARK
+ * `onFill` (the screen ink) — both satisfy the band equally (this is exactly what
+ * the per-theme `onFill` field is for). `warning` is the ONE exception: it is only
+ * ever rendered as text or a `/15` tint, never as a white-on-fill surface, so it
+ * is tuned for legibility as text on `card`, NOT for the onFill band — which is
+ * why `warning` and `appAmber` are independent values (two knobs, by design).
+ *
+ * SECOND, EQUAL constraint (light themes): a fill is also used as `text-<role>`
+ * on `card` (e.g. `text-danger`, `text-app-teal` inside a `/15` tint). On themes
+ * whose `card` is NOT pure white (dawn, clay), text-on-card is STRICTER than
+ * white-on-fill, so fills are darkened to clear >=4.5:1 as text on `card`.
  *
  * SUBTLE TINTS: components currently tint fills ad-hoc with Tailwind's `/15`
  * opacity modifier (e.g. `bg-accent/15`). That keeps working and is intentionally
@@ -139,7 +148,9 @@ export const themes = {
     // scrim ALWAYS darkens — never a light wash, even on the darkest theme.
     scrim: "rgba(6, 6, 12, 0.55)",
     ring: "#8F82F5",
-    onFill: "#FFFFFF",
+    // DARK theme: fills stay light, so `onFill` is the dark screen ink (not white)
+    // — dark-on-light-fill clears >=4.5:1 on every fill (min 6.24 on accent).
+    onFill: "#0B0B12",
     overlayHover: "rgba(255, 255, 255, 0.06)",
     overlayPressed: "rgba(255, 255, 255, 0.10)",
 
@@ -173,7 +184,8 @@ export const themes = {
     inverseInk: "#141220",
     scrim: "rgba(20, 18, 32, 0.45)",
     ring: "#8577F2",
-    onFill: "#FFFFFF",
+    // DARK theme: light fills → dark `onFill` (min 5.20 on accent).
+    onFill: "#141220",
     overlayHover: "rgba(255, 255, 255, 0.06)",
     overlayPressed: "rgba(255, 255, 255, 0.10)",
 
@@ -199,19 +211,22 @@ export const themes = {
     muted: "#9BA6B3",
     hairline: "#3A424D",
 
-    accent: "#8B7DF0",
+    // Lightened from #8B7DF0 so `text-accent` on `card` clears 4.5:1 (was 3.98,
+    // now 4.56); still one indigo hue, just a touch lighter for this soft card.
+    accent: "#968AF1",
     success: "#3BB89E",
     warning: "#E5B15C",
     danger: "#F58A6E",
     inverse: "#E7ECF2",
     inverseInk: "#1E232B",
     scrim: "rgba(10, 12, 18, 0.5)",
-    ring: "#8B7DF0",
-    onFill: "#FFFFFF",
+    ring: "#968AF1",
+    // DARK theme: light fills → dark `onFill` (min 5.41 on accent).
+    onFill: "#1E232B",
     overlayHover: "rgba(255, 255, 255, 0.06)",
     overlayPressed: "rgba(255, 255, 255, 0.10)",
 
-    appViolet: "#8B7DF0",
+    appViolet: "#968AF1",
     appTeal: "#3BB89E",
     appCoral: "#F58A6E",
     appAmber: "#E5B15C",
@@ -221,7 +236,7 @@ export const themes = {
     shadowLifted: "0 12px 30px rgba(0, 0, 0, 0.35)",
     shadowHero: "0 14px 36px rgb(var(--ds-accent-rgb) / 0.5)",
 
-    accentRgb: "139 125 240",
+    accentRgb: "150 138 241",
     colorScheme: "dark",
     labelKey: "settings.themeSlate",
   },
@@ -234,9 +249,9 @@ export const themes = {
     hairline: "#CFC9BE",
 
     accent: "#574AD6",
-    success: "#0E9080",
+    success: "#0B7568",
     warning: "#C9871F",
-    danger: "#E5643F",
+    danger: "#BA3D19",
     inverse: "#2B2620",
     inverseInk: "#F1ECE4",
     scrim: "rgba(18, 15, 12, 0.42)",
@@ -246,11 +261,11 @@ export const themes = {
     overlayPressed: "rgba(0, 0, 0, 0.08)",
 
     appViolet: "#574AD6",
-    appTeal: "#0E9080",
-    appCoral: "#E5643F",
-    appAmber: "#C9871F",
-    appBlue: "#2F6BD0",
-    appGreen: "#1C9455",
+    appTeal: "#0B7568",
+    appCoral: "#BA3D19",
+    appAmber: "#8C5E16",
+    appBlue: "#2C65C4",
+    appGreen: "#167744",
 
     shadowLifted: "0 11px 30px rgba(40, 30, 20, 0.12)",
     shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
@@ -268,9 +283,9 @@ export const themes = {
     hairline: "#ECEAF4",
 
     accent: "#5B4CE0",
-    success: "#12A08E",
+    success: "#0F8476",
     warning: "#DE982B",
-    danger: "#F5744F",
+    danger: "#DA3A0C",
     inverse: "#221E31",
     inverseInk: "#FFFFFF",
     scrim: "rgba(20, 18, 32, 0.45)",
@@ -280,11 +295,11 @@ export const themes = {
     overlayPressed: "rgba(0, 0, 0, 0.08)",
 
     appViolet: "#5B4CE0",
-    appTeal: "#12A08E",
-    appCoral: "#F5744F",
-    appAmber: "#DE982B",
+    appTeal: "#0F8476",
+    appCoral: "#DA3A0C",
+    appAmber: "#A06B19",
     appBlue: "#3B6FD4",
-    appGreen: "#1FA15C",
+    appGreen: "#1A864D",
 
     shadowLifted: "0 11px 30px rgba(34, 30, 49, 0.09)",
     shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
@@ -303,9 +318,9 @@ export const themes = {
     hairline: "#DED5C6",
 
     accent: "#6B4A2E",
-    success: "#2F7D5B",
+    success: "#2E7B59",
     warning: "#B5791E",
-    danger: "#C0533A",
+    danger: "#B54E37",
     inverse: "#3A2E24",
     inverseInk: "#F7F2E9",
     scrim: "rgba(28, 20, 12, 0.42)",
@@ -317,11 +332,11 @@ export const themes = {
     // The app palette keeps its own hues — `appViolet` stays violet even though
     // the shell accent here is brown (the palette is independent of the accent).
     appViolet: "#5A47C4",
-    appTeal: "#2F8A78",
-    appCoral: "#C0533A",
-    appAmber: "#B5791E",
+    appTeal: "#2A7A6A",
+    appCoral: "#B54E37",
+    appAmber: "#966419",
     appBlue: "#2F6BD0",
-    appGreen: "#2F7D5B",
+    appGreen: "#2E7B59",
 
     shadowLifted: "0 11px 30px rgba(60, 40, 20, 0.10)",
     shadowHero: "0 14px 34px rgb(var(--ds-accent-rgb) / 0.42)",
