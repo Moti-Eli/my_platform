@@ -40,7 +40,7 @@ const DISMISS_PX = 100;
 const TAP_PX = 6;
 
 const ICON_BTN =
-  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-screen motion-safe:active:scale-95";
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]";
 
 export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
@@ -258,7 +258,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
                 type="button"
                 aria-label={t("common.send")}
                 onClick={send}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-on-fill touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-on-fill touch-manipulation interactive motion-safe:active:scale-[0.97]"
               >
                 <ArrowUpIcon width={20} height={20} />
               </button>
@@ -266,7 +266,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
               <button
                 type="button"
                 aria-label={t("ai.mic")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]"
               >
                 <MicIcon width={20} height={20} />
               </button>
@@ -290,7 +290,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
                 type="button"
                 aria-label={t("ai.attach")}
                 onClick={() => setPlusOpen((v) => !v)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]"
               >
                 <PlusIcon width={20} height={20} />
               </button>
@@ -335,7 +335,7 @@ function AttachItem({ icon, labelKey }: { icon: React.ReactNode; labelKey: Messa
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-sm rounded-md px-xs py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
+      className="flex w-full items-center gap-sm rounded-md px-xs py-xs text-start type-label text-ink touch-manipulation interactive"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-ink">
         {icon}
@@ -363,7 +363,7 @@ function AiMessage({
   const [expanded, setExpanded] = useState(false);
 
   const actionBtn =
-    "flex h-8 w-8 items-center justify-center rounded-md touch-manipulation transition active:transition-none active:bg-screen";
+    "flex h-8 w-8 items-center justify-center rounded-md touch-manipulation interactive motion-safe:active:scale-[0.97]";
 
   return (
     <div className="w-full">
@@ -372,7 +372,7 @@ function AiMessage({
         onClick={() => {
           if (!expanded) setExpanded(true);
         }}
-        className={`relative block w-full text-start type-body text-ink ${
+        className={`relative block w-full text-start type-body text-ink interactive ${
           expanded ? "" : "max-h-[7.5rem] overflow-hidden"
         }`}
       >
@@ -541,7 +541,7 @@ function HistoryPanel({
                 <button
                   type="button"
                   onClick={(e) => openRowMenu(c.id, c.title, e.currentTarget)}
-                  className="flex w-full items-center rounded-lg px-sm py-sm text-start type-heading text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="flex w-full items-center rounded-lg px-sm py-sm text-start type-heading text-ink touch-manipulation interactive"
                 >
                   <span className="truncate">{c.title}</span>
                 </button>
@@ -575,7 +575,7 @@ function HistoryPanel({
                     setRenamingId(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-ink touch-manipulation interactive"
                 >
                   {t("ai.rename")}
                 </button>
@@ -586,7 +586,7 @@ function HistoryPanel({
                     store.deleteConversation(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-danger touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-danger touch-manipulation interactive"
                 >
                   {t("ai.delete")}
                 </button>

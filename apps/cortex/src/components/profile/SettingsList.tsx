@@ -42,7 +42,7 @@ export function ListRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-sm px-2xs py-xs touch-manipulation transition active:transition-none active:bg-hairline"
+      className="flex items-center gap-sm px-2xs py-xs touch-manipulation interactive"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-accent">
         {icon}

@@ -25,8 +25,8 @@ export function LanguagePicker() {
             type="button"
             onClick={() => setLocale(code)}
             aria-pressed={active}
-            className={`flex items-center justify-between rounded-lg px-md py-sm type-heading transition ${
-              active ? "bg-screen text-ink" : "text-muted active:scale-[0.99]"
+            className={`flex items-center justify-between rounded-lg px-md py-sm type-heading interactive ${
+              active ? "bg-screen text-ink" : "text-muted"
             }`}
           >
             <span>{t(LABEL_KEY[code])}</span>

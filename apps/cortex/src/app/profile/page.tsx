@@ -91,7 +91,7 @@ export default function ProfilePage() {
         <Link
           href="/settings"
           aria-label={t("profile.menu")}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink transition active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink interactive motion-safe:active:scale-[0.97]"
         >
           <MenuIcon />
         </Link>
@@ -103,7 +103,7 @@ export default function ProfilePage() {
           type="button"
           onClick={changePhoto}
           aria-label={t("profile.changePhoto")}
-          className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 type-display text-accent transition active:scale-95"
+          className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 type-display text-accent interactive motion-safe:active:scale-[0.97]"
         >
           {initial}
         </button>

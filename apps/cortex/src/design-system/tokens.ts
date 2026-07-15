@@ -72,6 +72,12 @@ export interface ThemeTokens {
   /** Text/icon on ANY saturated fill (accent/success/warning/danger/app-*). */
   onFill: string;
 
+  // --- Interaction overlays (a translucent tint layered on ANY surface) ---
+  /** Hover tint. */
+  overlayHover: string;
+  /** Press tint — stronger than hover. */
+  overlayPressed: string;
+
   // --- Family B: app identity palette ---
   appViolet: string;
   appTeal: string;
@@ -121,6 +127,9 @@ export const themes = {
     scrim: "rgba(20, 18, 32, 0.45)",
     ring: "#5B4CE0",
     onFill: "#FFFFFF",
+    // Overlays — black at low alpha in the light theme.
+    overlayHover: "rgba(0, 0, 0, 0.04)",
+    overlayPressed: "rgba(0, 0, 0, 0.08)",
 
     // Coincide with the roles today; independent knobs going forward.
     appViolet: "#5B4CE0",
@@ -156,6 +165,9 @@ export const themes = {
     scrim: "rgba(20, 18, 32, 0.45)",
     ring: "#8577F2",
     onFill: "#FFFFFF",
+    // Overlays — white at low alpha in the dark theme.
+    overlayHover: "rgba(255, 255, 255, 0.06)",
+    overlayPressed: "rgba(255, 255, 255, 0.10)",
 
     appViolet: "#8577F2",
     appTeal: "#2FBEAA",
@@ -274,6 +286,10 @@ export function baseStylesheet(): string {
   --ds-radius-xl:${radii.xl};
   --ds-radius-pill:${radii.pill};
   --ds-font-sans:${fontSans};
+  --ds-disabled-opacity:0.4;
+  --ds-duration-fast:120ms;
+  --ds-duration-base:200ms;
+  --ds-ease:cubic-bezier(0.16, 1, 0.3, 1);
 ${typeVars}
 ${spaceVars}
 }`;
@@ -297,6 +313,8 @@ function themeVars(t: ThemeTokens): string {
   --ds-scrim:${t.scrim};
   --ds-ring:${t.ring};
   --ds-on-fill:${t.onFill};
+  --ds-overlay-hover:${t.overlayHover};
+  --ds-overlay-pressed:${t.overlayPressed};
   --ds-app-violet:${t.appViolet};
   --ds-app-teal:${t.appTeal};
   --ds-app-coral:${t.appCoral};

@@ -58,7 +58,7 @@ export function FullScreen() {
           type="button"
           onClick={() => router.back()}
           aria-label={t("common.back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink transition active:scale-95"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
@@ -66,7 +66,7 @@ export function FullScreen() {
         <button
           type="button"
           onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-app-amber px-md py-xs type-label text-on-fill transition active:scale-95"
+          className="rounded-pill bg-app-amber px-md py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
         >
           {t("inventory.addProduct")}
         </button>
@@ -114,7 +114,7 @@ export function FullScreen() {
                     type="button"
                     aria-label={t("inventory.decrease")}
                     onClick={() => changeQuantity(item.name, -1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink transition active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <MinusIcon width={18} height={18} />
                   </button>
@@ -122,7 +122,7 @@ export function FullScreen() {
                     type="button"
                     aria-label={t("inventory.increase")}
                     onClick={() => changeQuantity(item.name, 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink transition active:scale-90"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-screen text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <PlusIcon width={18} height={18} />
                   </button>
@@ -199,7 +199,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
       </div>
       <button
         type="submit"
-        className="rounded-md bg-app-amber py-sm type-label text-on-fill transition active:scale-[0.99]"
+        className="rounded-md bg-app-amber py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
       >
         {t("inventory.add")}
       </button>

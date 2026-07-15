@@ -25,7 +25,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           type="button"
           aria-label={t("common.search")}
           onClick={() => setSearchOpen(true)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]"
         >
           <SearchIcon />
         </button>
@@ -42,7 +42,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           type="button"
           aria-label={t("urgency.title")}
           onClick={onOpenInbox}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]"
         >
           <BellIcon />
         </button>
@@ -93,7 +93,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             aria-label={t("common.back")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink touch-manipulation interactive motion-safe:active:scale-[0.97]"
           >
             <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
           </button>

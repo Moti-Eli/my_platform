@@ -100,6 +100,56 @@
 .type-label { font-size: var(--ds-text-label-size); line-height: var(--ds-text-label-line); font-weight: var(--ds-text-label-weight); letter-spacing: normal; }
 .type-caption { font-size: var(--ds-text-caption-size); line-height: var(--ds-text-caption-line); font-weight: var(--ds-text-caption-weight); letter-spacing: normal; }
 
+/* ---- Interaction feedback (consumed, not invented) -------------------------
+   Any pressable element opts in with `.interactive`: a translucent overlay on
+   hover/press that works identically on ANY surface (neutral, accent, or app-*
+   fill), a :focus-visible ring in the `ring` token, and disabled handling. Small
+   controls ALSO add `motion-safe:active:scale-[0.97]`; cards/rows do NOT scale. */
+.interactive {
+  position: relative;
+  transition: transform var(--ds-duration-fast) var(--ds-ease);
+}
+.interactive::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit; /* REQUIRED — matches rounded cards / circular buttons */
+  background-color: var(--ds-overlay-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--ds-duration-base) var(--ds-ease),
+    background-color var(--ds-duration-base) var(--ds-ease);
+}
+/* Hover gated behind (hover: hover) so a phone tap never sticks in hover state. */
+@media (hover: hover) {
+  .interactive:hover::after {
+    opacity: 1;
+  }
+}
+.interactive:active::after {
+  background-color: var(--ds-overlay-pressed);
+  opacity: 1;
+  transition-duration: var(--ds-duration-fast);
+}
+/* Focus: keyboard only (:focus-visible), 2px ring + 2px offset showing `screen`. */
+.interactive:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--ds-ring);
+  outline-offset: 2px;
+}
+/* Disabled: dim, no overlay, no pointer events. */
+.interactive:disabled,
+.interactive[aria-disabled="true"] {
+  opacity: var(--ds-disabled-opacity);
+  pointer-events: none;
+}
+.interactive:disabled::after,
+.interactive[aria-disabled="true"]::after {
+  display: none;
+}
+
 html {
   /* Respect the notch/home-indicator on installed phones. */
   background-color: var(--color-screen);

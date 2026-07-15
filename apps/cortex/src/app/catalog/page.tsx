@@ -45,7 +45,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
   );
 
   const cardClass =
-    "relative flex h-full flex-col items-center gap-xs rounded-lg bg-card p-md pt-lg transition";
+    "relative flex h-full flex-col items-center gap-xs rounded-lg bg-card p-md pt-lg";
 
   if (!available) {
     return (
@@ -61,7 +61,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
       aria-pressed={installed}
       aria-label={label}
       onClick={() => (installed ? uninstall(manifest.id) : install(manifest.id))}
-      className={`${cardClass} touch-manipulation active:transition-none active:bg-hairline motion-safe:active:scale-95`}
+      className={`${cardClass} touch-manipulation interactive`}
     >
       {inner}
     </button>

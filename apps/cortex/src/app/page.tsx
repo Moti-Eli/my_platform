@@ -86,7 +86,7 @@ export default function HomePage() {
           <Link
             key={manifest.id}
             href={appRoute(manifest.id)}
-            className="block touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
+            className="block rounded-lg touch-manipulation interactive"
           >
             {Card ? <Card /> : <PlaceholderPreviewCard manifest={manifest} />}
           </Link>

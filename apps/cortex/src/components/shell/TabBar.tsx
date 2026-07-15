@@ -39,11 +39,11 @@ function TabLink({
       onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`flex flex-1 flex-col items-center gap-2xs py-2xs touch-manipulation transition active:transition-none active:opacity-80 ${
+      className={`flex flex-1 flex-col items-center gap-2xs py-2xs touch-manipulation interactive motion-safe:active:scale-[0.97] ${
         active ? "text-accent" : "text-muted"
       }`}
     >
-      <span className="transition active:transition-none motion-safe:active:scale-90">{icon}</span>
+      <span>{icon}</span>
       <span className="type-caption">{label}</span>
     </Link>
   );
@@ -112,7 +112,7 @@ export function TabBar({
           aria-label={t("tabs.ai")}
           aria-pressed={aiOpen}
           onClick={onToggleAi}
-          className={`-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-95 ${
+          className={`-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation interactive motion-safe:active:scale-[0.97] ${
             aiOpen ? "bg-inverse text-inverse-ink" : "bg-accent text-on-fill"
           }`}
         >

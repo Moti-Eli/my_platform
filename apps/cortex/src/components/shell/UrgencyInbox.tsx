@@ -82,7 +82,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
               type="button"
               aria-label={t("common.close")}
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted touch-manipulation interactive motion-safe:active:scale-[0.97]"
             >
               <CloseIcon width={18} height={18} />
             </button>
@@ -103,7 +103,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                     key={n.id}
                     href={appRoute(n.appId)}
                     onClick={onClose}
-                    className="block rounded-lg bg-card p-md touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
+                    className="block rounded-lg bg-card p-md touch-manipulation interactive"
                   >
                     <div className="flex items-center gap-xs">
                       <span
