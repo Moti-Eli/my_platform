@@ -29,17 +29,17 @@ export function Screen({
     <div className="flex min-h-0 flex-1 flex-col">
       <div
         dir="ltr"
-        className="flex shrink-0 items-center gap-2 border-b border-hairline bg-screen px-4 pb-2.5 pt-2"
+        className="flex shrink-0 items-center gap-xs border-b border-hairline bg-screen px-md pb-sm pt-xs"
       >
         <BackButton />
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-xs text-center">
           {center}
         </div>
         {/* Fixed-width right zone (matches the back button) keeps `center` truly
             centered whether or not a right control is present. */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center">{right}</div>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-8">{children}</div>
+      <div className="flex-1 overflow-y-auto px-md pb-xl">{children}</div>
     </div>
   );
 }

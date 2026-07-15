@@ -42,9 +42,9 @@ export function DashboardCard() {
   const low = items.filter((item) => item.quantity < item.reorderThreshold);
 
   return (
-    <div className="rounded-xl bg-card p-4 shadow-soft">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <div className="rounded-xl bg-card p-md shadow-soft">
+      <div className="mb-sm flex items-center justify-between">
+        <div className="flex items-center gap-xs">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-app-amber/15 text-app-amber">
             <BoxIcon width={20} height={20} />
           </span>
@@ -56,11 +56,11 @@ export function DashboardCard() {
       </div>
 
       {low.length > 0 ? (
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-xs">
           {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
             <li
               key={item.id}
-              className="flex items-center justify-between rounded-lg bg-screen px-3 py-2"
+              className="flex items-center justify-between rounded-lg bg-screen px-sm py-xs"
             >
               <span className="type-body text-ink">{item.name}</span>
               <span className="type-label text-muted" dir="ltr">

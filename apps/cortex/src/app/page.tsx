@@ -27,8 +27,8 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
   const Icon = appIcon(manifest.icon);
 
   return (
-    <div className="rounded-xl bg-card p-4 shadow-soft">
-      <div className="mb-3 flex items-center gap-2">
+    <div className="rounded-xl bg-card p-md shadow-soft">
+      <div className="mb-sm flex items-center gap-xs">
         <span
           className={`flex h-9 w-9 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
         >
@@ -37,11 +37,11 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
         <span className="type-heading text-ink">{t(manifest.name.key as MessageKey)}</span>
       </div>
 
-      <ul className="flex flex-col gap-1.5">
+      <ul className="flex flex-col gap-xs">
         {Array.from({ length: 4 }).map((_, i) => (
           <li
             key={i}
-            className="flex items-center justify-between rounded-lg bg-screen px-3 py-2.5"
+            className="flex items-center justify-between rounded-lg bg-screen px-sm py-sm"
           >
             <span className="h-3 w-1/3 rounded-full bg-hairline" />
             <span className="h-3 w-8 rounded-full bg-hairline" />
@@ -78,7 +78,7 @@ export default function HomePage() {
   }
 
   return (
-    <section aria-label={t("home.dashboardLabel")} className="flex flex-1 flex-col gap-4">
+    <section aria-label={t("home.dashboardLabel")} className="flex flex-1 flex-col gap-md">
       {installedApps.map((manifest) => {
         const view = !manifest.stub ? TOOL_VIEWS[manifest.id] : undefined;
         const Card = view?.DashboardCard;

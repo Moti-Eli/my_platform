@@ -13,7 +13,7 @@ export default function LanguageSettingsPage() {
   const { t } = useI18n();
   return (
     <Screen center={<h1 className="type-title text-ink">{t("settings.language")}</h1>}>
-      <div className="mt-2">
+      <div className="mt-xs">
         <LanguagePicker />
       </div>
     </Screen>

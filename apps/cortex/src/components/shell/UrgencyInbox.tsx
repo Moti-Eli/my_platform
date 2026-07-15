@@ -69,10 +69,10 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
         className="ds-backdrop absolute inset-0 bg-scrim"
       />
 
-      <div className="ds-panel relative z-10 mt-3 w-full max-w-[480px] px-3">
-        <div className="flex max-h-[80dvh] flex-col rounded-2xl bg-screen p-3 shadow-lifted">
-          <div className="mb-2 flex shrink-0 items-center justify-between px-1">
-            <div className="flex items-center gap-2">
+      <div className="ds-panel relative z-10 mt-sm w-full max-w-[480px] px-sm">
+        <div className="flex max-h-[80dvh] flex-col rounded-2xl bg-screen p-md shadow-lifted">
+          <div className="mb-xs flex shrink-0 items-center justify-between px-2xs">
+            <div className="flex items-center gap-xs">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-danger/15 text-danger">
                 <BellIcon width={20} height={20} />
               </span>
@@ -95,7 +95,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
               hint={t("urgency.emptyHint")}
             />
           ) : (
-            <div className="flex min-h-0 flex-col gap-2 overflow-y-auto">
+            <div className="flex min-h-0 flex-col gap-md overflow-y-auto">
               {cards.map(({ n, manifest }) => {
                 const Icon = appIcon(manifest.icon);
                 return (
@@ -103,9 +103,9 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                     key={n.id}
                     href={appRoute(n.appId)}
                     onClick={onClose}
-                    className="block rounded-xl bg-card p-3.5 shadow-soft touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
+                    className="block rounded-xl bg-card p-md shadow-soft touch-manipulation transition active:transition-none active:opacity-90 motion-safe:active:scale-[0.98]"
                   >
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-xs">
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
                       >
@@ -118,10 +118,10 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                         {relativeTime(n.timestamp, locale)}
                       </span>
                     </div>
-                    <p className="mt-1.5 truncate type-heading text-ink">
+                    <p className="mt-xs truncate type-heading text-ink">
                       {t(n.title as MessageKey)}
                     </p>
-                    <p className="mt-0.5 truncate type-label text-muted">
+                    <p className="mt-2xs truncate type-label text-muted">
                       {t(n.description as MessageKey)}
                     </p>
                   </Link>

@@ -20,7 +20,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
 
   return (
     <>
-      <header className="flex items-center gap-3 px-5 py-1.5">
+      <header className="flex items-center gap-sm px-md py-xs">
         <button
           type="button"
           aria-label={t("common.search")}
@@ -87,8 +87,8 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         className="ds-backdrop absolute inset-0 bg-scrim touch-manipulation"
       />
 
-      <div className="ds-panel relative z-10 mt-3 w-full max-w-[480px] px-3">
-        <div className="flex items-center gap-2 rounded-xl bg-card px-3 py-2 shadow-lifted">
+      <div className="ds-panel relative z-10 mt-sm w-full max-w-[480px] px-sm">
+        <div className="flex items-center gap-xs rounded-xl bg-card px-sm py-xs shadow-lifted">
           <button
             type="button"
             onClick={onClose}
@@ -103,7 +103,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={t("common.searchPlaceholder")}
-            className="min-w-0 flex-1 bg-transparent px-1 py-2 type-body text-ink outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent px-2xs py-xs type-body text-ink outline-none placeholder:text-muted"
           />
         </div>
       </div>

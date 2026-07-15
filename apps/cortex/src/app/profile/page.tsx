@@ -98,7 +98,7 @@ export default function ProfilePage() {
       }
     >
       {/* Header: large tappable avatar + name + contact placeholder. */}
-      <div className="flex flex-col items-center gap-3 pb-2 pt-6">
+      <div className="flex flex-col items-center gap-sm pb-xs pt-lg">
         <button
           type="button"
           onClick={changePhoto}
@@ -107,7 +107,7 @@ export default function ProfilePage() {
         >
           {initial}
         </button>
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center gap-2xs">
           <span className="type-title text-ink">{name}</span>
           <span className="type-label text-muted">{t("profile.contactPlaceholder")}</span>
         </div>

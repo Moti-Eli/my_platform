@@ -130,11 +130,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
             <Header onOpenInbox={() => setInboxOpen(true)} />
 
-            <div className="px-4">
+            <div className="px-md">
               <AppTabsRow tools={tabs} />
             </div>
 
-            <main className="flex flex-1 flex-col gap-5 px-4 pb-6 pt-3">{children}</main>
+            <main className="flex flex-1 flex-col gap-lg px-md pb-xl pt-sm">{children}</main>
           </div>
         )}
 

@@ -15,7 +15,7 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-xs">
         <button
           type="button"
           onClick={() => router.back()}

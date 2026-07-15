@@ -22,7 +22,7 @@ export default function SettingsPage() {
 
   return (
     <Screen center={<h1 className="type-title text-ink">{t("settings.title")}</h1>}>
-      <div className="mt-2">
+      <div className="mt-xs">
         <ListRow
           href="/settings/language"
           icon={<GlobeIcon />}
@@ -43,7 +43,7 @@ export default function SettingsPage() {
         />
       </div>
 
-      <p className="px-1 pt-4 text-center type-caption text-muted">{t("common.savedLocally")}</p>
+      <p className="px-2xs pt-md text-center type-caption text-muted">{t("common.savedLocally")}</p>
     </Screen>
   );
 }

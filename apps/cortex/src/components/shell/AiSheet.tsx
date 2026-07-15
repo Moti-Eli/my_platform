@@ -166,7 +166,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
       >
         {/* Grabber — tap to close, or drag down to dismiss. */}
         <div
-          className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5"
+          className="flex shrink-0 cursor-grab touch-none justify-center pb-2xs pt-sm"
           onPointerDown={onDragStart}
           onPointerMove={onDragMove}
           onPointerUp={endDrag(true)}
@@ -178,7 +178,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
         {/* Header — also a drag handle (except its buttons). */}
         <div
-          className="flex shrink-0 touch-none items-center justify-between px-2 pb-2"
+          className="flex shrink-0 touch-none items-center justify-between px-xs pb-xs"
           onPointerDown={onHeaderDown}
           onPointerMove={onDragMove}
           onPointerUp={endDrag(false)}
@@ -212,25 +212,25 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
         {/* Inline search-in-conversation */}
         {searchOpen ? (
-          <div className="shrink-0 px-3 pb-2">
+          <div className="shrink-0 px-sm pb-xs">
             {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("ai.searchPlaceholder")}
-              className="h-10 w-full rounded-xl bg-screen px-3 type-body text-ink outline-none placeholder:text-muted"
+              className="h-10 w-full rounded-xl bg-screen px-sm type-body text-ink outline-none placeholder:text-muted"
             />
           </div>
         ) : null}
 
         {/* Messages */}
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-md overflow-y-auto px-md py-sm">
           {messages.map((m) =>
             m.role === "user" ? (
               <div
                 key={m.id}
-                className="max-w-[80%] self-start rounded-2xl bg-screen px-3.5 py-2.5 type-body text-ink"
+                className="max-w-[80%] self-start rounded-2xl bg-screen px-md py-sm type-body text-ink"
               >
                 {m.text}
               </div>
@@ -244,14 +244,14 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
             ),
           )}
           {messages.length === 0 ? (
-            <p className="mt-10 text-center type-label text-muted">{t("ai.notConnected")}</p>
+            <p className="mt-2xl text-center type-label text-muted">{t("ai.notConnected")}</p>
           ) : null}
         </div>
 
         {/* Composer — pinned to the bottom of the sheet (messages take the rest),
             with only a small comfortable margin above the tab bar. */}
-        <div className="relative shrink-0 px-3 pb-3 pt-1">
-          <div className="flex items-end gap-1 rounded-3xl bg-screen p-1.5">
+        <div className="relative shrink-0 px-sm pb-sm pt-2xs">
+          <div className="flex items-end gap-2xs rounded-3xl bg-screen p-xs">
             {/* RTL start (right): mic ⇆ send */}
             {hasText ? (
               <button
@@ -281,7 +281,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
                 resizeTextarea();
               }}
               placeholder={t("ai.placeholder")}
-              className="max-h-[7.5rem] flex-1 resize-none bg-transparent px-2 py-2 type-body text-ink outline-none placeholder:text-muted"
+              className="max-h-[7.5rem] flex-1 resize-none bg-transparent px-xs py-xs type-body text-ink outline-none placeholder:text-muted"
             />
 
             {/* RTL end (left): plus → attach menu */}
@@ -296,7 +296,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
               </button>
 
               {plusOpen ? (
-                <div className="absolute bottom-full left-0 z-20 mb-2 flex min-w-44 flex-col rounded-2xl bg-card p-1.5 shadow-lifted">
+                <div className="absolute bottom-full left-0 z-20 mb-xs flex min-w-44 flex-col rounded-2xl bg-card p-xs shadow-lifted">
                   <AttachItem icon={<CameraIcon width={19} height={19} />} labelKey="ai.attachCamera" />
                   <AttachItem icon={<ImageIcon width={19} height={19} />} labelKey="ai.attachPhotos" />
                   <AttachItem icon={<PaperclipIcon width={19} height={19} />} labelKey="ai.attachFiles" />
@@ -321,7 +321,7 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
 
       {/* Copy toast — at the root (outside the transformed sheet). */}
       {toast ? (
-        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-3 py-2 type-caption text-inverse-ink shadow-lifted">
+        <div className="absolute bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-inverse px-sm py-xs type-caption text-inverse-ink shadow-lifted">
           {t("ai.copied")}
         </div>
       ) : null}
@@ -335,7 +335,7 @@ function AttachItem({ icon, labelKey }: { icon: React.ReactNode; labelKey: Messa
   return (
     <button
       type="button"
-      className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
+      className="flex w-full items-center gap-sm rounded-xl px-xs py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-ink">
         {icon}
@@ -385,7 +385,7 @@ function AiMessage({
         ) : null}
       </button>
 
-      <div className="mt-0.5 flex items-center gap-0.5 text-muted">
+      <div className="mt-2xs flex items-center gap-2xs text-muted">
         <button
           type="button"
           aria-label={expanded ? t("ai.collapse") : t("ai.expand")}
@@ -520,8 +520,8 @@ function HistoryPanel({
           transition: dragging ? "none" : undefined,
         }}
       >
-        <h3 className="shrink-0 px-4 pb-2 pt-4 type-heading text-ink">{t("ai.history")}</h3>
-        <ul className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <h3 className="shrink-0 px-md pb-xs pt-md type-heading text-ink">{t("ai.history")}</h3>
+        <ul className="min-h-0 flex-1 overflow-y-auto px-xs pb-sm">
           {store.conversations.map((c) => (
             <li key={c.id}>
               {renamingId === c.id ? (
@@ -535,13 +535,13 @@ function HistoryPanel({
                     if (e.key === "Enter") commitRename();
                     if (e.key === "Escape") setRenamingId(null);
                   }}
-                  className="w-full rounded-lg bg-screen px-3 py-2 type-heading text-ink outline-none"
+                  className="w-full rounded-lg bg-screen px-sm py-xs type-heading text-ink outline-none"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={(e) => openRowMenu(c.id, c.title, e.currentTarget)}
-                  className="flex w-full items-center rounded-lg px-3 py-2.5 text-start type-heading text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="flex w-full items-center rounded-lg px-sm py-sm text-start type-heading text-ink touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   <span className="truncate">{c.title}</span>
                 </button>
@@ -564,7 +564,7 @@ function HistoryPanel({
               <div
                 role="menu"
                 aria-label={menu.title}
-                className="ds-panel fixed z-[70] flex flex-col rounded-lg bg-card p-1 shadow-lifted"
+                className="ds-panel fixed z-[70] flex flex-col rounded-lg bg-card p-2xs shadow-lifted"
                 style={{ top: menu.top, left: menu.left }}
               >
                 <button
@@ -575,7 +575,7 @@ function HistoryPanel({
                     setRenamingId(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-ink touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   {t("ai.rename")}
                 </button>
@@ -586,7 +586,7 @@ function HistoryPanel({
                     store.deleteConversation(menu.id);
                     setMenu(null);
                   }}
-                  className="whitespace-nowrap rounded-md px-2.5 py-1.5 text-start type-label text-danger touch-manipulation transition active:transition-none active:bg-screen"
+                  className="whitespace-nowrap rounded-md px-sm py-xs text-start type-label text-danger touch-manipulation transition active:transition-none active:bg-screen"
                 >
                   {t("ai.delete")}
                 </button>

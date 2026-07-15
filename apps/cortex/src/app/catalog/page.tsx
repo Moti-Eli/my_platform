@@ -37,7 +37,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
           {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}
         </span>
       ) : (
-        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-1.5 py-0.5 type-caption text-muted">
+        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-xs py-2xs type-caption text-muted">
           {t("apps.unavailable")}
         </span>
       )}
@@ -45,7 +45,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
   );
 
   const cardClass =
-    "relative flex h-full flex-col items-center gap-2 rounded-xl bg-card p-3 pt-6 shadow-soft transition";
+    "relative flex h-full flex-col items-center gap-xs rounded-xl bg-card p-md pt-lg shadow-soft transition";
 
   if (!available) {
     return (
@@ -75,8 +75,8 @@ export default function CatalogPage() {
 
   return (
     <>
-      <h1 className="px-1 type-title text-ink">{t("catalog.title")}</h1>
-      <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-3">
+      <h1 className="px-2xs type-title text-ink">{t("catalog.title")}</h1>
+      <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-sm">
         {apps.map((manifest) => (
           <CatalogCard
             key={manifest.id}

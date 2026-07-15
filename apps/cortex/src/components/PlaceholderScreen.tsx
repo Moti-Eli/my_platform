@@ -19,7 +19,7 @@ export function PlaceholderScreen({ appId }: { appId: string }) {
 
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-sm">
         {manifest && Icon ? (
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
@@ -37,9 +37,9 @@ export function PlaceholderScreen({ appId }: { appId: string }) {
 
       {/* Dummy filler — repeated skeleton cards to overflow the viewport. */}
       {Array.from({ length: 12 }).map((_, i) => (
-        <div key={i} className="rounded-xl bg-card p-4 shadow-soft">
-          <div className="mb-2 h-4 w-1/2 rounded-full bg-screen" />
-          <div className="mb-1.5 h-3 w-full rounded-full bg-screen" />
+        <div key={i} className="rounded-xl bg-card p-md shadow-soft">
+          <div className="mb-xs h-4 w-1/2 rounded-full bg-screen" />
+          <div className="mb-xs h-3 w-full rounded-full bg-screen" />
           <div className="h-3 w-3/4 rounded-full bg-screen" />
         </div>
       ))}

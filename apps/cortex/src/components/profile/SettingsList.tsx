@@ -16,8 +16,8 @@ import { useI18n } from "@/i18n";
 /** A titled group of rows — separated from the next group by spacing, not lines. */
 export function ListSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="mt-6 first:mt-4">
-      <h2 className="px-1 pb-1 type-label uppercase text-muted">
+    <section className="mt-lg first:mt-md">
+      <h2 className="px-2xs pb-2xs type-label uppercase text-muted">
         {title}
       </h2>
       <div>{children}</div>
@@ -42,7 +42,7 @@ export function ListRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-1 py-2 touch-manipulation transition active:transition-none active:bg-hairline"
+      className="flex items-center gap-sm px-2xs py-xs touch-manipulation transition active:transition-none active:bg-hairline"
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-accent">
         {icon}

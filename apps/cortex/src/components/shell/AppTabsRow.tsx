@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
 // inline-flex centering gives an accessible tap target while staying compact.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-4 type-label touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
+  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md type-label touch-manipulation transition active:transition-none active:opacity-80 motion-safe:active:scale-95";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -89,7 +89,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
     <div
       role="tablist"
       aria-label={t("home.appTabsLabel")}
-      className="no-scrollbar flex gap-2 overflow-x-auto pb-1.5"
+      className="no-scrollbar flex gap-xs overflow-x-auto pb-xs"
     >
       {/* "הכל" — Home / the glance view. Not removable. */}
       <Link
@@ -194,7 +194,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             <div
               role="menu"
               aria-label={menu.label}
-              className="ds-panel rounded-lg bg-card p-1 shadow-lifted"
+              className="ds-panel rounded-lg bg-card p-2xs shadow-lifted"
             >
               <button
                 type="button"
@@ -203,7 +203,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
                   uninstall(menu.id);
                   setMenu(null);
                 }}
-                className="whitespace-nowrap rounded-md px-2.5 py-1 type-label text-danger touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
+                className="whitespace-nowrap rounded-md px-sm py-2xs type-label text-danger touch-manipulation transition active:transition-none active:bg-hairline motion-safe:active:scale-95"
               >
                 {t("apps.remove")}
               </button>

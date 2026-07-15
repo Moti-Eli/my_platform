@@ -13,7 +13,7 @@ export default function VersionSettingsPage() {
   const { t } = useI18n();
   return (
     <Screen center={<h1 className="type-title text-ink">{t("settings.version")}</h1>}>
-      <div className="mt-6 space-y-3">
+      <div className="mt-lg space-y-sm">
         <p className="type-title text-ink" dir="ltr">
           {APP_VERSION}
         </p>

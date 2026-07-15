@@ -16,7 +16,7 @@ export function LanguagePicker() {
   const { t, locale, setLocale } = useI18n();
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl bg-card p-2 shadow-soft">
+    <div className="flex flex-col gap-xs rounded-xl bg-card p-xs shadow-soft">
       {locales.map((code) => {
         const active = code === locale;
         return (
@@ -25,7 +25,7 @@ export function LanguagePicker() {
             type="button"
             onClick={() => setLocale(code)}
             aria-pressed={active}
-            className={`flex items-center justify-between rounded-lg px-4 py-3 type-heading transition ${
+            className={`flex items-center justify-between rounded-lg px-md py-sm type-heading transition ${
               active ? "bg-screen text-ink" : "text-muted active:scale-[0.99]"
             }`}
           >

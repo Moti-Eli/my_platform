@@ -72,6 +72,19 @@
   --text-label--line-height: var(--ds-text-label-line);
   --text-caption: var(--ds-text-caption-size);
   --text-caption--line-height: var(--ds-text-caption-line);
+
+  /* Spacing scale (structural). Tailwind v4 derives EVERY numeric spacing AND
+     sizing/inset utility (p-4, gap-3, mt-8 AND w-9, h-16, top-2, size-6) from the
+     one `--spacing` base, so clearing `--spacing-*` would break sizing too — out
+     of scope. We ADD named steps on top of the default ramp (left alive for
+     sizing) and enforce the scale by convention + the contract. */
+  --spacing-2xs: var(--ds-space-2xs);
+  --spacing-xs: var(--ds-space-xs);
+  --spacing-sm: var(--ds-space-sm);
+  --spacing-md: var(--ds-space-md);
+  --spacing-lg: var(--ds-space-lg);
+  --spacing-xl: var(--ds-space-xl);
+  --spacing-2xl: var(--ds-space-2xl);
 }
 
 /* Type roles — size + line-height + weight bundled into one class so weight can't

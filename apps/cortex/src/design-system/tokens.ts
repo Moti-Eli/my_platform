@@ -220,6 +220,27 @@ export const type = {
   caption: { size: "11px", line: "14px", weight: "500" }, //  tab-bar labels, badges, timestamps
 } as const;
 
+/**
+ * Spacing scale — STRUCTURAL, not themeable (emitted in {@link baseStylesheet}
+ * next to radii + type). A coarse, opinionated ramp: fewer choices → fewer wrong
+ * ones. Pick a step by the RELATIONSHIP between things, not by the pixel value.
+ *
+ * NOTE (Tailwind v4): these are ADDED on top of the default numeric ramp, not a
+ * replacement — the same `--spacing` base also backs sizing/inset utilities
+ * (w-9, h-16, top-2, size-6), which must keep working, so the default ramp is
+ * left alive. The scale is enforced by convention + the contract, NOT by clearing
+ * the namespace (that would break every width/height/inset utility).
+ */
+export const space = {
+  "2xs": "4px", //  hairline gaps, icon-to-its-own-label
+  xs: "8px", //     tight internal padding, chip padding
+  sm: "12px", //    default gap between related items
+  md: "16px", //    card / screen-edge padding, gap between cards
+  lg: "24px", //    gap between sections
+  xl: "32px", //    major separation, screen top/bottom breathing
+  "2xl": "48px", // empty-state / hero breathing only
+} as const;
+
 /** Clean, system sans-serif stack (includes a Hebrew fallback). */
 export const fontSans =
   'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans Hebrew", "Arial Hebrew", sans-serif';
@@ -241,6 +262,9 @@ export function baseStylesheet(): string {
         `  --ds-text-${role}-weight:${t.weight};`,
     )
     .join("\n");
+  const spaceVars = Object.entries(space)
+    .map(([name, value]) => `  --ds-space-${name}:${value};`)
+    .join("\n");
   return `:root{
   --ds-radius-md:${radii.md};
   --ds-radius-lg:${radii.lg};
@@ -248,6 +272,7 @@ export function baseStylesheet(): string {
   --ds-radius-pill:${radii.pill};
   --ds-font-sans:${fontSans};
 ${typeVars}
+${spaceVars}
 }`;
 }
 

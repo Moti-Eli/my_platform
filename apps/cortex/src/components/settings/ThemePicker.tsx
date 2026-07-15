@@ -17,7 +17,7 @@ export function ThemePicker() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-sm">
       {themeNames.map((name) => {
         const tokens = themes[name];
         const active = name === theme;
@@ -27,13 +27,13 @@ export function ThemePicker() {
             type="button"
             onClick={() => setTheme(name)}
             aria-pressed={active}
-            className={`flex flex-col gap-3 rounded-xl bg-card p-3 text-start shadow-soft transition active:scale-[0.99] ${
+            className={`flex flex-col gap-sm rounded-xl bg-card p-md text-start shadow-soft transition active:scale-[0.99] ${
               active ? "ring-2 ring-ring" : "ring-1 ring-hairline"
             }`}
           >
             {/* Mini preview built from the theme's own tokens. */}
             <span
-              className="flex h-16 w-full items-end gap-1.5 rounded-lg p-2.5"
+              className="flex h-16 w-full items-end gap-xs rounded-lg p-sm"
               style={{ backgroundColor: tokens.screen }}
             >
               <span

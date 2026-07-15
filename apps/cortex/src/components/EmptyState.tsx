@@ -14,7 +14,7 @@ export function EmptyState({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl bg-card px-6 py-14 text-center shadow-soft">
+    <div className="flex flex-col items-center justify-center gap-sm rounded-xl bg-card px-lg py-2xl text-center shadow-soft">
       {icon ? (
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-screen text-muted">
           {icon}
