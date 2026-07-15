@@ -231,3 +231,14 @@ export function ContrastIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Circle with an "i" — info / about (used for the version row). */
+export function InfoIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </svg>
+  );
+}

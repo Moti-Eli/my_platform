@@ -118,6 +118,8 @@ const he = {
     languageEn: "English",
     themeLight: "בהיר",
     themeDark: "כהה",
+    versionAbout:
+      "Cortex הוא סופר-אפליקציה לניהול העסק שלך: כל הכלים שאתה צריך במקום אחד, עם עוזר AI שמחבר ביניהם.",
   },
   inventory: inventoryHe,
 } as const;
@@ -234,6 +236,8 @@ const en: Messages = {
     languageEn: "English",
     themeLight: "Light",
     themeDark: "Dark",
+    versionAbout:
+      "Cortex is a super-app for running your business: every tool you need in one place, tied together by an AI assistant.",
   },
   inventory: inventoryEn,
 };

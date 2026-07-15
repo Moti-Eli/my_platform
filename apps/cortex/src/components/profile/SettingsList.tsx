@@ -60,14 +60,3 @@ export function ListRow({
   );
 }
 
-/** A static (non-navigating) row: label at the start, value at the end. */
-export function ListValueRow({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3 px-1 py-2">
-      <span className="text-sm font-medium text-ink">{label}</span>
-      <span className="text-sm text-muted" dir="ltr">
-        {value}
-      </span>
-    </div>
-  );
-}

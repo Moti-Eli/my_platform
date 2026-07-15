@@ -11,8 +11,8 @@
  * the center AI hero is a button that opens the AI sheet (it is not a route).
  */
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import type { MouseEvent, ReactNode } from "react";
 import { HomeIcon, GridIcon, ChatIcon, UserIcon, SparkIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
 
@@ -21,15 +21,18 @@ function TabLink({
   label,
   icon,
   active,
+  onClick,
 }: {
   href: string;
   label: string;
   icon: ReactNode;
   active: boolean;
+  onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}
       className={`flex flex-1 flex-col items-center gap-1 py-1 transition ${
@@ -44,9 +47,20 @@ function TabLink({
 
 export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useI18n();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  // Toggle the profile tab: when already ON the profile screen, tapping it closes
+  // it exactly like the top-bar back chevron (router.back()) instead of a no-op
+  // re-navigation. Scoped to the exact route — on sub-pages the tap still routes
+  // up to /profile as normal.
+  const onProfileScreen = pathname === "/profile";
+  const toggleProfile = (e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    router.back();
+  };
 
   return (
     <nav
@@ -88,6 +102,7 @@ export function TabBar({ onOpenAi }: { onOpenAi: () => void }) {
         label={t("tabs.profile")}
         icon={<UserIcon />}
         active={isActive("/profile")}
+        onClick={onProfileScreen ? toggleProfile : undefined}
       />
     </nav>
   );
