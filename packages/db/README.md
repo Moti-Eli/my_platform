@@ -127,6 +127,22 @@ full explanation.
   admits only `visibility = 'org'` — 'private'/'restricted' are unreadable until
   `record_grants` lands (fail closed). Writes stay `service_role`-only; `events`
   and `ai_log` policies untouched.
+- `20260716000003_groups.sql` — **groups + group_members** (additive Cortex shell
+  tables, so `org_id`, not `organization_id`). `groups` is a named collection of
+  people in ONE org (unique name per org; carries NO permissions — an addressing
+  primitive, not a role). `group_members` is tenant-safe **by schema**: it carries
+  a single `org_id` feeding TWO composite FKs — `(group_id, org_id)` →
+  `groups (id, org_id)` and `(user_id, org_id)` → `memberships (user_id,
+  organization_id)` — so a user can only join a group in an org they are actually
+  a member of; a mismatched pair has no valid parent row and the insert fails.
+  Same mechanism as `membership_roles` (20260605000001). Both tables are
+  hard-delete (no `deleted_at`) per the roles/join-table precedent — history rides
+  on the soft-deleted parent — so soft-deleting a membership KEEPS its
+  `group_members` row while `auth_user_is_member_of_tree` immediately revokes the
+  user's visibility. RLS SELECT via `auth_user_is_member_of_tree(org_id)`
+  (inherits DOWN the tree only); writes stay unpolicied and therefore denied —
+  group management goes through the shell as `service_role`. Verified by
+  `scripts/verify-groups.ts`.
 
 ## Usage
 
