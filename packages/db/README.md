@@ -55,6 +55,14 @@ full explanation.
   (SELECT via `auth_user_is_member_of`; writes `service_role`-only until Cortex
   auth lands — `memberships` has no `role` column for §6's owner/manager check).
   Mirrors `apps/cortex/src/tools/inventory/schema.sql`. See ARCHITECTURE.md #30.
+- `20260716000001_organization_hierarchy.sql` — **organization hierarchy**
+  (additive): `organizations.parent_id` (nullable = root; `on delete restrict`,
+  so children must be re-parented/deleted first) + a no-cycle `BEFORE
+  INSERT/UPDATE` trigger, and the tree-aware `auth_user_is_member_of_tree`
+  helper — membership inherits DOWNWARD only (a parent's member reaches
+  descendants; a child's member never reaches ancestors), active-only walk,
+  depth-capped at 32. No policy rewiring: every existing policy still calls the
+  flat `auth_user_is_member_of`, so visibility is unchanged.
 
 ## Usage
 
