@@ -8,15 +8,21 @@
  *   2. Member of the PARENT reads a CHILD org's rows           -> visible (down)
  *   3. Member of the CHILD reads the PARENT's rows             -> NOT visible
  *   4. Non-member (unrelated org)                              -> NOT visible
- *   5. visibility='private'                                    -> NOT visible, even
- *      to a member of its own org who OWNS it (fail closed until record_grants)
- *   6. visibility='restricted'                                 -> NOT visible to anyone
+ *   5. visibility='private'                                    -> visible to its
+ *      OWNER; NOT visible to another member of the org tree
+ *   6. visibility='restricted', with no grant issued           -> NOT visible to anyone
  *   7. The same membership assertions for app_instances
  *   8. inventory_items insert without org_id                   -> rejected (NOT NULL)
  *
- * Cases 5/6 are asserting DELIBERATE fail-closed behavior, not a bug: the policy
- * admits only `visibility = 'org'` until the grant model lands. If they ever start
- * passing rows through, something has quietly widened access.
+ * Cases 5/6 originally asserted the FAIL-CLOSED state: the policy admitted only
+ * `visibility = 'org'`, so 'private'/'restricted' were readable by nobody "until
+ * the grant model lands". It has now landed — `record_grants` (20260716000004) and
+ * `private.auth_user_can_read` (20260716000005) — so case 5 asserts the rule that
+ * replaced it: 'private' means its OWNER, and membership is still a blocking AND
+ * on top. Case 6 still expects nothing, but for a NEW reason: 'restricted' is
+ * grants-only and this harness issues no grants. If case 6 ever starts passing
+ * rows through, something has quietly widened access. (The full read rule,
+ * including every grant path, is verified by verify-can-read.ts.)
  *
  * Connection approach mirrors verify-org-tree.ts: setup/teardown through the
  * service-role client, and reads through a direct Postgres connection that
@@ -202,16 +208,19 @@ async function main(): Promise<void> {
     check("other member -> parent-org item is NOT visible", !(await canRead(pg, uOther, "inventory_items", itemParent)));
     check("anon -> child-org item is NOT visible", !(await canRead(pg, null, "inventory_items", itemChild)));
 
-    // --- [5] visibility='private' — fail closed --------------------------------
-    console.log("\n[5] visibility='private' is unreadable (fail closed until record_grants)");
+    // --- [5] visibility='private' — the OWNER, and only the owner --------------
+    console.log("\n[5] visibility='private' is readable by its owner only (20260716000005)");
     check(
-      "child member -> its OWN private item is NOT visible (owner_id is not a grant)",
-      !(await canRead(pg, uChild, "inventory_items", itemPrivate))
+      "child member -> its OWN private item IS visible",
+      await canRead(pg, uChild, "inventory_items", itemPrivate)
     );
-    check("parent member -> private item is NOT visible", !(await canRead(pg, uParent, "inventory_items", itemPrivate)));
+    check(
+      "parent member -> someone else's private item is NOT visible (org-tree membership is not enough)",
+      !(await canRead(pg, uParent, "inventory_items", itemPrivate))
+    );
 
-    // --- [6] visibility='restricted' — fail closed -----------------------------
-    console.log("\n[6] visibility='restricted' is unreadable by anyone");
+    // --- [6] visibility='restricted' — grants only, and none were issued -------
+    console.log("\n[6] visibility='restricted' is unreadable with no grant issued");
     check("child member -> restricted item is NOT visible", !(await canRead(pg, uChild, "inventory_items", itemRestricted)));
     check("parent member -> restricted item is NOT visible", !(await canRead(pg, uParent, "inventory_items", itemRestricted)));
     check("other member -> restricted item is NOT visible", !(await canRead(pg, uOther, "inventory_items", itemRestricted)));

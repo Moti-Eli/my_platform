@@ -143,6 +143,137 @@ full explanation.
   (inherits DOWN the tree only); writes stay unpolicied and therefore denied —
   group management goes through the shell as `service_role`. Verified by
   `scripts/verify-groups.ts`.
+- `20260716000004_record_grants.sql` — **per-record access grants** (flat ReBAC;
+  additive, data-only). `record_grants` stores who may `read`/`write`/`grant` a
+  given row. The SUBJECT side is three real FKs (`subject_user_id` /
+  `subject_role_id` / `subject_group_id`) with a CHECK that **exactly one** is set
+  (a sum of non-null flags = 1), *not* a polymorphic `(subject_type, subject_id)`
+  pair — real FKs mean deleting a role/group cascades its grants away instead of
+  leaving a security table full of pointers to the dead. The OBJECT side
+  (`table_name`, `record_id`) stays polymorphic — inherent to flat ReBAC, since a
+  FK must name one table; a stale grant is inert because every read path ANDs
+  org-tree membership first. `org_id` is DENORMALIZED from the granted row
+  (required: `table_name` is dynamic, so nothing resolves the row's org without
+  dynamic SQL) and is kept honest by a later trigger making a tool row's `org_id`
+  immutable. `granted_by` mirrors `inventory_items.owner_id`'s NO ACTION on
+  delete. Uniqueness is **three PARTIAL unique indexes**, one per subject kind —
+  a plain multi-column unique would never fire, since Postgres treats NULLs as
+  distinct (and `NULLS NOT DISTINCT` is deliberately avoided as too subtle);
+  changing a level is an UPDATE, not a second row. **SEALED**: RLS enabled with
+  NO policies and nothing granted to `anon`/`authenticated` (plus `revoke all`,
+  as on `platform_admins`) — a grant row leaks that a record exists and who can
+  see it, so reads happen only inside SECURITY DEFINER helpers and via
+  `service_role`. A `BEFORE INSERT/UPDATE` trigger
+  (`private.enforce_record_grant_subject_in_tree`) requires the subject to belong
+  to the record's org **or an ANCESTOR** (active-only walk, depth-capped at 32,
+  mirroring `auth_user_is_member_of_tree`): granting to a PARENT org's role is the
+  central case the tree exists for, so equality would be wrong; a CHILD org's role
+  is rejected (no upward leak), and **membership must precede the grant** (a
+  soft-deleted membership does not count). Does NOT rewire the `inventory_items`
+  policy — it stays fail-closed until a separate migration teaches it to consult
+  these grants. Verified by `scripts/verify-record-grants.ts`.
+- `20260716000005_auth_user_can_read.sql` — **the row-level read rule**, and the
+  `inventory_items` policy rewire that puts it in the path (finally opening the
+  `private`/`restricted` rows `20260716000002` left fail-closed). Adds
+  `private.auth_user_can_read(table_name, record_id, org_id, owner_id,
+  visibility)` — row fields arrive as PARAMETERS (the policy already has the row;
+  a generic re-lookup would need dynamic SQL). Shape:
+  `is_member_of_tree(org_id)` as a **blocking AND**, then `visibility = 'org'` OR
+  (`'private'` AND owner) OR (`'restricted'` AND a `record_grants` match: granted
+  user / **held** role / joined group). Only the restricted branch touches
+  `record_grants`. The old `owner_id = auth.uid() OR is_member(org)` shape is
+  never reproduced — membership blocks first, always. The role and group branches
+  re-check that the backing membership AND its org are ACTIVE: this is
+  LOAD-BEARING, not defensive noise, because `membership_roles`/`group_members`
+  cascade on HARD delete only and survive a soft-deleted membership — a user who
+  leaves HQ but keeps a direct branch membership would otherwise still read rows
+  granted to their old HQ role (the AND does not save you; they are legitimately
+  still in the branch). Deliberately does NOT use
+  `private.auth_user_can_access_role` — that answers "is the user in the role's
+  ORG", not "does the user HOLD the role", and would turn every role grant into an
+  org-wide grant. `inventory_items`' SELECT policy is replaced (not amended) with
+  "read inventory the user is entitled to"; the old name claimed "org-visible",
+  which stops being true. `app_instances` is untouched (no `visibility` column);
+  no write policy is added. Verified by `scripts/verify-can-read.ts` (33
+  assertions, incl. both staleness leaks), proven non-vacuous by mutation.
+- `20260716000006_auth_user_can_write_grant.sql` — the other two verbs:
+  `private.auth_user_can_write` and `private.auth_user_can_grant`. **Wires
+  NOTHING** — both are created unused (as `auth_user_is_member_of_tree` was in
+  `20260716000001`); no policy is added or changed, and no table is touched.
+  `shell.grant_access` consumes `can_grant` in a later step. Same five-parameter
+  signature as `can_read`, and the same three-branch grant matcher including the
+  load-bearing `deleted_at` checks on the role/group branches. Access is
+  HIERARCHICAL (`grant` > `write` > `read`): `can_write` accepts
+  `access IN ('write','grant')` — a `read` grant confers no write — while
+  `can_grant` accepts `access = 'grant'` ONLY, since changing a row and widening
+  who can see it are different powers. `can_write` mirrors `can_read`'s shape;
+  **`can_grant` is deliberately NARROWER** — `is_member_of_tree AND visibility =
+  'restricted' AND a 'grant'-level grant`, with **no `org` branch** (the tree
+  already reads the row, so a grant would only mint no-op rows in a security
+  table) and **no owner branch** (a grant on a `private` row could never fire —
+  `can_read`'s private branch has no grant branch beside it — and `visibility`
+  becomes immutable later, so a private row cannot be upgraded to shareable; a row
+  meant to be shared is born `restricted`). The first grant on a restricted row is
+  seeded by the shell as `service_role` from the manifest's `defaultGrants`, so
+  `can_grant` governs humans re-granting, not creation. `can_write` answers WHICH
+  ROW only — whether the user may write that KIND of thing is
+  `auth_user_has_permission`, composed with AND at the call site (the line
+  `20260605000002` draws). Verified by `scripts/verify-can-write-grant.ts` (38
+  assertions), proven non-vacuous by mutation.
+- `20260716000007_tool_row_immutability.sql` — **tool rows' `visibility` /
+  `org_id` / `owner_id` are IMMUTABLE**. One reusable `BEFORE UPDATE` trigger
+  function, `private.enforce_tool_row_immutability` — table-agnostic (reads
+  NEW/OLD), attached per tool table; future tool tables attach the SAME function
+  rather than copying it. Attached to `inventory_items`, the only tool table today;
+  deliberately NOT to `app_instances` (a shell table — no `visibility` column, and
+  `record_grants` never points at it). Comparisons use `IS DISTINCT FROM`, so an
+  ORM re-sending every column at its current value still succeeds — only an actual
+  CHANGE raises — and each column raises its own message naming the attempted
+  transition. This keeps two earlier promises: `record_grants`' denormalized
+  `org_id` is only honest if the row cannot move (it can't look the row up —
+  `table_name` is dynamic), and `auth_user_can_grant`'s missing private branch is
+  only safe if a `private` row cannot be re-labelled `restricted` to share it.
+  **No role exemption — the trigger fires for `service_role` too** (`service_role`
+  bypasses RLS, not triggers): the shell is the only write path, so exempting it
+  would exempt the entire threat model — the same reasoning as the last-admin guard
+  (`20260609000005`). The escape hatch is delete + re-insert, which is correct
+  rather than a workaround: grants reference org-scoped roles/groups, so a row
+  changing org must have its grants rebuilt from the manifest's `defaultGrants`,
+  not carried across. Verified by `scripts/verify-row-immutability.ts` (26
+  assertions), proven non-vacuous by mutation.
+- `20260716000008_shell_grant_access.sql` — **the door onto `record_grants`**:
+  `shell.grant_access` / `shell.revoke_access` (new `shell` schema; USAGE +
+  EXECUTE to `authenticated`/`service_role`, but **not** added to PostgREST's
+  exposed schemas — where the door is mounted is a step-7 decision). Both are
+  SECURITY DEFINER (they must be, to write a sealed table) and both re-check
+  `private.auth_user_can_grant` for the CALLER on every path: `auth.uid()` resolves
+  from the request JWT even inside SECURITY DEFINER, so a caller with no JWT — **a
+  direct `service_role` connection included** — gets `auth.uid() = null` and is
+  refused. Revoking requires `can_grant` exactly as granting does (widening and
+  withdrawing access are the same power); revoking something absent returns `false`
+  rather than raising, so cleanup stays idempotent. `p_table_name` is validated **by
+  SHAPE, not an allowlist** — a base table in `public` with `org_id`, `owner_id`
+  and `visibility`, read from `pg_catalog` (not `information_schema`, whose answers
+  depend on the caller's privileges). An allowlist would be a second source of truth
+  to update alongside every tool migration; instead `app_instances` and
+  `record_grants` are excluded automatically (no `visibility`), anything outside
+  `public` by schema, and a new tool table becomes grantable by being shaped like
+  one. The row's org/owner/visibility are read with `format(..., %I)` dynamic SQL —
+  safe because the identifier is both quoted AND already proven to name a real
+  shaped table; `record_id` is a bind parameter, and injection strings die at the
+  shape check before any dynamic SQL runs. The grant's `org_id` is always the ROW's
+  org, **never a parameter** (a caller-stated org would let the denormalized copy
+  lie); `granted_by` is the caller. Upserts branch one arm per subject because the
+  unique indexes are PARTIAL — an arbiter must restate the index's WHERE predicate,
+  so no single generic ON CONFLICT exists — and re-granting UPDATES the level rather
+  than adding a row. The door does NOT bypass the subject-in-tree trigger.
+  `service_role` KEEPS its direct DML from `20260608000002`, deliberately: the first
+  grant on a restricted row is chicken-and-egg (`can_grant` needs an existing
+  `grant`-level grant), so the shell seeds it from the manifest's `defaultGrants` at
+  creation; revoking that DML would break the bootstrap or force a can_grant-skipping
+  back door. The door protects TOOLS and CLIENTS, which cannot reach `record_grants`
+  at all. Verified by `scripts/verify-grant-access.ts` (45 assertions), proven
+  non-vacuous by mutation.
 
 ## Usage
 
