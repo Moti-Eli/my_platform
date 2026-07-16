@@ -85,15 +85,6 @@ export function BellIcon(props: IconProps) {
   );
 }
 
-export function SendIcon(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M20 4 3 11l6 2 2 6 9-15Z" />
-      <path d="m9 13 4-4" />
-    </svg>
-  );
-}
-
 export function CloseIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

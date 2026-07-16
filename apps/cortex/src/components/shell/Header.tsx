@@ -88,7 +88,7 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
       />
 
       <div className="ds-panel relative z-10 mt-sm w-full max-w-[480px] px-sm">
-        <div className="flex items-center gap-xs rounded-lg bg-card px-sm py-xs shadow-lifted">
+        <div className="flex items-center gap-xs rounded-lg bg-card px-sm py-2xs shadow-lifted">
           <button
             type="button"
             onClick={onClose}

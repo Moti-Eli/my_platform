@@ -7,10 +7,8 @@ export {
   themeNames,
   defaultTheme,
   isThemeName,
-  radii,
-  fontSans,
   brandColor,
   baseStylesheet,
   themeStylesheet,
 } from "./tokens";
-export type { ThemeName, ThemeTokens } from "./tokens";
+export type { ThemeName } from "./tokens";

@@ -37,12 +37,9 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
         <span className="type-heading text-ink">{t(manifest.name.key as MessageKey)}</span>
       </div>
 
-      <ul className="flex flex-col gap-xs">
+      <ul className="flex flex-col divide-y divide-hairline">
         {Array.from({ length: 4 }).map((_, i) => (
-          <li
-            key={i}
-            className="flex items-center justify-between rounded-lg bg-screen px-sm py-sm"
-          >
+          <li key={i} className="flex items-center justify-between py-sm">
             <span className="h-3 w-1/3 rounded-full bg-hairline" />
             <span className="h-3 w-8 rounded-full bg-hairline" />
           </li>

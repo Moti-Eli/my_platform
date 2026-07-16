@@ -9,7 +9,7 @@
  * logic. Built from design-system utilities + i18n only — no hard-coded colors
  * or text.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRuntime } from "@/cortex/runtime";
 import { DEV_CTX } from "@/cortex/dev-ctx";
@@ -22,11 +22,17 @@ export function FullScreen() {
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [adding, setAdding] = useState(false);
+  // Guard the async setState (mirrors DashboardCard's `alive` flag): `refresh`
+  // resolves after an await and is also called from handlers, so a navigation
+  // away before it settles must not write state on an unmounted component.
+  const mounted = useRef(true);
+  useEffect(() => () => void (mounted.current = false), []);
 
   const refresh = useCallback(async () => {
     try {
       const rt = await getRuntime();
-      setItems(await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX));
+      const list = await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX);
+      if (mounted.current) setItems(list);
     } catch (err) {
       // The effect below fires this without awaiting, so a rejection here would
       // otherwise vanish and leave the screen blank with no trace.

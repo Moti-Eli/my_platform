@@ -31,7 +31,7 @@ import {
   ChevronDownIcon,
   CloseIcon,
 } from "@/components/icons";
-import { useI18n, type MessageKey } from "@/i18n";
+import { useI18n, getDirection, type MessageKey } from "@/i18n";
 import { useAiChat, type AiChatStore } from "./useAiChat";
 
 /** Drag distance (px) past which a release dismisses instead of snapping back. */
@@ -422,8 +422,9 @@ interface RowMenu {
 }
 
 /**
- * Conversation history — slides in from the RTL end (left), 60% wide. Swipe it
- * sideways (finger-following, snaps back if short) or tap outside to close. Each
+ * Conversation history — slides in from the inline-END edge (left in RTL, right
+ * in LTR), 60% wide. Swipe it sideways (finger-following, snaps back if short) or
+ * tap outside to close. Each
  * row opens an anchored rename/delete popover — the SAME pattern as AppTabsRow's
  * uninstall menu (portalled to <body> because the sheet is transformed).
  */
@@ -436,12 +437,14 @@ function HistoryPanel({
   onClose: () => void;
   store: AiChatStore;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const rtl = getDirection(locale) === "rtl";
   const [menu, setMenu] = useState<RowMenu | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
 
-  // ---- horizontal swipe-to-close (leftward, since the panel hangs off the left)
+  // ---- horizontal swipe-to-close: OUTWARD toward the inline-end edge the panel
+  // hangs off (leftward in RTL, rightward in LTR).
   const start = useRef<{ x: number; y: number } | null>(null);
   const axis = useRef<null | "h" | "v">(null);
   const [dragX, setDragX] = useState(0);
@@ -463,16 +466,18 @@ function HistoryPanel({
         e.currentTarget.setPointerCapture?.(e.pointerId);
       }
     }
-    if (axis.current === "h") setDragX(Math.min(0, dx)); // only leftward
+    // Follow the finger only OUTWARD (toward the end edge): left in RTL, right in LTR.
+    if (axis.current === "h") setDragX(rtl ? Math.min(0, dx) : Math.max(0, dx));
   };
   const onPointerUp = (e: ReactPointerEvent) => {
     const wasH = axis.current === "h";
-    const dx = start.current ? Math.min(0, e.clientX - start.current.x) : 0;
+    const raw = start.current ? e.clientX - start.current.x : 0;
+    const outward = rtl ? Math.min(0, raw) : Math.max(0, raw);
     start.current = null;
     axis.current = null;
     setDragging(false);
     setDragX(0);
-    if (wasH && -dx > DISMISS_PX) onClose();
+    if (wasH && Math.abs(outward) > DISMISS_PX) onClose();
   };
 
   useEffect(() => {
@@ -512,11 +517,12 @@ function HistoryPanel({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className={`absolute inset-y-0 left-0 z-30 flex w-[60%] touch-pan-y flex-col rounded-s-xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out ${
+        className={`absolute inset-y-0 end-0 z-30 flex w-[60%] touch-pan-y flex-col rounded-s-xl bg-card shadow-lifted motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-out ${
           open ? "" : "pointer-events-none"
         }`}
         style={{
-          transform: open ? `translateX(${dragX}px)` : "translateX(-100%)",
+          // Hidden off the inline-end edge: left (-100%) in RTL, right (+100%) in LTR.
+          transform: open ? `translateX(${dragX}px)` : `translateX(${rtl ? "-100%" : "100%"})`,
           transition: dragging ? "none" : undefined,
         }}
       >

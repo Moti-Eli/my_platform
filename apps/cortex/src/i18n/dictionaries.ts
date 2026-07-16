@@ -1,7 +1,7 @@
 /**
  * Translation dictionaries (he default, en full parallel). The `he` object
  * defines the canonical shape; `en` must match it (typed as {@link Messages}).
- * Keys are addressed by dot-path (e.g. `t("home.emptyTitle")`), type-checked via
+ * Keys are addressed by dot-path (e.g. `t("home.allTab")`), type-checked via
  * {@link MessageKey}.
  */
 import type { Locale } from "./config";
@@ -30,7 +30,6 @@ const he = {
     profile: "פרופיל",
   },
   ai: {
-    title: "מה נעשה?",
     placeholder: "שאל את Cortex…",
     notConnected: "העוזר עדיין לא מחובר למנוע — זהו שלד בלבד.",
     mic: "הקלטה",
@@ -100,15 +99,11 @@ const he = {
     appTabsLabel: "לשוניות כלים",
     allTab: "הכל",
     dashboardLabel: "לוח מחוונים",
-    emptyTitle: "עדיין אין כלים מוצמדים",
-    emptyHint: "כלים שתצמיד יופיעו כאן על לוח המחוונים.",
     emptyInstalledTitle: "עדיין לא הוספת כלים",
     emptyInstalledHint: "הקש על + כדי להוסיף כלים ללוח שלך.",
   },
   catalog: {
     title: "כל הכלים",
-    emptyTitle: "הקטלוג עדיין ריק",
-    emptyHint: "כאן יופיעו כל הכלים הזמינים להתקנה והפעלה.",
   },
   comms: {
     title: "צ'אט",
@@ -180,7 +175,6 @@ const en: Messages = {
     profile: "Profile",
   },
   ai: {
-    title: "What shall we do?",
     placeholder: "Ask Cortex…",
     notConnected: "The assistant isn't connected to an engine yet — this is a shell only.",
     mic: "Record",
@@ -250,15 +244,11 @@ const en: Messages = {
     appTabsLabel: "Tool tabs",
     allTab: "All",
     dashboardLabel: "Dashboard",
-    emptyTitle: "Nothing pinned yet",
-    emptyHint: "Tools you pin will appear here on the dashboard.",
     emptyInstalledTitle: "No apps yet",
     emptyInstalledHint: "Tap + to add apps to your board.",
   },
   catalog: {
     title: "All tools",
-    emptyTitle: "The catalog is empty",
-    emptyHint: "Every tool available to install and run will appear here.",
   },
   comms: {
     title: "Chat",
@@ -308,7 +298,7 @@ const en: Messages = {
 
 export const dictionaries: Record<Locale, Messages> = { he, en };
 
-/** Dot-paths into the message tree, e.g. `"home.emptyTitle"`. */
+/** Dot-paths into the message tree, e.g. `"home.allTab"`. */
 export type MessageKey = {
   [K in keyof Messages]: `${K & string}.${keyof Messages[K] & string}`;
 }[keyof Messages];

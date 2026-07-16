@@ -39,16 +39,21 @@ Use one of these instead:
 
 Colors/radii/shadows/font live in **`@/design-system`** (`src/design-system/`)
 as the single source of truth. A **theme is just an alternate set of token
-values**: `themes` holds `light` (default) and `dark`. `themeStylesheet()` emits
-each theme's tokens under `[data-theme="…"]` and `baseStylesheet()` emits the
-structural tokens on `:root`; `globals.css` maps Tailwind utilities onto those
-via `@theme inline`. Components use utilities (`bg-indigo`, `text-ink`,
-`rounded-xl`, `shadow-soft`) — **no hard-coded colors**. Switching theme flips
-`data-theme` on `<html>` (instant, flash-free). Adding a theme later
-(Midnight/Aurora/…) is just a new entry in `themes` — no component changes.
+values**: `themes` holds six, darkest→lightest — `abyss`, `midnight`, `slate`,
+`dawn`, `quietLight` (**default**), `clay`. `themeStylesheet()` emits each theme's
+tokens under `[data-theme="…"]` and `baseStylesheet()` emits the structural tokens
+on `:root`; `globals.css` maps Tailwind utilities onto those via `@theme inline`
+(the default Tailwind palette + font-size namespaces are cleared, so only
+token-backed utilities resolve). Components use **semantic** utilities
+(`bg-accent`, `text-ink`, `bg-card`, `rounded-lg`, `shadow-lifted`) — **no
+hard-coded colors**. Switching theme flips `data-theme` on `<html>` (instant,
+flash-free). Adding a theme is just a new entry in `themes` — no component changes.
 
-Palette (light): indigo `#5B4CE0`, teal `#12A08E`, coral `#F5744F`, amber
-`#DE982B`, ink `#221E31`, screen `#F7F6FB`.
+Tokens split into **semantic roles** (screen, card, ink, muted, hairline, accent,
+success, warning, danger, inverse, ring, on-fill) and an **app-identity palette**
+(`app-violet/teal/coral/amber/blue/green`). Shadows are only for genuinely
+floating surfaces (`shadow-lifted`/`shadow-hero`); cards and rows separate by
+tone, not shadow.
 
 ## i18n (he / en)
 
@@ -56,7 +61,7 @@ A minimal, typed, client-side dictionary (`src/i18n/`) — **not** next-intl,
 which is built around locale-prefixed routing and doesn't fit a shell where the
 user picks the language in Settings and it persists locally. `he` is default;
 `en` is a full parallel set. `useI18n()` gives `{ locale, dir, t, setLocale }`;
-`t("home.emptyTitle")` keys are type-checked. **Direction follows the language**
+`t("home.allTab")` keys are type-checked. **Direction follows the language**
 (`dir` flips he↔en). All shell strings go through `t` — no hard-coded UI text.
 
 Language and theme are persisted in **cookies** (read server-side in the root
@@ -66,11 +71,11 @@ layout so the first paint is already correct — no flash), which is also the
 ## Settings & version
 
 `/settings` (reached from the header gear or the Profile screen) has three
-sections: **שפה** (language he/en), **נראות** (theme cards light/dark), and
+sections: **שפה** (language he/en), **נראות** (the six theme cards), and
 **גרסה** (read-only). The app version is a single source of truth —
-`package.json`'s `version`, read via `@/lib/version` (`APP_VERSION`) — and shown
-in Settings. **Standing rule:** bump `package.json` at the end of every unit of
-work that ends in a commit (patch/minor/major); currently **0.3.0**.
+`src/lib/version.ts` (`APP_VERSION`), a plain running integer (no semver) — shown
+in Settings. **Standing rule:** bump it by 1 at the end of every unit of work that
+ends in a commit.
 
 ## Tools (sub-apps)
 

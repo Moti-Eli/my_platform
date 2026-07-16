@@ -2,10 +2,10 @@
 
 /*
  * Map Tailwind's utilities onto the design-system CSS variables emitted by
- * tokenStylesheet() (see @/design-system). `inline` resolves the variables at
- * use-time, so utilities like `bg-indigo`, `text-ink`, `rounded-xl`,
- * `shadow-soft` are driven entirely by the tokens — no hard-coded colors in
- * components (Cortex Standard §1 law 6).
+ * baseStylesheet() + themeStylesheet() (see @/design-system). `inline` resolves
+ * the variables at use-time, so utilities like `bg-accent`, `text-ink`,
+ * `rounded-lg`, `shadow-lifted` are driven entirely by the tokens — no hard-coded
+ * colors in components (Cortex Standard §1 law 6).
  */
 @theme inline {
   /* Block Tailwind's default colour palette: clearing the `--color-*` namespace
@@ -132,10 +132,12 @@
   opacity: 1;
   transition-duration: var(--ds-duration-fast);
 }
-/* Focus: keyboard only (:focus-visible), 2px ring + 2px offset showing `screen`. */
-.interactive:focus-visible,
-input:focus-visible,
-textarea:focus-visible {
+/* Focus: keyboard only (:focus-visible), 2px ring + 2px offset showing `screen`.
+   OPT-IN via `.interactive` only — text inputs are deliberately NOT included, so
+   they render clean and read as part of their container surface rather than
+   growing a frame on focus. An input that needs a ring opts in like anything
+   else. */
+.interactive:focus-visible {
   outline: 2px solid var(--ds-ring);
   outline-offset: 2px;
 }

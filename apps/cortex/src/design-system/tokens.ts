@@ -1,7 +1,8 @@
 /**
  * Cortex design-system — the SINGLE source of truth for the shell's visual
- * language ("Organic & Fluid"): rounded 16–24px, soft diffuse shadows (no hard
- * borders), lots of whitespace, clean sans-serif, RTL Hebrew.
+ * language ("Quiet Structure"): tightened radii (10–18px), separation by surface
+ * tone (shadows only on genuinely floating surfaces), lots of whitespace, clean
+ * sans-serif, RTL Hebrew.
  *
  * TOKEN MODEL (two independent families):
  *
@@ -366,7 +367,7 @@ export function isThemeName(value: string | undefined): value is ThemeName {
  * Structural (theme-independent) radii. Tightened under the "Quiet Structure"
  * line — structure comes from tone + spacing, not big soft corners.
  */
-export const radii = {
+const radii = {
   sm: "10px", //   badges, small tags, inline chips-in-content
   md: "12px", //   buttons, inputs, tiles, non-circular icon discs
   lg: "14px", //   cards, list rows, panels
@@ -386,7 +387,7 @@ export const radii = {
  * Latin-display trick that DAMAGES Hebrew rendering — Hebrew letters are not
  * designed to be tightened. This is not a placeholder; never add tracking.
  */
-export const type = {
+const type = {
   display: { size: "28px", line: "34px", weight: "600" }, // screen-level title, used sparingly
   title: { size: "20px", line: "26px", weight: "600" }, //   section + screen headers
   heading: { size: "17px", line: "23px", weight: "600" }, // card titles, list-row primary text
@@ -406,7 +407,7 @@ export const type = {
  * left alive. The scale is enforced by convention + the contract, NOT by clearing
  * the namespace (that would break every width/height/inset utility).
  */
-export const space = {
+const space = {
   "2xs": "4px", //  hairline gaps, icon-to-its-own-label
   xs: "8px", //     tight internal padding, chip padding
   sm: "12px", //    default gap between related items
@@ -417,7 +418,7 @@ export const space = {
 } as const;
 
 /** Clean, system sans-serif stack (includes a Hebrew fallback). */
-export const fontSans =
+const fontSans =
   'ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans Hebrew", "Arial Hebrew", sans-serif';
 
 /**

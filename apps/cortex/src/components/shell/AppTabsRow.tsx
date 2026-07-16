@@ -79,6 +79,13 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [menu]);
 
+  // Cancel a pending long-press timer if the row unmounts mid-press (e.g. a chip
+  // held while the shell navigates to a full-bleed route) so it can't fire
+  // `setMenu` after unmount.
+  useEffect(() => () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  }, []);
+
   // Flip above the chip if there isn't room below it in the viewport.
   const placeAbove =
     menu !== null &&
