@@ -2,9 +2,14 @@
 
 ### The binding contract every tool must satisfy · End-to-end reference example: **Inventory**
 
-**Version:** 1.0 · Binding contract (not a suggestion)
+**Version:** 1.3 · Binding contract (not a suggestion)
 **Stack:** React + TypeScript + Supabase (Postgres + RLS + Edge Functions)
 **Usage:** The permanent context file that every new tool build with Claude Code starts from.
+
+> **Changed in 1.3:** §6 rewritten to match the real schema — role-based RLS replaced by the
+> `private.auth_user_has_permission` / `auth_user_is_member_of` helpers; §9 DB checklist item
+> corrected; new §11 records that the access/visibility model is NOT YET DECIDED (no new tool
+> table or write policy until it is).
 
 > **The rule we never move from:** The AI never touches SQL. It only calls Intents. Every Intent
 > goes through one data-layer that enforces permissions, adds the standard fields, and writes an
@@ -25,7 +30,10 @@
 5. **Three mandatory fields on every tool table:** `instance_id`, `owner_id`, `org_id`. They
    enable isolation, permissions, and uniform RLS.
 6. **Design & language are consumed, not invented.** One central design-system + one i18n.
-   A tool picks from an existing palette and supplies translation keys.
+   A tool NEVER defines a colour (no hex/rgb/hsl, no default-Tailwind palette, no arbitrary
+   `bg-[#…]`) — it uses only token-backed utilities, from two families that are never mixed:
+   semantic roles (for meaning) and the app-identity palette (for its own identity). It supplies
+   translation keys, never hard-coded text. The concrete rules are in §8.
 7. **AI through one door.** Every AI read/write goes through the data-layer, which enforces the
    contract and writes to `ai_log`.
 
@@ -183,7 +191,7 @@ create table inventory_items (
   -- ===== the three mandatory fields (on every tool table, no exceptions) =====
   instance_id uuid not null references app_instances(id) on delete cascade,
   owner_id    uuid not null references users(id),
-  org_id      uuid references organizations(id),      -- nullable: a personal tool has no org
+  org_id      uuid references organizations(id),      -- org scope; nullability NOT YET DECIDED (see §11)
   -- ===========================================================================
 
   name              text not null,
@@ -201,17 +209,36 @@ create index on inventory_items (org_id);
 -- uniform Row-Level Security (same pattern in every tool)
 alter table inventory_items enable row level security;
 
+-- READ — your own record, or any record in an org you actively belong to.
 create policy "read own or org" on inventory_items for select
-  using ( owner_id = auth.uid()
-          or org_id in (select org_id from memberships where user_id = auth.uid()) );
+  using ( owner_id = (select auth.uid())
+          or private.auth_user_is_member_of(org_id) );
 
-create policy "write by role" on inventory_items for all
-  using ( org_id in (select org_id from memberships
-                     where user_id = auth.uid() and role in ('owner','manager')) );
+-- WRITE — only with the required permission IN THAT ROW'S org.
+-- (Illustrative only — see §11: no tool may ship a write policy until the access
+--  model is decided. When it is, the permission key must be a real row in the
+--  `permissions` catalog.)
+create policy "write by permission" on inventory_items for all
+  using      ( private.auth_user_has_permission(org_id, 'inventory.write') )
+  with check ( private.auth_user_has_permission(org_id, 'inventory.write') );
 ```
 
-> If the repo already has a membership helper (e.g. `private.auth_user_is_member_of(org_id)`),
-> use it for the org check instead of the inline subquery — that is a permitted, preferred deviation.
+**The two helpers are THE standard — not an optional deviation.** `public.memberships` has no
+`role` column, so `role in ('owner','manager')` is not expressible; roles live in `roles` +
+`membership_roles` (composite FKs pin both a membership and a role to one org), each role carrying
+an `is_admin` flag.
+
+- **`private.auth_user_is_member_of(org_id)`** — the canonical membership check for READ. It is
+  `deleted_at`-aware: a membership counts only if the membership AND its organization are both
+  active, so a soft-deleted org/membership cascades to "hidden" for free (migration
+  `20260610000001_soft_deletes.sql`).
+- **`private.auth_user_has_permission(p_org_id uuid, p_permission_key text)`** — the canonical
+  permission check for WRITE. `SECURITY DEFINER`, `STABLE`, `SET search_path = ''`, fully
+  schema-qualified (so it bypasses RLS on the joined tables without recursing). Returns true when
+  the caller has an active membership in `p_org_id` whose role is `is_admin` OR is linked via
+  `role_permissions` to a permission with key `p_permission_key`. Defined in
+  `20260608000003_membership_roles_write_policy.sql` and made `deleted_at`-aware in
+  `20260610000001_soft_deletes.sql`.
 
 **Three table layers in the DB (all in the same Postgres):**
 
@@ -269,10 +296,44 @@ export function DashboardCard({ data }) {
 }
 ```
 
-- **Design tokens** (color, radius 16–24, typography, shadows) are defined once in the central
+- **Design tokens** (color, radius 10–18, typography, spacing, shadows) are defined once in the central
   design-system. A tool picks an `accent` from a closed palette.
 - **i18n** — the tool supplies only `he/en.json` with keys. No hard-coded text. RTL/LTR handled
   centrally.
+
+**Token rules (binding):**
+
+- **A sub-app NEVER defines colours.** No hex, no `rgb()/hsl()`, no default-Tailwind palette classes
+  (`bg-gray-400`, `bg-white`, `text-slate-600`), no arbitrary colour values (`bg-[#…]`). Only
+  token-backed utilities. (The default Tailwind palette is disabled at the framework level — those
+  classes resolve to nothing.)
+- **Two token families, never mixed:**
+  - *Semantic roles* — `accent`, `success`, `warning`, `danger`, `inverse` / `inverse-ink`, `scrim`,
+    `ring`, `on-fill`, plus neutrals `screen` / `card` / `ink` / `muted` / `hairline`. Use these for
+    MEANING (this is a warning; this is the primary action).
+  - *App identity palette* — `app-violet` / `app-teal` / `app-coral` / `app-amber` / `app-blue` /
+    `app-green`. A sub-app picks ONE via `manifest.color` and uses it ONLY for its own identity
+    (its icon, its primary action).
+  - **Canonical example (the real Inventory tool):** the icon disc and the "add product" button are
+    `app-amber` (identity); the low-stock badge is `warning` (meaning). They look the same today and
+    are independent knobs tomorrow. Never use a semantic role as decoration, and never use an app
+    colour to signal a state.
+- **Text/icons on ANY saturated fill use `on-fill`** — never `text-white`.
+- **`ink` is a TEXT role.** Never use it as a surface (`bg-ink`). A surface opposite the screen is
+  `inverse` + `inverse-ink`.
+- **Backdrops use `scrim`** — no ad-hoc `bg-ink/30`.
+- **Radii come from the token scale** (`rounded-md` / `-lg` / `-xl` / `-pill`). No arbitrary radii.
+- **List rows inside a card have no fill and no radius** — they sit on the card surface, separated
+  by a hairline and spacing. A card is a box; its contents are not.
+- **Theme-author constraint:** every saturated fill in a theme MUST sit in the same lightness band,
+  because `on-fill` is a single token shared by all of them.
+- **Single source of truth:** a theme is ONE entry in `themes` (`design-system/tokens.ts`) carrying
+  its own values AND its own `labelKey`. Never a list parallel to it. (We have been burned twice:
+  `placeholder-apps.tsx` vs the registry, and `LABEL_KEY` vs `themes`.)
+- **Interaction feedback is consumed, not invented.** Every pressable element uses `.interactive`
+  — never a bespoke hover colour, `active:opacity-*`, or an ad-hoc scale. Small controls press to
+  `0.97` (`motion-safe:active:scale-[0.97]`); cards and rows do NOT scale, overlay only. Focus is
+  `:focus-visible` with the `ring` token.
 
 ---
 
@@ -280,11 +341,16 @@ export function DashboardCard({ data }) {
 
 - [ ] `manifest` complete: id, permissions, roles, emits, listensTo, aiTopics.
 - [ ] `intents` — every action with zod input/output, name `<appId>.<action>`, handler using `ctx`.
-- [ ] `schema.sql` — every table with `instance_id` + `owner_id` + `org_id` + RLS per the standard.
+- [ ] `schema.sql` — every table with `instance_id` + `owner_id` + `org_id`; RLS uses the standard helpers (`private.auth_user_is_member_of(org_id)` for READ, `private.auth_user_has_permission(org_id, '<key>')` for WRITE) — never a `memberships.role` check. Subject to §11: no NEW tool table and no write policy until the access model is decided.
 - [ ] `events` — every emitted event documented; every listener registered.
 - [ ] Zero SQL inside handlers — everything through the data-layer.
 - [ ] Zero direct access to another tool's table.
 - [ ] `views` built from the design-system only; zero hard-coded color/radius.
+- [ ] Colours are token-backed utilities only — no hex/rgb/hsl, no default-Tailwind palette, no `bg-[#…]`.
+- [ ] Semantic roles used for MEANING; the app-identity palette (`app-*`, one per `manifest.color`) used ONLY for identity — the two are never crossed.
+- [ ] Text on any fill is `on-fill` (never `text-white`); `ink` is text-only (never `bg-ink`); backdrops are `scrim`.
+- [ ] Radii from the token scale (`rounded-md/lg/xl/pill`) — no arbitrary radii.
+- [ ] Every pressable element uses `.interactive` (overlay + focus) — no bespoke hover/press colour or ad-hoc scale; small controls press to `0.97`, cards/rows do not scale.
 - [ ] Zero hard-coded text — everything i18n.
 - [ ] No user/auth management inside the tool — received from the shell.
 
@@ -298,3 +364,23 @@ export function DashboardCard({ data }) {
 > through Intents and Events. No direct access to other tools' tables. No SQL inside handlers.
 > Design and language are consumed from the design-system and i18n only. Run through the §9
 > checklist before you finish.
+
+---
+
+## 11. Access model — NOT YET DECIDED
+
+The visibility / access model for tool data is **under active design**. It is not settled, and the
+§6 example above shows the *mechanism* (the standard helpers), not a finalized policy. Still open:
+
+- Whether `org_id` is nullable (a "personal tool has no org") or always required.
+- Whether `instance_id` survives at all as a mandatory field.
+- Per-record visibility (owner-only vs org-wide vs something finer).
+- The write path — which permission keys exist, and how a tool declares the one it needs.
+
+**Until this is decided:**
+
+- **No new tool table may be created.**
+- **No tool may ship a write policy.**
+
+The Inventory tool's tables exist but are **EMPTY**, and are **expected to be dropped and rebuilt**
+once the model lands. Treat everything in §6 as provisional against that outcome.
