@@ -104,6 +104,8 @@ const he = {
   },
   catalog: {
     title: "כל הכלים",
+    addToBar: "הוסף לשורת הכלים",
+    removeFromBar: "הסר משורת הכלים",
   },
   comms: {
     title: "צ'אט",
@@ -249,6 +251,8 @@ const en: Messages = {
   },
   catalog: {
     title: "All tools",
+    addToBar: "Add to tools bar",
+    removeFromBar: "Remove from tools bar",
   },
   comms: {
     title: "Chat",

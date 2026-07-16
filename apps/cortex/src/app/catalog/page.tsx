@@ -2,13 +2,18 @@
 
 /**
  * "כל הכלים" (catalog) — the full registry of apps in a compact icon+name grid.
- * Reads ALL registered apps (source of truth), no hardcoded list. Available apps
- * can be installed/uninstalled by tapping (install → it appears immediately in
- * the chips row and on Home); apps marked `unavailable` are shown disabled and
- * are not tappable.
+ * Reads ALL registered apps (source of truth), no hardcoded list.
+ *
+ * Each available app is TWO independent targets, never one:
+ *   - the CARD BODY  → installs if needed, then opens the tool;
+ *   - the CORNER BADGE → toggles presence in the chips row / Home ONLY, and
+ *     never navigates.
+ * An app is never removed from the catalog itself — the badge only controls
+ * whether it shows up in the tools bar. Apps marked `unavailable` stay inert.
  */
 import type { AppManifest } from "@platform/cortex-core";
-import { useRegisteredApps } from "@/cortex/apps";
+import { useRouter } from "next/navigation";
+import { useRegisteredApps, appRoute } from "@/cortex/apps";
 import { install, uninstall, useInstalledApps } from "@/lib/installed-apps";
 import { appIcon, appColorClasses } from "@/components/app-visuals";
 import { CheckIcon, PlusIcon } from "@/components/icons";
@@ -16,11 +21,12 @@ import { useI18n, type MessageKey } from "@/i18n";
 
 function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed: boolean }) {
   const { t } = useI18n();
+  const router = useRouter();
   const Icon = appIcon(manifest.icon);
   const available = manifest.status !== "unavailable";
   const label = t(manifest.name.key as MessageKey);
 
-  const inner = (
+  const cardContent = (
     <>
       <span
         className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
@@ -28,43 +34,63 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
         <Icon width={22} height={22} />
       </span>
       <span className="text-center type-label text-ink">{label}</span>
-      {available ? (
-        <span
-          className={`absolute end-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full ${
-            installed ? "bg-success text-on-fill" : "bg-hairline text-muted"
-          }`}
-        >
-          {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}
-        </span>
-      ) : (
-        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-xs py-2xs type-caption text-muted">
-          {t("apps.unavailable")}
-        </span>
-      )}
     </>
   );
 
+  // w-full is load-bearing now: the card used to be the grid item (grid items
+  // stretch); inside the wrapper below a <button> would shrink to its content.
   const cardClass =
-    "relative flex h-full flex-col items-center gap-xs rounded-lg bg-card p-md pt-lg";
+    "relative flex h-full w-full flex-col items-center gap-xs rounded-lg bg-card p-md pt-lg";
 
   if (!available) {
     return (
       <div aria-disabled className={`${cardClass} opacity-50`}>
-        {inner}
+        {cardContent}
+        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-xs py-2xs type-caption text-muted">
+          {t("apps.unavailable")}
+        </span>
       </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      aria-pressed={installed}
-      aria-label={label}
-      onClick={() => (installed ? uninstall(manifest.id) : install(manifest.id))}
-      className={`${cardClass} touch-manipulation interactive`}
-    >
-      {inner}
-    </button>
+    <div className="relative h-full">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => {
+          if (!installed) install(manifest.id);
+          router.push(appRoute(manifest.id));
+        }}
+        className={`${cardClass} touch-manipulation interactive`}
+      >
+        {cardContent}
+      </button>
+
+      {/* SIBLING of the card button (a <button> cannot nest a <button>), layered
+          over its corner — so a badge tap never reaches the card. The wrapper
+          carries the positioning because `.interactive` sets `position: relative`
+          from an UNLAYERED rule, which would beat Tailwind's layered `absolute`
+          utility and drop the badge back into normal flow. `-m-2` then grows the
+          tap target to 36px WITHOUT moving the 20px dot. */}
+      <span className="absolute end-1.5 top-1.5 z-10">
+        <button
+          type="button"
+          aria-pressed={installed}
+          aria-label={installed ? t("catalog.removeFromBar") : t("catalog.addToBar")}
+          onClick={() => (installed ? uninstall(manifest.id) : install(manifest.id))}
+          className="-m-2 flex h-9 w-9 items-center justify-center rounded-full touch-manipulation interactive"
+        >
+          <span
+            className={`flex h-5 w-5 items-center justify-center rounded-full ${
+              installed ? "bg-success text-on-fill" : "bg-hairline text-muted"
+            }`}
+          >
+            {installed ? <CheckIcon width={13} height={13} /> : <PlusIcon width={13} height={13} />}
+          </span>
+        </button>
+      </span>
+    </div>
   );
 }
 
