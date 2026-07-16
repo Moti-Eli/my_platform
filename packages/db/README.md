@@ -41,6 +41,52 @@ full explanation.
   `supabase_realtime` publication so clients can subscribe to live INSERTs
   (Postgres Changes). RLS still gates delivery, so the socket respects org
   isolation. PART 2 of the chat feature.
+- `20260609000004_tighten_client_role_grants.sql` — defense in depth: revokes
+  `TRUNCATE`/`TRIGGER`/`REFERENCES` from `anon`/`authenticated` on every current
+  public table, and adjusts the `postgres`-owned default privileges so future
+  tables don't re-grant them. `TRUNCATE` is destructive and **not** gated by RLS,
+  hence the strip. SELECT/INSERT and every `service_role` grant are untouched.
+- `20260609000005_last_admin_db_guard.sql` — **DB-level last-admin guard**: a
+  DEFERRABLE INITIALLY DEFERRED constraint trigger on `membership_roles`
+  (`private.enforce_org_keeps_admin`, SECURITY DEFINER) rejecting any operation
+  that would leave an existing org (that still has members) with zero `is_admin`
+  assignments. Judged at COMMIT on the transaction's FINAL state, so cascade
+  deletes and add-then-drop admin swaps still pass. Holds even against
+  `service_role`, so it can't be bypassed by a direct privileged call.
+- `20260609000006_membership_roles_covering_indexes.sql` — covering indexes for
+  the two composite FKs on `membership_roles` — `(membership_id,
+  organization_id)` and `(role_id, organization_id)` — so deleting a membership
+  or role no longer seq-scans the table. Drops the now-redundant `role_id`-only
+  index (the new composite leads with it); keeps `organization_id` (it backs the
+  org-scoped RLS reads and the last-admin guard's count).
+- `20260609000007_messages_sender_id_index.sql` — covering index on
+  `messages.sender_id` for its FK to `users.id`, so deleting a user no longer
+  seq-scans `messages`.
+- `20260610000001_soft_deletes.sql` — **soft deletes** for `organizations`,
+  `memberships`, `messages`: a nullable `deleted_at` (NULL = active), a new
+  `private.org_is_active` helper, and the membership helpers
+  (`auth_user_is_member_of`, `auth_user_shares_org_with`,
+  `auth_user_can_access_role`, `auth_user_has_permission`) become
+  `deleted_at`-aware — a membership counts only if it AND its org are active, so
+  soft-deleting a PARENT cascades the hidden state to its children for free. Adds
+  `deleted_at is null` to the SELECT policies + partial indexes for the
+  active-only reads. Only ever NARROWS visibility, so tenant isolation is
+  unchanged; soft-delete writes go through `service_role`. Hard-delete FKs are
+  kept for genuine purges; `users` is deferred.
+- `20260610000002_input_length_limits.sql` — CHECK constraints bounding
+  user-supplied text at the DB layer (security review M1/L2): `messages.content`
+  ≤4000 chars, `organizations.name` / `roles.name` / `users.display_name` ≤200,
+  each also requiring at least one non-whitespace char (so empty/whitespace-only
+  values are rejected). Enforced in the DB because the chat composer posts
+  straight to PostgREST with no server action to validate in — so the bound holds
+  for every caller, including the service-role key. Idempotent.
+- `20260610000003_remove_unused_users_invite.sql` — deletes the `users.invite`
+  permission (security review L3). It was seeded and granted to every Member role
+  but checked NOWHERE; `members.manage` is the real gate for member management,
+  including the privileged add-user path. Wiring it instead would have let
+  ordinary members reach that path, so it is removed. Cascades its
+  `role_permissions` rows away; forward-only (the original seeding migration is
+  left intact).
 - `20260714000001_cortex_shell_tables.sql` — **Cortex super-app core** shell
   tables (additive): `app_definitions` (global tool catalog, authenticated-
   readable), `app_instances` (owned/placed instances; polymorphic `owner_id`,
