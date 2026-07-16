@@ -95,12 +95,16 @@ full explanation.
   auth.uid()` OR member of `org_id`, via `auth_user_is_member_of`); shell writes
   go through `service_role` (no client write policies yet). See `SCHEMA.md`
   "Cortex Shell Tables" and `packages/cortex-core`.
+  **`app_instances` and its policy were superseded by `20260716000002`**
+  (`app_definitions`, `events`, `ai_log` stand as described).
 - `20260714000002_inventory_items.sql` — **Cortex Inventory tool** table
   (additive): the first tool table, with the three mandatory fields
   (`instance_id`, `owner_id`, `org_id`), indexes on the isolation fields, and RLS
   (SELECT via `auth_user_is_member_of`; writes `service_role`-only until Cortex
   auth lands — `memberships` has no `role` column for §6's owner/manager check).
-  Mirrors `apps/cortex/src/tools/inventory/schema.sql`. See ARCHITECTURE.md #30.
+  See ARCHITECTURE.md #30. **Superseded by `20260716000002`**, which drops and
+  rebuilds this table org-scoped; the hand-maintained `schema.sql` duplicate it
+  mirrored is deleted — the migration is the single source of truth.
 - `20260716000001_organization_hierarchy.sql` — **organization hierarchy**
   (additive): `organizations.parent_id` (nullable = root; `on delete restrict`,
   so children must be re-parented/deleted first) + a no-cycle `BEFORE
@@ -109,6 +113,20 @@ full explanation.
   descendants; a child's member never reaches ancestors), active-only walk,
   depth-capped at 32. No policy rewiring: every existing policy still calls the
   flat `auth_user_is_member_of`, so visibility is unchanged.
+- `20260716000002_cortex_org_tree_model.sql` — **Cortex reshaped onto the org
+  tree** (DESTRUCTIVE; both tables were verified EMPTY first). Drops and rebuilds
+  `app_instances` (polymorphic `owner_type`/`owner_id` gone — `owner_id` is now a
+  real FK to `users`; `org_id` is NOT NULL, since every user has a personal org)
+  and `inventory_items` (`instance_id` gone — tabs/branches are CHILD ORGS, not
+  instances; adds `visibility in ('private','org','restricted')`). Re-adds the
+  `events.emitted_by_instance` / `ai_log.target_instance_id` FKs that the cascade
+  orphaned, same `ON DELETE SET NULL`; those audit columns survive. RLS SELECT is
+  rebuilt on `auth_user_is_member_of_tree(org_id)` — the old `owner_id =
+  auth.uid() OR is_member(org)` is deliberately NOT reproduced (that OR let a
+  departed member keep reading; membership is now a blocking AND). Inventory
+  admits only `visibility = 'org'` — 'private'/'restricted' are unreadable until
+  `record_grants` lands (fail closed). Writes stay `service_role`-only; `events`
+  and `ai_log` policies untouched.
 
 ## Usage
 

@@ -5,8 +5,11 @@
  * data (through the provided `CortexDb` client — never raw SQL) and the ONLY
  * place it emits events (through the provided event-bus `emit`). It receives
  * `ctx` from the shell and never fetches identity itself. Every read/write is
- * scoped by `instance_id` (the tool instance) for isolation, matching the three
- * mandatory fields + RLS in `schema.sql`.
+ * scoped by `instance_id` (the tool instance) for isolation. The table's single
+ * source of truth is the migration
+ * `packages/db/supabase/migrations/20260716000002_cortex_org_tree_model.sql`,
+ * which is now org-scoped and has NO `instance_id` column — reconciling this
+ * file with that is known, deliberately deferred debt.
  */
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
