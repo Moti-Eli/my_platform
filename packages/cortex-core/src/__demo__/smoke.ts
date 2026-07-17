@@ -92,10 +92,12 @@ async function main(): Promise<void> {
   const { runIntent } = createDataLayer({ db });
   const { emit } = createEventBus(db);
 
+  // instanceId is null: audit metadata only, and app_instances has no rows yet
+  // (see Ctx). orgId is the only scoping key, and is never null.
   const ctx: Ctx = {
     userId: "00000000-0000-0000-0000-000000000001",
     orgId: "00000000-0000-0000-0000-0000000000aa",
-    instanceId: "00000000-0000-0000-0000-0000000000ff",
+    instanceId: null,
   };
 
   // --- 2. runIntent ----------------------------------------------------------
@@ -111,21 +113,37 @@ async function main(): Promise<void> {
   assert(listenerSawMsg === "boom", "the listener received the emitted payload");
 
   // --- 4. audit + event persistence ------------------------------------------
+  //
+  // THESE ASSERTIONS STAND IN FOR THE DATABASE'S NOT NULL CONSTRAINTS. The
+  // in-memory CortexDb is a Map: it enforces nothing, so a missing `org_id`
+  // costs nothing here and then fails on EVERY call the moment a real adapter
+  // lands (ai_log.org_id and events.org_id are both NOT NULL). Until that
+  // adapter exists, the org_id checks below are the only thing that would catch
+  // its omission — so assert the WRITTEN COLUMNS, never merely that the call
+  // returned.
   console.log("\nPersistence:");
   assert(db.count("ai_log") === 1, "exactly one row was written to ai_log");
   const logRow = db.rows("ai_log")[0]!;
   assert(logRow.intent === "ping.echo", "ai_log row records the intent name");
   assert(logRow.user_id === ctx.userId, "ai_log row records the acting user");
   assert(
-    logRow.target_instance_id === ctx.instanceId,
-    "ai_log row records the target instance",
+    logRow.org_id === ctx.orgId,
+    "ai_log row carries org_id (NOT NULL in the DB — this is what org-scopes the audit trail)",
+  );
+  assert(
+    logRow.target_instance_id === null,
+    "ai_log row's target_instance_id is null (audit metadata only; no app_instances rows exist)",
   );
   assert(db.count("events") === 1, "exactly one row was written to events");
   const eventRow = db.rows("events")[0]!;
   assert(eventRow.type === "ping.fired", "events row records the event type");
   assert(
-    eventRow.emitted_by_instance === ctx.instanceId,
-    "events row records the emitting instance",
+    eventRow.org_id === ctx.orgId,
+    "events row carries org_id (NOT NULL in the DB — this is what scopes the event)",
+  );
+  assert(
+    eventRow.emitted_by_instance === null,
+    "events row's emitted_by_instance is null (audit metadata only)",
   );
 
   console.log("\n✅ Smoke test passed — registry + runIntent + event-bus + db all work.");

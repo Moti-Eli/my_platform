@@ -14,6 +14,15 @@
  * No SQL lives here except the `ai_log` write, which goes through the provided
  * {@link CortexDb}. Handlers get their own db client by closure (§7), never
  * through this layer.
+ *
+ * THE ai_log WRITE CARRIES `org_id`, AND MUST. `ai_log.org_id` is NOT NULL
+ * (20260717000002): an audit trail only its own subject can read is not an audit
+ * trail, and `org_id` is precisely what makes it org-scoped — the read policy is
+ * `is_member_of_tree(org_id) AND user_id = auth.uid()`. Omitting it does not fail
+ * loudly today only because the in-memory `CortexDb` is a Map that enforces no
+ * constraints; the first real adapter would reject every single call. The
+ * accompanying `target_instance_id` is audit metadata only (nullable — see
+ * {@link Ctx}), never a scoping key.
  */
 
 import type { Ctx } from "./types";
@@ -108,6 +117,7 @@ export function createDataLayer({
     //    exists on ai_log and this stays a superset of the Standard's sketch.)
     await db.insert("ai_log", {
       user_id: ctx.userId,
+      org_id: ctx.orgId,
       intent: intentName,
       target_instance_id: ctx.instanceId,
       input: parsed,

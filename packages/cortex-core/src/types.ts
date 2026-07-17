@@ -17,17 +17,47 @@ import type { ZodType } from "zod";
 
 /**
  * The execution context the shell hands to every intent handler and event
- * listener. A handler NEVER fetches this itself — identity/tenant/instance are
+ * listener. A handler NEVER fetches this itself — identity and tenant are
  * resolved by the shell up front (Standard §7).
  *
  * - `userId`     the acting user (mirrors `auth.users.id` / `public.users.id`).
- * - `orgId`      the active organization, or `null` for a personal tool.
- * - `instanceId` the `app_instances.id` this call is scoped to.
+ * - `orgId`      the active organization. THE ONLY SCOPING KEY. Never null.
+ * - `instanceId` audit metadata ONLY. Never a scoping key. Null until
+ *                installed-apps moves off localStorage.
  */
 export interface Ctx {
   userId: string;
-  orgId: string | null;
-  instanceId: string;
+
+  /**
+   * The active organization — and the ONLY axis anything is scoped by.
+   *
+   * NOT NULLABLE, because the schema does not admit null: every Cortex table
+   * carries `org_id NOT NULL` (`inventory_items`, `events`, and — since
+   * 20260717000002 — `ai_log`). There is no org-less context to represent:
+   * every user has a personal organization, so "no org" is not a state that can
+   * occur. A `string | null` here would only invite a null to be written into a
+   * NOT NULL column and fail at the database, one layer too late.
+   */
+  orgId: string;
+
+  /**
+   * The `app_instances.id` this call came from — AUDIT METADATA ONLY.
+   * "Which installed tool did this", nothing more.
+   *
+   * IT IS NEVER A SCOPING KEY. Partitioning data by instance is DEAD: branches
+   * and tabs are CHILD ORGANIZATIONS (20260716000002 dropped `instance_id` from
+   * the tool tables entirely and rebuilt them org-scoped). `orgId` is the only
+   * scoping key there is. If you find yourself filtering or writing rows by
+   * `instanceId`, the model has been misread.
+   *
+   * NULLABLE, and null in practice today. It survives only on the two audit
+   * columns that deliberately kept it — `events.emitted_by_instance` and
+   * `ai_log.target_instance_id` — both nullable, both FK to `app_instances` with
+   * ON DELETE SET NULL. `app_instances` currently has ZERO rows, so any non-null
+   * value here would violate those FKs the moment a real adapter lands. It stays
+   * null until installed-apps moves off localStorage and real instance rows exist.
+   */
+  instanceId: string | null;
 }
 
 /**

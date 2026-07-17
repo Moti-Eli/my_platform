@@ -25,8 +25,14 @@ export interface EventBus {
  * Build an event-bus bound to a db client (for persisting to `events`).
  *
  * The persisted row maps the ctx onto the shell's `events` columns:
- * `emitted_by_instance = ctx.instanceId`, `org_id = ctx.orgId`,
- * `user_id = ctx.userId`.
+ * `org_id = ctx.orgId`, `user_id = ctx.userId`, and
+ * `emitted_by_instance = ctx.instanceId`.
+ *
+ * `org_id` is NOT NULL (20260717000002) and is what scopes the row — the read
+ * policy is `is_member_of_tree(org_id)`, with no `user_id` escape hatch, so an
+ * event is readable by the emitting org's tree and nobody else.
+ * `emitted_by_instance` is audit metadata only (nullable — see {@link Ctx}):
+ * "which installed tool emitted this", never a scoping key.
  */
 export function createEventBus(db: CortexDb): EventBus {
   async function emit(type: string, payload: unknown, ctx: Ctx): Promise<void> {

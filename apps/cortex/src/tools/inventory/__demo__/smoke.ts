@@ -55,6 +55,26 @@ async function main(): Promise<void> {
   );
   assert(typeof added.id === "string" && added.id.length > 0, "add_product returned an id");
 
+  // --- 2b. the WRITTEN COLUMNS of the inventory row --------------------------
+  //
+  // THESE STAND IN FOR THE DATABASE'S NOT NULL CONSTRAINTS. The in-memory
+  // CortexDb is a Map and enforces nothing, so omitting org_id/owner_id — or
+  // resurrecting instance_id, a column that no longer exists — would pass
+  // silently here and fail on every write once a real adapter lands. Asserting
+  // that add_product "returned an id" proves none of that. Assert the columns.
+  console.log("\ninventory_items row (the columns actually written):");
+  const itemRow = db.rows("inventory_items")[0]!;
+  assert(itemRow.org_id === DEV_CTX.orgId, "row carries org_id (NOT NULL; the only scoping key)");
+  assert(itemRow.owner_id === DEV_CTX.userId, "row carries owner_id (NOT NULL)");
+  assert(
+    !("instance_id" in itemRow),
+    "row carries NO instance_id — the column does not exist on the table (20260716000002)",
+  );
+  assert(
+    !("visibility" in itemRow),
+    "row does not set visibility — the DB defaults it to 'org' (manifest seam, see logic.ts header)",
+  );
+
   // --- 3. update below threshold ---------------------------------------------
   console.log("\nrunIntent('inventory.update_quantity', tomatoes setTo 5):");
   const updated = await runIntent<{ name: string; quantity: number }>(
@@ -76,6 +96,14 @@ async function main(): Promise<void> {
     events.some((row: DbRow) => row.type === "inventory.updated"),
     "an 'inventory.updated' row was also persisted",
   );
+  assert(
+    events.every((row: DbRow) => row.org_id === DEV_CTX.orgId),
+    "every events row carries org_id (NOT NULL since 20260717000002)",
+  );
+  assert(
+    events.every((row: DbRow) => row.emitted_by_instance === null),
+    "every events row's emitted_by_instance is null (audit metadata only)",
+  );
 
   // --- 4b. ai_log audit rows written (one per runIntent) ---------------------
   console.log("\nai_log table:");
@@ -87,6 +115,14 @@ async function main(): Promise<void> {
   assert(
     aiLog.some((row: DbRow) => row.intent === "inventory.update_quantity"),
     "ai_log recorded the update_quantity call",
+  );
+  assert(
+    aiLog.every((row: DbRow) => row.org_id === DEV_CTX.orgId),
+    "every ai_log row carries org_id (NOT NULL since 20260717000002 — the landmine this step removed)",
+  );
+  assert(
+    aiLog.every((row: DbRow) => row.target_instance_id === null),
+    "every ai_log row's target_instance_id is null (audit metadata only)",
   );
 
   console.log("\n✅ Inventory smoke passed — runIntent + event-bus + audit all work.");

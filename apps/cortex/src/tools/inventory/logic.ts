@@ -4,12 +4,24 @@
  * Intent handlers delegate here; this is the ONLY place inventory touches its
  * data (through the provided `CortexDb` client — never raw SQL) and the ONLY
  * place it emits events (through the provided event-bus `emit`). It receives
- * `ctx` from the shell and never fetches identity itself. Every read/write is
- * scoped by `instance_id` (the tool instance) for isolation. The table's single
- * source of truth is the migration
- * `packages/db/supabase/migrations/20260716000002_cortex_org_tree_model.sql`,
- * which is now org-scoped and has NO `instance_id` column — reconciling this
- * file with that is known, deliberately deferred debt.
+ * `ctx` from the shell and never fetches identity itself.
+ *
+ * SCOPED BY `org_id`, AND ONLY BY `org_id`. The table's single source of truth is
+ * `packages/db/supabase/migrations/20260716000002_cortex_org_tree_model.sql`:
+ * `owner_id NOT NULL`, `org_id NOT NULL`, `visibility` defaulting to 'org', and
+ * NO `instance_id` column at all — tabs and branches are CHILD ORGANIZATIONS, not
+ * instances. This file used to filter and write `instance_id` against a table
+ * that no longer had it, and its header called reconciling the two deferred debt.
+ * This is that reconciliation: the debt is paid, not deferred.
+ *
+ * NEXT DEBT, DELIBERATELY NOT THIS STEP'S JOB — `visibility` and grants. The
+ * writes below do not set `visibility`; the column defaults to 'org', which is
+ * the right default and the only behavior available today. Per the SubApp
+ * Standard a manifest is supposed to declare `defaultVisibility` and
+ * `defaultGrants`, and `shell.grant_access` (20260716000008) is the door that
+ * would seed them at creation. The manifest declares NEITHER yet, so there is
+ * nothing to honor and inventing it here would put tool-specific policy in the
+ * wrong layer. Left as a clean seam.
  */
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
@@ -64,7 +76,16 @@ function toItem(row: DbRow): InventoryItem {
 export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit }): InventoryLogic {
   return {
     async queryStock(input, ctx) {
-      const rows = await db.select(INVENTORY_TABLE, { instance_id: ctx.instanceId });
+      // A CONTEXT filter — "show me THIS org's inventory" — NOT a security filter.
+      // The distinction matters, because this line looks exactly like a tool
+      // guarding its own data and it is not doing that at all. Security lives in
+      // the DATABASE: `private.auth_user_can_read` behind inventory_items' RLS
+      // policy, which ANDs org-tree membership before anything else. Delete this
+      // filter and nothing becomes insecure — RLS would still refuse every other
+      // org's rows; the user would simply see every org they belong to at once,
+      // mixed together, which is a UX bug, not a leak. A tool never decides who
+      // may see a row at read time. The shell picks the org, RLS enforces it.
+      const rows = await db.select(INVENTORY_TABLE, { org_id: ctx.orgId });
       const items = rows.map(toItem);
       if (!input.product) return items;
       const needle = input.product.trim().toLowerCase();
@@ -72,8 +93,10 @@ export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit })
     },
 
     async updateQuantity(input, ctx) {
+      // Same context filter as queryStock (see the note there): scope the lookup
+      // to the active org, then find the product by name within it.
       const rows = await db.select(INVENTORY_TABLE, {
-        instance_id: ctx.instanceId,
+        org_id: ctx.orgId,
         name: input.product,
       });
       const current = rows[0];
@@ -114,8 +137,9 @@ export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit })
       const now = new Date().toISOString();
       await db.insert(INVENTORY_TABLE, {
         id,
-        // the three mandatory fields (§6)
-        instance_id: ctx.instanceId,
+        // The mandatory fields (§6). Both are NOT NULL on the table; there is no
+        // instance_id column to set. `visibility` is deliberately omitted — the
+        // column defaults to 'org' (see the header's note on the manifest seam).
         owner_id: ctx.userId,
         org_id: ctx.orgId,
         // tool columns
