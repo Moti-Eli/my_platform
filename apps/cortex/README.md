@@ -11,6 +11,37 @@ Additive and isolated — it does **not** touch `apps/web` or `apps/mobile`.
 
 Dev server: `pnpm --filter @platform/cortex dev` → http://localhost:3001
 
+### Environment — read this before "fixing" a login page that says "not connected"
+
+Cortex reads exactly **two** variables, and both are **public** (`NEXT_PUBLIC_`,
+so they ship in the client bundle to every browser):
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+They live in **`apps/cortex/.env`**. Next only loads `.env*` from **its own app
+directory** — it does *not* read the monorepo root `.env`, which is why the root
+file (used by the `packages/db` scripts, which load it via dotenv themselves)
+never reached this app. `apps/web` works the same way, via its own
+`apps/web/.env.local`.
+
+> **⚠️ Do not move these into `apps/cortex/.env.local`.**
+> That file is a **Vercel CLI artifact** (`# Created by Vercel CLI`, holding
+> `VERCEL_OIDC_TOKEN`). `vercel env pull` / `vercel link` **overwrite it
+> wholesale**, silently taking the two variables with them — and the login page
+> reverts to *"המערכת אינה מחוברת לשרת"* ("not connected") with no obvious cause,
+> because the missing-env path degrades quietly on purpose. `.env` is not a Vercel
+> target, and unlike `.env.development.local` it also loads under
+> `NODE_ENV=production` — which the phone workflow below (`build && start`) needs.
+>
+> **Never put `SUPABASE_SECRET_KEY` in this app.** Cortex has no admin client and
+> no privileged server path. The secret key bypasses RLS; it belongs to the root
+> `.env` for the db scripts only.
+
+**The deployed Cortex does not read any of this.** Vercel builds have no `.env`
+file — set both variables in the Cortex project's dashboard (Settings →
+Environment Variables), or the deployed login page shows the same "not connected".
+
 **Testing on a real phone:** do NOT use the dev server over a LAN IP (e.g.
 http://10.0.0.3:3001). Next.js's HMR WebSocket fails to connect from a
 non-localhost origin, React hydration never completes, and no `useEffect` runs —
