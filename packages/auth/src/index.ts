@@ -313,7 +313,7 @@ export async function getAllPermissionKeys(supabase: SupabaseClient): Promise<st
  * `hasPermission` call sites that want key safety. Runtime checks still take a
  * plain `string`, so this is purely additive and changes no behavior.
  */
-export type PermissionKey = "roles.manage" | "members.manage";
+export type PermissionKey = "members.manage";
 
 // ===========================================================================
 // Platform owner (super admin) — the access level ABOVE organization admins.

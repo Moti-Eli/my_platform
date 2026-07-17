@@ -2,7 +2,8 @@
  * Verification harness for the role-assignment escalation guard (migration
  * 20260717000003): `private.auth_user_may_assign_role` + the
  * `membership_roles_no_escalation` BEFORE ROW trigger. Also pins the deletion of
- * the dead `users.view` permission.
+ * the dead `users.view` (20260717000003) and `roles.manage` (20260717000004)
+ * permissions.
  *
  * -----------------------------------------------------------------------------
  * THE HOLE THIS EXISTS TO CLOSE
@@ -17,10 +18,11 @@
  * This harness therefore builds EXACTLY that org: a non-admin role "HR" that
  * holds members.manage, held by a manager who is not an admin. Every RAISE in
  * section [2] is an escalation that WAS possible before this migration. The
- * headline is [2c]: the manager assigning themselves an admin role. [2e] is the
- * indirect path a `members.manage_admins` permission split would have missed
- * entirely — granting themselves a role that holds `roles.manage` lets them edit
- * any role's permissions, which is escalation without ever touching is_admin.
+ * headline is [2c]: the manager assigning themselves an admin role. [2d] is the
+ * case a `members.manage_admins` permission split would have missed entirely —
+ * self-assigning a role you do NOT hold (here an empty, non-admin role), which the
+ * guard blocks WITHOUT consulting is_admin or any permission. The guard is
+ * role-agnostic: holding a role is the only thing that lets you confer it.
  *
  * ON ORDER (asserted, not assumed): a BEFORE ROW trigger fires BEFORE the RLS
  * WITH CHECK is evaluated. So a caller who lacks members.manage hits the
@@ -227,9 +229,11 @@ async function main(): Promise<void> {
     // configuration whose arrival made the old assumption expire.
     const roleHR = await makeRole(admin, org, "HR", false, ["members.manage"]);
     const roleWarehouse = await makeRole(admin, org, "Warehouse", false);
-    // Holding roles.manage lets you edit any role's permissions => escalation
-    // without ever touching is_admin.
-    const roleEditor = await makeRole(admin, org, "Role Editor", false, ["roles.manage"]);
+    // A non-admin role the manager does NOT hold, seeded with NO permissions. The
+    // trigger never reads role_permissions, so what a role GRANTS is irrelevant to
+    // whether you may confer it — this proves the guard is ROLE-AGNOSTIC:
+    // self-assigning any non-held role raises, admin or not, permission-bearing or empty.
+    const roleUnheld = await makeRole(admin, org, "Unheld", false, []);
 
     const uAdmin = await makeUser(admin, EMAILS.admin);
     const uManager = await makeUser(admin, EMAILS.manager);
@@ -300,10 +304,10 @@ async function main(): Promise<void> {
       !b4.ok && TRIGGER_ERROR.test(b4.message),
       b4.ok ? "NO ERROR — SELF-ESCALATION OPEN" : "trigger");
 
-    const b5 = await assign(pg, { role: "authenticated", userId: uManager }, mManager, roleEditor, org);
-    check("[2d] assigns THEMSELVES a role holding roles.manage -> RAISES",
+    const b5 = await assign(pg, { role: "authenticated", userId: uManager }, mManager, roleUnheld, org);
+    check("[2d] assigns THEMSELVES a role they do NOT hold (empty, non-admin) -> RAISES",
       !b5.ok && TRIGGER_ERROR.test(b5.message),
-      b5.ok ? "NO ERROR — INDIRECT ESCALATION OPEN" : "the path a members.manage split would have missed");
+      b5.ok ? "NO ERROR — SELF-ESCALATION OPEN" : "role-agnostic: self-assigning any non-held role raises, the case a members.manage split would have missed");
 
     // Revoking must be tested against a row that ACTUALLY EXISTS. Deleting a
     // non-existent row matches zero rows and returns no error — a vacuous pass
@@ -445,9 +449,12 @@ async function main(): Promise<void> {
       `BEFORE ROW runs first — message: ${noPerm.message.split("\n")[0]}`);
 
     // =====================================================================
-    console.log("\n[6] users.view is GONE, and the delete was surgical");
+    console.log("\n[6] users.view and roles.manage are GONE, and the delete was surgical");
     const uv = await admin.from("permissions").select("id").eq("key", "users.view");
     check("permissions has ZERO rows for 'users.view'", (uv.data?.length ?? -1) === 0);
+
+    const rm = await admin.from("permissions").select("id").eq("key", "roles.manage");
+    check("permissions has ZERO rows for 'roles.manage'", (rm.data?.length ?? -1) === 0);
 
     const orphan = await pg.query(
       `select count(*)::int as n from public.role_permissions rp
@@ -456,9 +463,10 @@ async function main(): Promise<void> {
     check("no role_permissions row survives pointing at a deleted permission",
       Number(orphan.rows[0]?.n ?? -1) === 0, "cascade did its job");
 
-    const survivors = await admin.from("permissions").select("key").in("key", ["roles.manage", "members.manage"]);
-    check("'roles.manage' and 'members.manage' still exist", (survivors.data?.length ?? 0) === 2,
-      (survivors.data ?? []).map((p: { key: string }) => p.key).sort().join(","));
+    // The delete must not overreach: the one live permission has to survive.
+    const membersManage = await admin.from("permissions").select("id").eq("key", "members.manage");
+    check("'members.manage' still exists (the delete did not overreach)",
+      (membersManage.data?.length ?? 0) === 1);
 
     const invite = await admin.from("permissions").select("id").eq("key", "users.invite");
     check("'users.invite' is still gone (20260610000003 holds)", (invite.data?.length ?? -1) === 0);
