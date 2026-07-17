@@ -52,14 +52,15 @@ a member of a child reads nothing of the parent's.
 | # | Step | Blocks login? | State |
 |---|---|---|---|
 | 2 | `organizations.parent_id` + `is_member_of_tree` | — | DONE, pushed |
-| 3 | drop+rebuild Cortex tables: `-instance_id`, `org_id` NOT NULL, `+visibility` | — | DONE, NOT pushed |
-| 4a-1 | `groups` + `group_members` | — | DONE, NOT pushed |
-| 4a-2 | `record_grants` + subject-in-tree trigger | — | DONE, NOT pushed |
-| 4b-1 | `can_read` + wire inventory_items | no (1) | DONE, NOT pushed |
-| 4b-2 | `can_write` / `can_grant` | no (1) | DONE, NOT pushed |
-| 4c | trigger: `visibility` / `org_id` / `owner_id` immutable | YES | DONE, NOT pushed |
-| 4d | `shell.grant_access` — the only door to granting | YES | DONE, NOT pushed |
-| 3b | `events.org_id` NOT NULL + add `ai_log.org_id` | YES | debt, dropped mid-session |
+| 3 | drop+rebuild Cortex tables: `-instance_id`, `org_id` NOT NULL, `+visibility` | — | DONE, pushed |
+| 4a-1 | `groups` + `group_members` | — | DONE, pushed |
+| 4a-2 | `record_grants` + subject-in-tree trigger | — | DONE, pushed |
+| 4b-1 | `can_read` + wire inventory_items | no (1) | DONE, pushed |
+| 4b-2 | `can_write` / `can_grant` | no (1) | DONE, pushed |
+| 4c | trigger: `visibility` / `org_id` / `owner_id` immutable | YES | DONE, pushed |
+| 4d | `shell.grant_access` — the only door to granting | YES | DONE, pushed |
+| 4e | tighten client grants: Cortex tables + future public tables | — | DONE, NOT pushed |
+| 3b | `events.org_id` NOT NULL + add `ai_log.org_id` | YES | DONE, NOT pushed |
 | 5 | split `members.manage` / `members.manage_admins`; delete `users.view` | YES (2) | |
 | 6 | personal organization on signup (trigger + role bundle) | YES | |
 | 7 | Cortex -> real DB -> auth -> inventory end-to-end | — | FIRST REAL USERS |
@@ -97,6 +98,16 @@ step 7 shows an empty screen on day one and it will look like a bug.
    column that no longer exists. Typecheck does not catch it (`db.insert` takes
    a loose `DbRow`) and runtime does not exist yet (inventory is in-memory).
    Rewire in step 7.
+
+4. Existing my-platform tables (`organizations`, `users`, `memberships`, `roles`,
+   `permissions`, `role_permissions`, `membership_roles`, `messages`) still grant
+   `insert`/`update`/`delete` to `authenticated`. RLS is the ONLY layer there — a
+   dropped or mis-scoped policy means direct client writes, with no privilege
+   boundary behind it. Step 4e fixed this for the Cortex tables and for all FUTURE
+   public tables, but deliberately did not touch the existing ones: my-platform is a
+   working asset with live client policies (`messages` has a real INSERT policy),
+   so re-grant-auditing it is its own task with its own harness. Not in scope,
+   deliberately.
 
 ## Standing rules
 

@@ -274,6 +274,58 @@ full explanation.
   back door. The door protects TOOLS and CLIENTS, which cannot reach `record_grants`
   at all. Verified by `scripts/verify-grant-access.ts` (45 assertions), proven
   non-vacuous by mutation.
+- `20260717000001_tighten_cortex_client_grants.sql` — **client-role grants on the
+  Cortex tables and on FUTURE public tables** (defense in depth). Probed first, not
+  assumed: `anon` and `authenticated` each held `INSERT/UPDATE/DELETE/SELECT` on
+  `inventory_items` / `app_instances` / `groups` / `group_members` (inherited from
+  the postgres-owned default privileges), so RLS was the ONLY layer stopping a
+  publishable key from writing them — every policy on those tables is SELECT-only,
+  which is why nothing was visibly broken. Revokes `insert, update, delete` from
+  both roles on those four, and `all` from `anon` (anon has no business reading
+  Cortex data — every policy is `to authenticated`, so anon already got zero rows;
+  now it gets a permission error, which is a privilege boundary rather than a side
+  effect of policy scoping). `authenticated` KEEPS `SELECT` — the policies depend on
+  it. Also revokes `insert, update, delete` from the **postgres-owned default
+  privileges** for future tables, following `20260609000004`'s validated reasoning
+  (our migrations run AS postgres; the `supabase_admin`-owned default is left
+  untouched and unused, since our tables are postgres-owned) — a per-table-only fix
+  would mean every future tool migration must REMEMBER to revoke, which is a second
+  source of truth. SELECT and MAINTAIN are deliberately left in the default (wider
+  blast radius than this migration should carry). `record_grants` is NOT touched —
+  it was already fully sealed by `20260716000004` (verified). `service_role` is NOT
+  touched anywhere: it is the only write path. **Scope boundary**: this changes NO
+  existing my-platform table's grants — they keep client writes gated by RLS alone,
+  a known deferred debt (see the roadmap). Verified by
+  `scripts/verify-client-grants.ts` (35 assertions, incl. a default-privileges proof
+  against a throwaway table), shown non-vacuous by failing 14 assertions against the
+  pre-migration state.
+- `20260717000002_shell_audit_org_scope.sql` — **org-scopes the shell audit tables
+  and fixes a LIVE bug** (both verified EMPTY first: `events` = 0, `ai_log` = 0).
+  `events.org_id` becomes NOT NULL (the old comment "NULL for a personal-context
+  event" was false — every user has a personal org, so there is no org-less
+  context); `ai_log` gains `org_id` NOT NULL + an index, because an audit trail only
+  its own subject can read is not an audit trail. **The bug**: `events`' policy was
+  still `user_id = auth.uid() OR (org_id is not null AND is_member_of(org_id))` —
+  the same OR bypass `20260716000002` removed from `inventory_items` /
+  `app_instances`, which explicitly left `events`/`ai_log` untouched and was never
+  followed up. The left branch never re-checks membership, so a departed user kept
+  reading events they emitted — `payload` and all. Replaced with
+  `private.auth_user_is_member_of_tree(org_id)`, no OR: membership is a blocking
+  condition, and any member of the org (or an ancestor) reads its events, which
+  preserves the original intent — events were never private to their emitter. Note
+  the two halves interlock: with a nullable `org_id` the OR was the only thing making
+  org-less rows visible, so NOT NULL is what lets it go without stranding rows.
+  `ai_log`'s policy becomes `is_member_of_tree(org_id) AND user_id = auth.uid()` —
+  a deliberate **strict prefix** of the final rule, which later widens to
+  `... AND (user_id = auth.uid() OR auth_user_has_permission(org_id, 'audit.view'))`
+  once step 5 settles the permission vocabulary; seeding `audit.view` now would
+  create vocabulary before the split/delete migration finalizes it. Consequence
+  today: leaving an org costs you even your OWN audit rows for it — the org keeps
+  the record, the person loses access. Also applies `20260717000001`'s grant
+  tightening to these two tables, which it did not cover (verified: both still gave
+  anon AND authenticated `DELETE,INSERT,SELECT,UPDATE`). `app_definitions` and
+  `app_instances` untouched. Verified by `scripts/verify-shell-audit.ts` (27
+  assertions), proven non-vacuous by reinstating the old policy.
 
 ## Usage
 
