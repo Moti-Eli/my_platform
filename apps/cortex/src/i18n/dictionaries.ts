@@ -147,6 +147,7 @@ const he = {
     sectionData: "הנתונים שלי",
     sectionActivity: "פעילות",
     sectionSystem: "מערכת",
+    sectionSession: "חשבון",
     // Row labels
     identityCard: "כרטיס ביקור",
     personalDetails: "פרטים אישיים",
@@ -312,6 +313,7 @@ const en: Messages = {
     sectionData: "My data",
     sectionActivity: "Activity",
     sectionSystem: "System",
+    sectionSession: "Account",
     // Row labels
     identityCard: "Business card",
     personalDetails: "Personal details",

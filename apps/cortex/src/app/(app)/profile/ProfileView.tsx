@@ -11,8 +11,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Screen } from "@/components/profile/Screen";
-import { ListSection, ListRow } from "@/components/profile/SettingsList";
+import { ListSection, ListRow, ListAction } from "@/components/profile/SettingsList";
 import { placeholderRoute } from "@/components/profile/placeholders";
+import { signOutAction } from "./actions";
 import {
   MenuIcon,
   IdCardIcon,
@@ -120,6 +121,15 @@ export function ProfileView() {
           ))}
         </ListSection>
       ))}
+
+      {/* Sign-out — its own section, a lone destructive action. The form posts to
+          the server action, which clears the session cookies and redirects to
+          /login. */}
+      <ListSection title={t("profile.sectionSession")}>
+        <form action={signOutAction}>
+          <ListAction label={t("session.signOut")} destructive />
+        </form>
+      </ListSection>
     </Screen>
   );
 }

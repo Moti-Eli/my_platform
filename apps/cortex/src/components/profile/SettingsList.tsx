@@ -25,6 +25,10 @@ export function ListSection({ title, children }: { title: string; children: Reac
   );
 }
 
+// The one row shape, shared by the navigating row and the action row below so
+// their look can never drift apart.
+const rowClass = "flex items-center gap-sm px-2xs py-xs touch-manipulation interactive";
+
 /** A navigating row: icon · label · optional value · forward chevron. */
 export function ListRow({
   href,
@@ -42,7 +46,7 @@ export function ListRow({
   return (
     <Link
       href={href}
-      className="flex items-center gap-sm px-2xs py-xs touch-manipulation interactive"
+      className={rowClass}
     >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-accent">
         {icon}
@@ -57,6 +61,31 @@ export function ListRow({
         style={{ transform: dir === "rtl" ? undefined : "scaleX(-1)" }}
       />
     </Link>
+  );
+}
+
+/**
+ * An ACTION row: the same row styling as {@link ListRow}, but a submit button
+ * rather than a link (it performs an action, e.g. sign-out — it does not
+ * navigate, so there is no chevron). Drop it inside a `<form action={...}>`.
+ *
+ * `destructive` tints the label with the `danger` token for irreversible actions
+ * like sign-out; the row is deliberately icon-less (no exit icon exists in the
+ * set, and a lone tinted row reads as a distinct action, not another setting).
+ */
+export function ListAction({
+  label,
+  destructive = false,
+}: {
+  label: string;
+  destructive?: boolean;
+}) {
+  return (
+    <button type="submit" className={`${rowClass} w-full text-start`}>
+      <span className={`flex-1 type-heading ${destructive ? "text-danger" : "text-ink"}`}>
+        {label}
+      </span>
+    </button>
   );
 }
 
