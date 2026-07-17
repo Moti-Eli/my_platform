@@ -3,14 +3,40 @@
  * of Standard §7).
  *
  * The core stays framework-agnostic — exactly like `@platform/db`'s factories —
- * by depending on this tiny interface rather than on `@supabase/*` directly. The
- * shell supplies a real adapter (a thin wrapper over the Supabase client running
- * as `service_role`, since shell writes bypass RLS); tests and the current
- * (pre-auth) tool runtime supply the in-memory adapter below.
+ * by depending on this tiny interface rather than on `@supabase/*` directly.
+ * Tests and headless runs use the in-memory adapter below; the real app supplies
+ * a Supabase-backed adapter (`apps/cortex/src/cortex/supabase-db.ts`, server-only).
  *
- * The core itself only ever `insert`s (ai_log + events). Tool logic additionally
- * reads and updates its own table via `select`/`update` — still going through
- * this one client, never raw SQL in a handler.
+ * ============================================================================
+ * HOW THE REAL ADAPTER ROUTES — and why it is NOT a single service_role client
+ * ============================================================================
+ * An earlier version of this header said the shell supplies "a thin wrapper over
+ * the Supabase client running as service_role, since shell writes bypass RLS."
+ * That was written before the row-level access model existed, and it is now
+ * WRONG in two load-bearing ways — do not restore it:
+ *
+ *   1. service_role BYPASSES RLS. `inventory_items`' SELECT policy is where
+ *      `private.auth_user_can_read` runs (20260716000005). Read it through
+ *      service_role and that policy never executes — the ENTIRE row-level access
+ *      model (org / private / restricted, grants, the downward-only tree) becomes
+ *      decoration. READS MUST carry the user's JWT so RLS is the enforcement point.
+ *
+ *   2. The composition root that builds intents also runs CLIENT-side
+ *      (`runtime.ts`, for the chips/catalog). A service_role client constructed
+ *      there ships the secret (RLS-bypassing) key into every browser bundle.
+ *
+ * THE REAL RULE:
+ *   - READS (inventory_items, and any future tool table) go through an
+ *     RLS-scoped client carrying the user's JWT, because `auth_user_can_read` /
+ *     `can_write` IS the enforcement point and service_role would erase it.
+ *   - Only the shell's OWN audit writes — `ai_log` and `events` — use
+ *     service_role, and only on the server. `authenticated` holds NO insert on
+ *     those tables (20260717000001 / 20260717000002) and MUST NOT: the subject of
+ *     an audit does not get to write it. A user who authors their own audit trail
+ *     is not being audited.
+ *
+ * `insert/select/update` stay a tiny generic surface; the adapter decides which
+ * client each table gets. The interface below is unchanged — only this note is.
  */
 import { safeRandomUUID } from "./id";
 

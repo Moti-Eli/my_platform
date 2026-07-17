@@ -4,29 +4,37 @@
  * Inventory full screen (Standard §2 `views/FullScreen.tsx`, §8).
  *
  * Product list with per-item quantity + inline +/- update, and an add-product
- * action. Every read/write goes through the one door (`runIntent`); updating a
- * quantity below its threshold triggers the `inventory.low` event inside the
- * logic. Built from design-system utilities + i18n only — no hard-coded colors
- * or text.
+ * action. Reads go through the SERVER action (`runIntentAction`) so RLS runs and
+ * the audit row is written server-side; the action builds ctx from the session,
+ * so no identity is sent from here.
+ *
+ * WRITES ARE NOT AVAILABLE YET. `authenticated` holds no INSERT/UPDATE on
+ * inventory_items (20260717000001/2), so add-product and quantity-change are
+ * denied at the database. That is intended for this step — the write path is a
+ * later design decision — so those failures degrade to a translated "not
+ * available yet" notice rather than pretending to succeed. Built from
+ * design-system utilities + i18n only.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getSeededRuntime } from "@/cortex/runtime";
-import { buildCtx } from "@/cortex/build-ctx";
+import { runIntentAction } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { ChevronIcon, PlusIcon, MinusIcon } from "@/components/icons";
-import type { Ctx } from "@platform/cortex-core";
 import type { InventoryItem } from "../logic";
 
-// Identity arrives as props from the server page that called requireSession() —
-// a tool never resolves it itself (Standard §7).
-export function FullScreen({ userId, orgId }: ToolViewProps) {
+// userId/orgId arrive as props (the page called requireSession()) but are NOT
+// sent to the action — the server derives identity from the session cookie. They
+// stay in the prop type only because the page provides them; `_props` marks them
+// deliberately unused.
+export function FullScreen(_props: ToolViewProps) {
   const { t, dir } = useI18n();
-  const ctx = useMemo(() => buildCtx({ userId, orgId }), [userId, orgId]);
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [adding, setAdding] = useState(false);
+  // Set when a write is denied by grants (the expected state until the write path
+  // lands). Surfaced as a translated notice, never a silent no-op.
+  const [writeUnavailable, setWriteUnavailable] = useState(false);
   // Guard the async setState (mirrors DashboardCard's `alive` flag): `refresh`
   // resolves after an await and is also called from handlers, so a navigation
   // away before it settles must not write state on an unmounted component.
@@ -34,16 +42,14 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
   useEffect(() => () => void (mounted.current = false), []);
 
   const refresh = useCallback(async () => {
-    try {
-      const rt = await getSeededRuntime(ctx);
-      const list = await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, ctx);
-      if (mounted.current) setItems(list);
-    } catch (err) {
-      // The effect below fires this without awaiting, so a rejection here would
-      // otherwise vanish and leave the screen blank with no trace.
-      console.error("Cortex: inventory list failed to load", err);
-    }
-  }, [ctx]);
+    // No ctx argument — the server builds it from the session.
+    const res = await runIntentAction("inventory.query_stock", {});
+    if (!mounted.current) return;
+    if (res.ok) setItems(res.data as InventoryItem[]);
+    // The effect below fires this without awaiting, so a rejection here would
+    // otherwise vanish and leave the screen blank with no trace.
+    else console.error("Cortex: inventory list failed to load", res.code);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -51,15 +57,16 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
 
   const changeQuantity = useCallback(
     async (product: string, delta: number) => {
-      try {
-        const rt = await getSeededRuntime(ctx);
-        await rt.runIntent("inventory.update_quantity", { product, delta }, ctx);
+      const res = await runIntentAction("inventory.update_quantity", { product, delta });
+      if (!mounted.current) return;
+      if (res.ok) {
         await refresh();
-      } catch (err) {
-        console.error("Cortex: inventory quantity update failed", err);
+      } else {
+        // Denied by grants (write path not built yet) — say so, don't fake it.
+        setWriteUnavailable(true);
       }
     },
-    [refresh, ctx],
+    [refresh],
   );
 
   return (
@@ -83,9 +90,15 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
         </button>
       </div>
 
+      {writeUnavailable ? (
+        <p role="alert" className="rounded-md bg-warning/10 px-sm py-xs type-label text-warning">
+          {t("inventory.writeUnavailable")}
+        </p>
+      ) : null}
+
       {adding ? (
         <AddProductForm
-          ctx={ctx}
+          onWriteUnavailable={() => setWriteUnavailable(true)}
           onDone={async () => {
             setAdding(false);
             await refresh();
@@ -149,11 +162,11 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
 }
 
 function AddProductForm({
-  ctx,
   onDone,
+  onWriteUnavailable,
 }: {
-  ctx: Ctx;
   onDone: () => void | Promise<void>;
+  onWriteUnavailable: () => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState("");
@@ -167,22 +180,16 @@ function AddProductForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !unit.trim()) return;
-    try {
-      const rt = await getSeededRuntime(ctx);
-      await rt.runIntent(
-        "inventory.add_product",
-        {
-          name: name.trim(),
-          quantity: Number(quantity) || 0,
-          unit: unit.trim(),
-          reorderThreshold: Number(threshold) || 0,
-        },
-        ctx,
-      );
-      await onDone();
-    } catch (err) {
-      console.error("Cortex: add product failed", err);
-    }
+    // No ctx argument — the server builds it from the session.
+    const res = await runIntentAction("inventory.add_product", {
+      name: name.trim(),
+      quantity: Number(quantity) || 0,
+      unit: unit.trim(),
+      reorderThreshold: Number(threshold) || 0,
+    });
+    if (res.ok) await onDone();
+    // Denied by grants (write path not built yet) — surface it, don't swallow.
+    else onWriteUnavailable();
   }
 
   return (

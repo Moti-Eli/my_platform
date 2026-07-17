@@ -14,5 +14,6 @@
   "emptyTitle": "אין מוצרים עדיין",
   "emptyHint": "הוסף מוצר ראשון כדי להתחיל.",
   "decrease": "הפחתה",
-  "increase": "הוספה"
+  "increase": "הוספה",
+  "writeUnavailable": "עריכת מלאי עדיין לא זמינה"
 }

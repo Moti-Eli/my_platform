@@ -13,34 +13,38 @@ Dev server: `pnpm --filter @platform/cortex dev` → http://localhost:3001
 
 ### Environment — read this before "fixing" a login page that says "not connected"
 
-Cortex reads exactly **two** variables, and both are **public** (`NEXT_PUBLIC_`,
-so they ship in the client bundle to every browser):
+Cortex reads **three** variables. Two are **public** (`NEXT_PUBLIC_`, inlined into
+the client bundle and shipped to every browser); one is **secret** and read only
+on the server:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL` — public
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — public
+- `SUPABASE_SECRET_KEY` — **secret, server-only, NO `NEXT_PUBLIC_` prefix.** Read
+  by exactly one file, `src/lib/supabase/admin.ts` (`import "server-only"`). It
+  backs the shell's audit writes to `ai_log` / `events` (which `authenticated` is
+  not granted); it never reads tool data. The absence of the prefix is the only
+  thing keeping it out of the browser — never add one.
 
-They live in **`apps/cortex/.env`**. Next only loads `.env*` from **its own app
-directory** — it does *not* read the monorepo root `.env`, which is why the root
-file (used by the `packages/db` scripts, which load it via dotenv themselves)
-never reached this app. `apps/web` works the same way, via its own
-`apps/web/.env.local`.
+All three live in **`apps/cortex/.env`**. Next only loads `.env*` from **its own
+app directory** — it does *not* read the monorepo root `.env`, which is why the
+root file (used by the `packages/db` scripts, which load it via dotenv themselves)
+never reached this app. `apps/web` works the same way.
 
 > **⚠️ Do not move these into `apps/cortex/.env.local`.**
 > That file is a **Vercel CLI artifact** (`# Created by Vercel CLI`, holding
 > `VERCEL_OIDC_TOKEN`). `vercel env pull` / `vercel link` **overwrite it
-> wholesale**, silently taking the two variables with them — and the login page
-> reverts to *"המערכת אינה מחוברת לשרת"* ("not connected") with no obvious cause,
-> because the missing-env path degrades quietly on purpose. `.env` is not a Vercel
-> target, and unlike `.env.development.local` it also loads under
+> wholesale**, silently taking any variables you put there with them. That trap
+> now costs more than a login page: it would take `SUPABASE_SECRET_KEY` too, and
+> **every runIntent call fails** (the audit write can't run) with a
+> `SUPABASE_SECRET_KEY is not set` crash — not just "not connected". `.env` is not
+> a Vercel target, and unlike `.env.development.local` it also loads under
 > `NODE_ENV=production` — which the phone workflow below (`build && start`) needs.
->
-> **Never put `SUPABASE_SECRET_KEY` in this app.** Cortex has no admin client and
-> no privileged server path. The secret key bypasses RLS; it belongs to the root
-> `.env` for the db scripts only.
 
 **The deployed Cortex does not read any of this.** Vercel builds have no `.env`
-file — set both variables in the Cortex project's dashboard (Settings →
-Environment Variables), or the deployed login page shows the same "not connected".
+file — set all three in the Cortex project's dashboard (Settings → Environment
+Variables), keeping `SUPABASE_SECRET_KEY` **secret** (do not expose it to
+Preview/Production client builds via a prefix), or the deployed app fails the same
+way.
 
 **Testing on a real phone:** do NOT use the dev server over a LAN IP (e.g.
 http://10.0.0.3:3001). Next.js's HMR WebSocket fails to connect from a

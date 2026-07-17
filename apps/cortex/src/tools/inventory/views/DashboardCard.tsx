@@ -5,12 +5,14 @@
  *
  * A compact summary for Home: the tool name, a low-stock count, and the low
  * items. Built from the design-system utilities (amber accent from the palette)
- * and i18n only — no hard-coded colors or text. Reads its data through the one
- * door (`runIntent('inventory.query_stock')`).
+ * and i18n only — no hard-coded colors or text.
+ *
+ * Reads through the SERVER action (`runIntentAction`), not a client runtime: the
+ * grants revoked client writes on every Cortex table, and reads must carry the
+ * user's JWT so `auth_user_can_read` runs. The action builds ctx from the session.
  */
 import { useEffect, useState } from "react";
-import { getSeededRuntime } from "@/cortex/runtime";
-import { buildCtx } from "@/cortex/build-ctx";
+import { runIntentAction } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { BoxIcon } from "@/components/icons";
@@ -21,19 +23,23 @@ import type { InventoryItem } from "../logic";
  * the real total. */
 const MAX_PREVIEW_ROWS = 4;
 
-// Identity arrives as props from the server page that called requireSession() —
-// a tool never resolves it itself (Standard §7).
-export function DashboardCard({ userId, orgId }: ToolViewProps) {
+// The page passes userId/orgId (it called requireSession()), but this view does
+// NOT send them anywhere: the server action derives identity from the session
+// cookie, never from a client-supplied value — that is the whole defence. They
+// stay in the prop TYPE only because the page provides them; `_props` marks them
+// deliberately unused here.
+export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     let alive = true;
-    const ctx = buildCtx({ userId, orgId });
-    getSeededRuntime(ctx)
-      .then((rt) => rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, ctx))
-      .then((list) => {
-        if (alive) setItems(list);
+    // No ctx argument — the server builds it. We send only the intent + input.
+    runIntentAction("inventory.query_stock", {})
+      .then((res) => {
+        if (!alive) return;
+        if (res.ok) setItems(res.data as InventoryItem[]);
+        else console.error("Cortex: inventory dashboard card failed to load", res.code);
       })
       .catch((err: unknown) => {
         console.error("Cortex: inventory dashboard card failed to load", err);
@@ -41,7 +47,7 @@ export function DashboardCard({ userId, orgId }: ToolViewProps) {
     return () => {
       alive = false;
     };
-  }, [userId, orgId]);
+  }, []);
 
   const low = items.filter((item) => item.quantity < item.reorderThreshold);
 

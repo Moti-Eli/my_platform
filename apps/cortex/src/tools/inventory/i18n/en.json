@@ -14,5 +14,6 @@
   "emptyTitle": "No products yet",
   "emptyHint": "Add your first product to get started.",
   "decrease": "Decrease",
-  "increase": "Increase"
+  "increase": "Increase",
+  "writeUnavailable": "Editing inventory isn't available yet"
 }
