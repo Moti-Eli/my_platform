@@ -92,11 +92,19 @@ async function main(): Promise<void> {
   const { runIntent } = createDataLayer({ db });
   const { emit } = createEventBus(db);
 
-  // instanceId is null: audit metadata only, and app_instances has no rows yet
-  // (see Ctx). orgId is the only scoping key, and is never null.
+  // SYNTHETIC IDS THAT INTENTIONALLY MATCH NO ROW ANYWHERE, spelled to be
+  // unmistakable at a glance. This smoke runs against the in-memory Map, which
+  // enforces no constraints and needs no database — there is nothing for a real
+  // id to be real *to*. If a Supabase-backed CortexDb ever lands, DO NOT point
+  // this smoke at it and DO NOT paste in a real org id to silence the resulting
+  // FK violation: that value would have no guard behind it and no test would
+  // notice it was wrong. (Harness fixtures once reached the live remote project
+  // because an id/URL looked plausible; packages/db/scripts/db-guard.ts exists
+  // because of it.) instanceId is null: audit metadata only, and app_instances
+  // has no rows. orgId is the only scoping key, and is never null.
   const ctx: Ctx = {
-    userId: "00000000-0000-0000-0000-000000000001",
-    orgId: "00000000-0000-0000-0000-0000000000aa",
+    userId: "deadbeef-dead-4dea-8dea-deadbeefdead",
+    orgId: "facadefa-cade-4fac-8fac-facadefacade",
     instanceId: null,
   };
 

@@ -7,9 +7,24 @@
 import type { ComponentType } from "react";
 import { DashboardCard as InventoryDashboardCard } from "./inventory/views/DashboardCard";
 
+/**
+ * The identity every tool view is handed by the shell.
+ *
+ * A tool NEVER resolves identity itself (Standard §7: the shell resolves it up
+ * front). These two ids arrive as props from the server page that called
+ * `requireSession()`, and the view turns them into a `Ctx` with `buildCtx`. The
+ * card is typed to REQUIRE them so a tool view cannot be rendered without a guard
+ * having run above it — the type is what makes that structural rather than a
+ * convention someone can forget.
+ */
+export interface ToolViewProps {
+  userId: string;
+  orgId: string;
+}
+
 export interface ToolUI {
   /** Compact summary card shown on Home. */
-  DashboardCard: ComponentType;
+  DashboardCard: ComponentType<ToolViewProps>;
   /** Full-screen route (post-locale path in the cortex app). */
   route: string;
 }

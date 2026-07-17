@@ -199,9 +199,12 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   or text): a Home **dashboard card** (low-stock summary) + a **full screen**
   (`/tools/inventory`) with add-product and inline quantity update. Registered at
   startup → shows as a pinned **tab + card** on Home.
-- ✅ **Dev context**: one `// DEV ONLY` file (`DEV_CTX`) passed to `runIntent`
-  until auth lands; runtime uses the in-memory `CortexDb` (same port a Supabase
-  adapter will implement). i18n he/en for all Inventory strings.
+- ✅ **Auth + active org**: Cortex authenticates (`/login` → `@platform/auth`'s
+  `signIn`); `requireSession()` resolves the signed-in user and their active
+  organization, and **every page calls it itself** (never a layout or the proxy).
+  `Ctx` is built from that session — no hard-coded identity remains. **Data
+  backend**: still the in-memory `CortexDb` (same port a Supabase adapter will
+  implement). i18n he/en for all Inventory strings.
 - ✅ Acceptance smoke passes (`pnpm --filter @platform/cortex smoke:inventory`):
   add → update-below-threshold → `inventory.low` in `events` + `ai_log` rows.
   Typecheck/lint/build pass; version bumped **0.3.0**. See ARCHITECTURE.md #30.

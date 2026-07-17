@@ -9,8 +9,9 @@
  * door (`runIntent('inventory.query_stock')`).
  */
 import { useEffect, useState } from "react";
-import { getRuntime } from "@/cortex/runtime";
-import { DEV_CTX } from "@/cortex/dev-ctx";
+import { getSeededRuntime } from "@/cortex/runtime";
+import { buildCtx } from "@/cortex/build-ctx";
+import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { BoxIcon } from "@/components/icons";
 import type { InventoryItem } from "../logic";
@@ -20,14 +21,17 @@ import type { InventoryItem } from "../logic";
  * the real total. */
 const MAX_PREVIEW_ROWS = 4;
 
-export function DashboardCard() {
+// Identity arrives as props from the server page that called requireSession() —
+// a tool never resolves it itself (Standard §7).
+export function DashboardCard({ userId, orgId }: ToolViewProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<InventoryItem[]>([]);
 
   useEffect(() => {
     let alive = true;
-    getRuntime()
-      .then((rt) => rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX))
+    const ctx = buildCtx({ userId, orgId });
+    getSeededRuntime(ctx)
+      .then((rt) => rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, ctx))
       .then((list) => {
         if (alive) setItems(list);
       })
@@ -37,7 +41,7 @@ export function DashboardCard() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [userId, orgId]);
 
   const low = items.filter((item) => item.quantity < item.reorderThreshold);
 

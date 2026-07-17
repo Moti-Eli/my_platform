@@ -24,7 +24,41 @@ import { manifest } from "../manifest";
 import { createInventoryLogic } from "../logic";
 import { createInventoryIntents } from "../intents";
 import { listeners } from "../events";
-import { DEV_CTX } from "../../../cortex/dev-ctx";
+import { buildCtx } from "../../../cortex/build-ctx";
+
+/**
+ * The stand-in session this smoke runs under.
+ *
+ * THESE IDS ARE SYNTHETIC AND INTENTIONALLY MATCH NO ROW ANYWHERE. They are not
+ * a fixture, not a seed, and not "the dev user" — they are two strings shaped
+ * like uuids and spelled to be unmistakable at a glance. This smoke runs against
+ * the in-memory Map, which enforces no constraints, references no organization,
+ * and needs no database: there is nothing for a real id to be real *to*.
+ *
+ * IF CortexDb BECOMES SUPABASE-BACKED, DO NOT POINT THIS SMOKE AT IT. If you do,
+ * these ids will raise a foreign-key violation. THAT IS CORRECT, AND IT IS THE
+ * LOUD FAILURE WORKING. Do not "fix" it by pasting in a real org id: that value
+ * would have no guard behind it — nothing would have checked that the caller may
+ * act in that org — and no test would ever notice it had gone wrong. A
+ * Supabase-backed test is a DIFFERENT test, with a real session from a real
+ * login, and it belongs in a different file.
+ *
+ * THE PRECEDENT, so the reason outlives this file: harness fixtures once reached
+ * the LIVE remote project, because a URL pointed somewhere plausible and nothing
+ * refused it. Test organizations and users were created on the real database and
+ * removed by hand. `packages/db/scripts/db-guard.ts` exists because of that day.
+ * A plausible-looking id is the same mistake in a smaller font.
+ *
+ * `buildCtx` is kept deliberately: it is the thing under test. The ctx below is
+ * built the same way the app builds it, so what this smoke exercises is the real
+ * shape — orgId non-null, instanceId null.
+ */
+const SMOKE_SESSION = {
+  userId: "deadbeef-dead-4dea-8dea-deadbeefdead",
+  orgId: "facadefa-cade-4fac-8fac-facadefacade",
+};
+
+const ctx = buildCtx(SMOKE_SESSION);
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -51,7 +85,7 @@ async function main(): Promise<void> {
   const added = await runIntent<{ id: string }>(
     "inventory.add_product",
     { name: "tomatoes", quantity: 20, unit: "kg", reorderThreshold: 10 },
-    DEV_CTX,
+    ctx,
   );
   assert(typeof added.id === "string" && added.id.length > 0, "add_product returned an id");
 
@@ -64,8 +98,8 @@ async function main(): Promise<void> {
   // that add_product "returned an id" proves none of that. Assert the columns.
   console.log("\ninventory_items row (the columns actually written):");
   const itemRow = db.rows("inventory_items")[0]!;
-  assert(itemRow.org_id === DEV_CTX.orgId, "row carries org_id (NOT NULL; the only scoping key)");
-  assert(itemRow.owner_id === DEV_CTX.userId, "row carries owner_id (NOT NULL)");
+  assert(itemRow.org_id === ctx.orgId, "row carries org_id (NOT NULL; the only scoping key)");
+  assert(itemRow.owner_id === ctx.userId, "row carries owner_id (NOT NULL)");
   assert(
     !("instance_id" in itemRow),
     "row carries NO instance_id — the column does not exist on the table (20260716000002)",
@@ -80,7 +114,7 @@ async function main(): Promise<void> {
   const updated = await runIntent<{ name: string; quantity: number }>(
     "inventory.update_quantity",
     { product: "tomatoes", setTo: 5 },
-    DEV_CTX,
+    ctx,
   );
   assert(updated.quantity === 5, "update_quantity returned the new quantity (5)");
 
@@ -97,7 +131,7 @@ async function main(): Promise<void> {
     "an 'inventory.updated' row was also persisted",
   );
   assert(
-    events.every((row: DbRow) => row.org_id === DEV_CTX.orgId),
+    events.every((row: DbRow) => row.org_id === ctx.orgId),
     "every events row carries org_id (NOT NULL since 20260717000002)",
   );
   assert(
@@ -117,7 +151,7 @@ async function main(): Promise<void> {
     "ai_log recorded the update_quantity call",
   );
   assert(
-    aiLog.every((row: DbRow) => row.org_id === DEV_CTX.orgId),
+    aiLog.every((row: DbRow) => row.org_id === ctx.orgId),
     "every ai_log row carries org_id (NOT NULL since 20260717000002 — the landmine this step removed)",
   );
   assert(

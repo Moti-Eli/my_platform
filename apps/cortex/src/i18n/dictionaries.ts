@@ -12,6 +12,29 @@ import inventoryHe from "@/tools/inventory/i18n/he.json";
 import inventoryEn from "@/tools/inventory/i18n/en.json";
 
 const he = {
+  login: {
+    title: "כניסה ל-Cortex",
+    subtitle: "התחבר כדי להמשיך",
+    email: "אימייל",
+    password: "סיסמה",
+    submit: "כניסה",
+    signingIn: "מתחבר…",
+    // Error keys. NEVER render a raw error message from the server — map to one
+    // of these. `invalidCredentials` is the 401 case (bad email/password: try
+    // again). `notPermitted` is the 403 case (authenticated, but not allowed
+    // through) — a different answer needing a different action, so it is never
+    // collapsed into the 401 text. `notConfigured` means the app has no Supabase
+    // env, which is an operator problem, not the user's.
+    invalidCredentials: "אימייל או סיסמה שגויים",
+    notPermitted: "החשבון מזוהה אך אינו מורשה להיכנס",
+    notConfigured: "המערכת אינה מחוברת לשרת",
+    failed: "הכניסה נכשלה, נסה שוב",
+  },
+  session: {
+    noOrgTitle: "אין לך ארגון",
+    noOrgHint: "החשבון שלך אינו משויך לאף ארגון. פנה למנהל המערכת כדי שיצרף אותך.",
+    signOut: "יציאה",
+  },
   common: {
     close: "סגירה",
     search: "חיפוש",
@@ -159,6 +182,24 @@ export type Messages = {
 };
 
 const en: Messages = {
+  login: {
+    title: "Sign in to Cortex",
+    subtitle: "Sign in to continue",
+    email: "Email",
+    password: "Password",
+    submit: "Sign in",
+    signingIn: "Signing in…",
+    invalidCredentials: "Incorrect email or password",
+    notPermitted: "This account is recognised but is not allowed to sign in",
+    notConfigured: "The app is not connected to a server",
+    failed: "Sign-in failed, please try again",
+  },
+  session: {
+    noOrgTitle: "You have no organization",
+    noOrgHint:
+      "Your account isn't attached to any organization. Ask an administrator to add you to one.",
+    signOut: "Sign out",
+  },
   common: {
     close: "Close",
     search: "Search",

@@ -3,14 +3,22 @@
  *
  * This is the shell's composition root: it builds the data-layer (`runIntent`,
  * the one door), the event-bus (`emit`), and a db client, constructs each tool's
- * logic + intents, and registers the tools. Views call `getRuntime()` then
- * `runIntent(...)` with the shell-provided `ctx` (the DEV ctx for now).
+ * logic + intents, and registers the tools. Views call `getRuntime(ctx)` then
+ * `runIntent(...)` with that same shell-provided `ctx`.
  *
- * DEV ONLY (data backend): until Cortex auth + Supabase are wired, the db is the
- * in-memory adapter — the SAME `CortexDb` port a Supabase adapter will implement,
- * so `runIntent`/`emit`/`ai_log`/`events` all exercise the real mechanism. Swap
- * `createInMemoryDb()` for a Supabase-backed `CortexDb` when auth lands; nothing
- * else here changes.
+ * WHY getRuntime TAKES A ctx — the demo seed writes through the normal
+ * `add_product` intent, so its rows carry `org_id = ctx.orgId`, and `query_stock`
+ * filters by `org_id`. Seeding under any other identity than the one the views
+ * read with would write ~40 rows into an org nobody is looking at: every screen
+ * would render EMPTY, silently, looking exactly like "auth broke the app". The
+ * seed must run as the signed-in user, so the composition root needs the session.
+ *
+ * DEV ONLY (data backend): the db is still the in-memory adapter — the SAME
+ * `CortexDb` port a Supabase adapter will implement, so `runIntent`/`emit`/
+ * `ai_log`/`events` all exercise the real mechanism. Swap `createInMemoryDb()`
+ * for a Supabase-backed `CortexDb` next; nothing else here changes. Note the
+ * memo below is per-tab, so the seed re-runs per session — which is correct while
+ * the store is in memory and disappears with the tab.
  */
 import {
   createInMemoryDb,
@@ -18,6 +26,7 @@ import {
   createEventBus,
   registerApp,
   getApp,
+  type Ctx,
   type InMemoryDb,
   type DataLayer,
   type EventBus,
@@ -27,7 +36,6 @@ import { createInventoryLogic, type AddProductInput } from "@/tools/inventory/lo
 import { createInventoryIntents } from "@/tools/inventory/intents";
 import { listeners } from "@/tools/inventory/events";
 import { STUB_APPS } from "@/tools/stub-apps";
-import { DEV_CTX } from "./dev-ctx";
 
 export interface Runtime {
   db: InMemoryDb;
@@ -36,6 +44,7 @@ export interface Runtime {
 }
 
 let ready: Promise<Runtime> | null = null;
+let seeded: Promise<Runtime> | null = null;
 
 function build(): Runtime {
   const db = createInMemoryDb();
@@ -105,15 +114,25 @@ const DEMO_ITEMS: AddProductInput[] = [
   { name: "דגים", quantity: 9, unit: "kg", reorderThreshold: 6 },
 ];
 
-async function seed(rt: Runtime): Promise<void> {
-  const existing = await rt.runIntent<unknown[]>("inventory.query_stock", {}, DEV_CTX);
+async function seed(rt: Runtime, ctx: Ctx): Promise<void> {
+  const existing = await rt.runIntent<unknown[]>("inventory.query_stock", {}, ctx);
   if (existing.length > 0) return;
   for (const item of DEMO_ITEMS) {
-    await rt.runIntent("inventory.add_product", item, DEV_CTX);
+    await rt.runIntent("inventory.add_product", item, ctx);
   }
 }
 
-/** Lazily build + seed the runtime once, then reuse it. */
+/**
+ * Lazily build the runtime once (registering every tool), then reuse it.
+ *
+ * TAKES NO ctx, DELIBERATELY. Registration is not a privileged act: it lists what
+ * tools EXIST, not anyone's data. The chips row, the catalog and the app shell all
+ * need that list, and the shell renders on /login too — where there is no session
+ * and never will be. Requiring identity here would mean either breaking the login
+ * page or inventing a fake ctx to get past it, and inventing a fake ctx is the
+ * habit this whole step exists to end. Seeding — which DOES write data and so DOES
+ * need identity — is a separate call: {@link getSeededRuntime}.
+ */
 export function getRuntime(): Promise<Runtime> {
   if (ready) return ready;
 
@@ -121,16 +140,7 @@ export function getRuntime(): Promise<Runtime> {
   // REJECTED promise, never a synchronous throw — otherwise `getRuntime().catch()`
   // at a call site can't attach in time and the failure escapes unlogged. This is
   // the swallow that hid the non-secure-origin crypto throw for so long.
-  ready = (async (): Promise<Runtime> => {
-    const rt = build();
-    // Seeding is best-effort demo data; the apps are already registered, so a
-    // seed failure must NOT take down the runtime (the registry-backed
-    // catalog/chips must still work). Log loudly instead of swallowing.
-    await seed(rt).catch((err: unknown) => {
-      console.error("Cortex runtime: inventory seed failed", err);
-    });
-    return rt;
-  })().catch((err: unknown) => {
+  ready = (async (): Promise<Runtime> => build())().catch((err: unknown) => {
     // Registration is the app's foundation — never let a failure here vanish
     // silently. Log clearly, drop the memo so the next call retries, then
     // re-reject so callers' own `.catch` handlers also see it.
@@ -140,4 +150,34 @@ export function getRuntime(): Promise<Runtime> {
   });
 
   return ready;
+}
+
+/**
+ * The runtime, with the DEV demo data seeded AS THE SIGNED-IN USER.
+ *
+ * Any view that reads or writes tool data calls this, passing the ctx built from
+ * its page's `requireSession()` result. The seed runs through the normal
+ * `add_product` intent, so its rows carry `org_id = ctx.orgId` — the same org
+ * `query_stock` then filters on. Seeding under any other identity would file ~40
+ * rows in an org nobody is reading, and every screen would render empty.
+ */
+export function getSeededRuntime(ctx: Ctx): Promise<Runtime> {
+  if (seeded) return seeded;
+
+  seeded = (async (): Promise<Runtime> => {
+    const rt = await getRuntime();
+    // Seeding is best-effort demo data; the apps are already registered, so a
+    // seed failure must NOT take down the runtime (the registry-backed
+    // catalog/chips must still work). Log loudly instead of swallowing.
+    await seed(rt, ctx).catch((err: unknown) => {
+      console.error("Cortex runtime: inventory seed failed", err);
+    });
+    return rt;
+  })().catch((err: unknown) => {
+    console.error("Cortex runtime: seeded-runtime init failed", err);
+    seeded = null;
+    throw err;
+  });
+
+  return seeded;
 }

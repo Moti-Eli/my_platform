@@ -1,35 +1,15 @@
-"use client";
-
 /**
- * Notifications — an EMPTY placeholder screen reached from the header bell. Just
- * a back control (returns to where you came from — home) and a faint placeholder
- * label; real content is built later. Same back-chevron convention as Settings.
+ * Server wrapper. THE access boundary for this route: requireSession() is called
+ * HERE, in this file, not in a layout and not in the proxy. The body below is the
+ * original client component, moved verbatim to ./NotificationsView.tsx.
+ *
+ * This route needs protection but not identity, so the session is required and
+ * its result deliberately not passed down — nothing here reads userId or orgId.
  */
-import { useRouter } from "next/navigation";
-import { useI18n } from "@/i18n";
-import { ChevronIcon } from "@/components/icons";
+import { requireSession } from "@/lib/session";
+import { NotificationsView } from "./NotificationsView";
 
-export default function NotificationsPage() {
-  const { t, dir } = useI18n();
-  const router = useRouter();
-
-  return (
-    <>
-      <div className="flex items-center gap-xs">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          aria-label={t("common.back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
-        >
-          <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
-        </button>
-        <h1 className="type-title text-ink">{t("notifications.title")}</h1>
-      </div>
-
-      <div className="flex flex-1 items-center justify-center">
-        <p className="type-label text-muted/60">{t("notifications.empty")}</p>
-      </div>
-    </>
-  );
+export default async function NotificationsPage() {
+  await requireSession();
+  return <NotificationsView />;
 }

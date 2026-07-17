@@ -157,10 +157,15 @@ the HTTP one under `scripts/`.
 | `apps/mobile/app/members.tsx` | `hasPermission(..., "members.manage")` | `canManage` UX + role-change via RLS client; add-user goes through the web admin API (server is the boundary). |
 | `apps/mobile/app/platform.tsx` | `isPlatformOwner` | Client-side UX guard; the admin API re-verifies ownership server-side. |
 
-### Cortex data layer (permission enforcement not yet wired)
+### Cortex data layer (authenticated; permission enforcement not yet wired)
+- `apps/cortex/src/lib/session.ts` — `requireSession()`: the RLS-scoped guard that
+  resolves the signed-in user + active organization. **Every Cortex page calls it
+  itself**; `src/proxy.ts` only refreshes tokens and protects nothing.
 - `apps/cortex/src/cortex/runtime.ts` — builds the `runIntent` "one door" and
-  event bus, but currently on an **in-memory** DB with a fixed `DEV_CTX`
-  (`apps/cortex/src/cortex/dev-ctx.ts`); no real auth/permission enforcement yet.
+  event bus. `Ctx` now comes from the real session via `buildCtx`
+  (`apps/cortex/src/cortex/build-ctx.ts`) — no fixed context remains — but the DB
+  is still the **in-memory** Map, so no RLS or DB-side permission check is in the
+  path yet.
   Tool-table write policies and the owner/manager rule are deferred until Cortex
   auth lands (see migration headers for `inventory_items` / cortex shell).
 

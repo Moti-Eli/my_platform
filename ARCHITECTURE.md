@@ -908,11 +908,16 @@ the shell to enumerate registered tools, and `select`/`update` on the `CortexDb`
 port (the core itself still only `insert`s; tool logic reads/updates its own
 table through the same one client — never raw SQL).
 
-**Dev context + in-memory backend (both clearly fenced, both swappable).** Cortex
-has no auth wired yet, so every call runs under a single hard-coded `DEV_CTX`
-(userId/orgId/instanceId) isolated in one `// DEV ONLY` file — delete it and
-derive `Ctx` from the real session when auth lands; nothing else changes. Until
-Supabase + auth are wired, the runtime uses the in-memory `CortexDb` (the SAME
+**Real identity + in-memory backend (the fence has moved).** Cortex now
+authenticates: `requireSession()` (`src/lib/session.ts`) resolves the signed-in
+user and their active organization through the RLS-scoped client, and EVERY page
+calls it itself — not a layout, not the proxy, because a guard that runs once and
+is then trusted is no guard. `Ctx` is built from that session by `buildCtx`, and
+identity reaches client views as props (never a React context, which would be
+somewhere it could be read without a guard having run). No hard-coded context
+remains. `instanceId` stays null — audit metadata only, until installed-apps
+moves off localStorage. What is still fenced is the DATA backend: the runtime
+uses the in-memory `CortexDb` (the SAME
 port a Supabase adapter will implement), so `runIntent`/`emit`/`ai_log`/`events`
 all exercise the real mechanism. The **schema migration is written but not
 applied** (`20260714000002_inventory_items.sql`); the owner runs `db push`.
@@ -946,10 +951,11 @@ threshold → an `inventory.low` row in `events` + `ai_log` audit rows via
 `runIntent`; typecheck + lint + build; and the routes render he/en. Cortex version
 bumped **0.2.0 → 0.3.0** (new feature) per #29, shown in Settings.
 
-**Status / sequencing:** Delivered. No second tool, no real auth, no listeners
-yet. Next: wire the AI sheet to `runIntent`, add auth (replace `DEV_CTX` + swap
-the in-memory backend for Supabase), then a second tool + the first cross-tool
-`inventory.low` listener.
+**Status / sequencing:** Delivered, and auth has since landed (login +
+`requireSession()` + per-page guards; `Ctx` from the real session). No second
+tool, no listeners yet, and the backend is still the in-memory `CortexDb`. Next:
+swap that for a Supabase-backed adapter, wire the AI sheet to `runIntent`, then a
+second tool + the first cross-tool `inventory.low` listener.
 
 ---
 

@@ -93,10 +93,14 @@ Updating a quantity below its reorder threshold emits `inventory.low` (persisted
 to the `events` table via the event-bus) and every call is audited to `ai_log` —
 all through `runIntent`, the one door.
 
-- **Dev context** (`src/cortex/dev-ctx.ts`, `// DEV ONLY`): a single hard-coded
-  `Ctx` passed to `runIntent` until auth is wired. **Data backend**: the runtime
-  uses the in-memory `CortexDb` (the same port a Supabase adapter will implement),
-  so the mechanism runs pre-auth. The DB migration
+- **Identity** (`src/lib/session.ts` + `src/cortex/build-ctx.ts`): `requireSession()`
+  resolves the signed-in user and their active organization, and **every protected
+  page calls it itself** (never a layout, never the proxy — `src/proxy.ts` only
+  refreshes tokens). `buildCtx(session)` turns that into the `Ctx` passed to
+  `runIntent`; identity travels to client views as props, never a context, and no
+  hard-coded id remains. **Data backend**: the runtime still uses the in-memory
+  `CortexDb` (the same port a Supabase adapter will implement), so the mechanism
+  runs on real identity but not yet on a real database. The DB migration
   (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
   applied** — run `db push` yourself.
 - **Acceptance smoke** (no browser/DB needed):

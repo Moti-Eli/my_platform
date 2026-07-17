@@ -1,26 +1,15 @@
-"use client";
-
 /**
- * "צ'אט" (comms) — placeholder empty screen (slot 4). Real communications come
- * later.
+ * Server wrapper. THE access boundary for this route: requireSession() is called
+ * HERE, in this file, not in a layout and not in the proxy. The body below is the
+ * original client component, moved verbatim to ./CommsView.tsx.
+ *
+ * This route needs protection but not identity, so the session is required and
+ * its result deliberately not passed down — nothing here reads userId or orgId.
  */
-import { EmptyState } from "@/components/EmptyState";
-import { ChatIcon } from "@/components/icons";
-import { useI18n } from "@/i18n";
+import { requireSession } from "@/lib/session";
+import { CommsView } from "./CommsView";
 
-export default function CommsPage() {
-  const { t } = useI18n();
-
-  return (
-    <>
-      <h1 className="px-2xs type-title text-ink">{t("comms.title")}</h1>
-      <section className="flex flex-1 flex-col">
-        <EmptyState
-          icon={<ChatIcon />}
-          title={t("comms.emptyTitle")}
-          hint={t("comms.emptyHint")}
-        />
-      </section>
-    </>
-  );
+export default async function CommsPage() {
+  await requireSession();
+  return <CommsView />;
 }

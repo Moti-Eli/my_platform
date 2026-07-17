@@ -9,16 +9,21 @@
  * logic. Built from design-system utilities + i18n only — no hard-coded colors
  * or text.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRuntime } from "@/cortex/runtime";
-import { DEV_CTX } from "@/cortex/dev-ctx";
+import { getSeededRuntime } from "@/cortex/runtime";
+import { buildCtx } from "@/cortex/build-ctx";
+import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { ChevronIcon, PlusIcon, MinusIcon } from "@/components/icons";
+import type { Ctx } from "@platform/cortex-core";
 import type { InventoryItem } from "../logic";
 
-export function FullScreen() {
+// Identity arrives as props from the server page that called requireSession() —
+// a tool never resolves it itself (Standard §7).
+export function FullScreen({ userId, orgId }: ToolViewProps) {
   const { t, dir } = useI18n();
+  const ctx = useMemo(() => buildCtx({ userId, orgId }), [userId, orgId]);
   const router = useRouter();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [adding, setAdding] = useState(false);
@@ -30,15 +35,15 @@ export function FullScreen() {
 
   const refresh = useCallback(async () => {
     try {
-      const rt = await getRuntime();
-      const list = await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, DEV_CTX);
+      const rt = await getSeededRuntime(ctx);
+      const list = await rt.runIntent<InventoryItem[]>("inventory.query_stock", {}, ctx);
       if (mounted.current) setItems(list);
     } catch (err) {
       // The effect below fires this without awaiting, so a rejection here would
       // otherwise vanish and leave the screen blank with no trace.
       console.error("Cortex: inventory list failed to load", err);
     }
-  }, []);
+  }, [ctx]);
 
   useEffect(() => {
     void refresh();
@@ -47,14 +52,14 @@ export function FullScreen() {
   const changeQuantity = useCallback(
     async (product: string, delta: number) => {
       try {
-        const rt = await getRuntime();
-        await rt.runIntent("inventory.update_quantity", { product, delta }, DEV_CTX);
+        const rt = await getSeededRuntime(ctx);
+        await rt.runIntent("inventory.update_quantity", { product, delta }, ctx);
         await refresh();
       } catch (err) {
         console.error("Cortex: inventory quantity update failed", err);
       }
     },
-    [refresh],
+    [refresh, ctx],
   );
 
   return (
@@ -80,6 +85,7 @@ export function FullScreen() {
 
       {adding ? (
         <AddProductForm
+          ctx={ctx}
           onDone={async () => {
             setAdding(false);
             await refresh();
@@ -142,7 +148,13 @@ export function FullScreen() {
   );
 }
 
-function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
+function AddProductForm({
+  ctx,
+  onDone,
+}: {
+  ctx: Ctx;
+  onDone: () => void | Promise<void>;
+}) {
   const { t } = useI18n();
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("0");
@@ -156,7 +168,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
     e.preventDefault();
     if (!name.trim() || !unit.trim()) return;
     try {
-      const rt = await getRuntime();
+      const rt = await getSeededRuntime(ctx);
       await rt.runIntent(
         "inventory.add_product",
         {
@@ -165,7 +177,7 @@ function AddProductForm({ onDone }: { onDone: () => void | Promise<void> }) {
           unit: unit.trim(),
           reorderThreshold: Number(threshold) || 0,
         },
-        DEV_CTX,
+        ctx,
       );
       await onDone();
     } catch (err) {

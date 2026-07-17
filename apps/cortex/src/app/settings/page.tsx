@@ -1,52 +1,15 @@
-"use client";
-
 /**
- * Settings — three flat rows sitting directly on the screen background (no card,
- * no dividers). Each row drills in to a dedicated page: language and appearance
- * host the existing pickers unchanged; version shows the number + a short
- * description of the app.
+ * Server wrapper. THE access boundary for this route: requireSession() is called
+ * HERE, in this file, not in a layout and not in the proxy. The body below is the
+ * original client component, moved verbatim to ./SettingsView.tsx.
+ *
+ * This route needs protection but not identity, so the session is required and
+ * its result deliberately not passed down — nothing here reads userId or orgId.
  */
-import { useI18n, type MessageKey } from "@/i18n";
-import { useTheme } from "@/theme/ThemeProvider";
-import { themes } from "@/design-system";
-import { APP_VERSION } from "@/lib/version";
-import { Screen } from "@/components/profile/Screen";
-import { ListRow } from "@/components/profile/SettingsList";
-import { GlobeIcon, ContrastIcon, InfoIcon } from "@/components/icons";
+import { requireSession } from "@/lib/session";
+import { SettingsView } from "./SettingsView";
 
-export default function SettingsPage() {
-  const { t, locale } = useI18n();
-  const { theme } = useTheme();
-
-  const languageValue = t(locale === "he" ? "settings.languageHe" : "settings.languageEn");
-  // Read the active theme's own label from the registry — single source of truth,
-  // so this works for all six themes (no parallel light/dark mapping here).
-  const themeValue = t(themes[theme].labelKey as MessageKey);
-
-  return (
-    <Screen center={<h1 className="type-title text-ink">{t("settings.title")}</h1>}>
-      <div className="mt-xs">
-        <ListRow
-          href="/settings/language"
-          icon={<GlobeIcon />}
-          label={t("settings.language")}
-          value={languageValue}
-        />
-        <ListRow
-          href="/settings/appearance"
-          icon={<ContrastIcon />}
-          label={t("settings.appearance")}
-          value={themeValue}
-        />
-        <ListRow
-          href="/settings/version"
-          icon={<InfoIcon />}
-          label={t("settings.version")}
-          value={APP_VERSION}
-        />
-      </div>
-
-      <p className="px-2xs pt-md text-center type-caption text-muted">{t("common.savedLocally")}</p>
-    </Screen>
-  );
+export default async function SettingsPage() {
+  await requireSession();
+  return <SettingsView />;
 }
