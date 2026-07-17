@@ -134,11 +134,50 @@ async function makeRole(admin: SupabaseClient, orgId: string, name: string, isAd
   return (res.data as { id: string }).id;
 }
 
+/**
+ * Assign a role. Fine via the secret key for an org's FIRST assignment, which the
+ * escalation guard (20260717000003) exempts — nobody can hold a role in an org
+ * that has none. Any LATER assignment must name an actor: see holdRoleAs.
+ */
 async function holdRole(admin: SupabaseClient, membershipId: string, roleId: string, orgId: string): Promise<void> {
   const res = await admin
     .from("membership_roles")
     .insert({ membership_id: membershipId, role_id: roleId, organization_id: orgId });
   if (res.error) throw new Error(`hold role: ${res.error.message}`);
+}
+
+/**
+ * Assign a role with the AUTHORITY OF `actingUserId` — for assignments after an
+ * org's first, which the escalation guard requires an entitled actor for.
+ *
+ * Runs as service_role (bypassing RLS) but WITH the actor's JWT, so auth.uid()
+ * resolves and the trigger judges the real actor. RLS is bypassed deliberately:
+ * this file tests auth_user_can_write / can_grant, not the membership_roles write
+ * policy, and routing fixtures through that policy would force unrelated
+ * members.manage grants onto these roles and change what is under test. The
+ * TRIGGER — the new constraint — is satisfied honestly: the actor must genuinely
+ * hold an admin role or the very role being conferred.
+ */
+async function holdRoleAs(
+  pg: Client,
+  actingUserId: string,
+  membershipId: string,
+  roleId: string,
+  orgId: string
+): Promise<void> {
+  await pg.query("begin");
+  try {
+    await pg.query("set local role service_role");
+    await pg.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: actingUserId })]);
+    await pg.query(
+      "insert into public.membership_roles (membership_id, role_id, organization_id) values ($1,$2,$3)",
+      [membershipId, roleId, orgId]
+    );
+    await pg.query("commit");
+  } catch (err) {
+    await pg.query("rollback");
+    throw new Error(`hold role as ${actingUserId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 async function makeGroup(admin: SupabaseClient, orgId: string, name: string): Promise<string> {
@@ -247,10 +286,14 @@ async function main(): Promise<void> {
     const roleCAdmin = await makeRole(admin, branchC, "C Admin", true);
 
     await holdRole(admin, mHq, roleRegionalMgr, hq);
-    await holdRole(admin, mC, roleCLead, branchC);
-    // uCAdmin genuinely holds an is_admin role — so "admin is not a bypass" is a
-    // real assertion, not a user who merely happens to be named "admin".
+    // Branch C's admin goes FIRST — it is the org's one bootstrap-exempt insert.
+    // The order matters now: C Lead confers no authority, so if it went first
+    // nobody in Branch C could ever confer the admin role (its would-be holder
+    // does not hold it yet). uCAdmin genuinely holds an is_admin role — so
+    // "admin is not a bypass" is a real assertion, not a user merely named "admin".
     await holdRole(admin, mCAdmin, roleCAdmin, branchC);
+    // ...and C Lead is then conferred BY that admin, through the real path.
+    await holdRoleAs(pg, uCAdmin, mC, roleCLead, branchC);
 
     const groupC = await makeGroup(admin, branchC, "C Group");
     await addToGroup(admin, groupC, uC, branchC);
@@ -373,7 +416,9 @@ async function main(): Promise<void> {
     console.log("\n[8] THE LEAK (role): stale membership_roles must not confer write or grant");
     const mLeakHq = await addMembership(admin, uLeakRole, hq);
     await addMembership(admin, uLeakRole, branchC); // direct C membership survives
-    await holdRole(admin, mLeakHq, roleRegionalMgr, hq);
+    // NOT the first assignment in HQ, so it needs an entitled actor. uHq holds
+    // Regional Manager, and a holder may confer their own role — no admin needed.
+    await holdRoleAs(pg, uHq, mLeakHq, roleRegionalMgr, hq);
 
     const leakRoleWrite = await makeItem(admin, branchC, uC, "leak role write", "restricted");
     await grant(admin, { table_name: T, record_id: leakRoleWrite.id, org_id: branchC, subject_role_id: roleRegionalMgr, access: "write", granted_by: uC });

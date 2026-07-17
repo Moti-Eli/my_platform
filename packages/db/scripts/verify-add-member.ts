@@ -118,12 +118,15 @@ async function main(): Promise<void> {
     .eq("is_admin", false)
     .eq("name", "Member")
     .single();
-  const mr = await admin.from("membership_roles").insert({
+  // The role is assigned AS THE ACTING ADMIN, mirroring the action (which stopped
+  // using the secret key for this step when migration 20260717000003 landed: the
+  // escalation guard fires for service_role, and a no-JWT caller cannot assign).
+  const mr = await adminAClient.from("membership_roles").insert({
     membership_id: memId,
     role_id: (memberRole.data as { id: string }).id,
     organization_id: orgA,
   });
-  check("membership + role assigned", !mr.error, mr.error?.message ?? "");
+  check("membership + role assigned (as the acting admin)", !mr.error, mr.error?.message ?? "");
 
   // The admin sees the new user in the org's member list (RLS-scoped read).
   const membersRes = await adminAClient.from("memberships").select("user_id").eq("organization_id", orgA);

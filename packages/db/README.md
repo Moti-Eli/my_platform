@@ -326,6 +326,51 @@ full explanation.
   anon AND authenticated `DELETE,INSERT,SELECT,UPDATE`). `app_definitions` and
   `app_instances` untouched. Verified by `scripts/verify-shell-audit.ts` (27
   assertions), proven non-vacuous by reinstating the old policy.
+- `20260717000003_role_escalation_guard.sql` — **forbids role-assignment
+  escalation**, paying off the debt `20260608000003` named in its own header
+  ("forbid self-escalation"). That migration gated `membership_roles` writes on
+  `members.manage` and noted it was safe only because that permission was held by
+  admin roles alone — but roles are org-owned DATA, so the assumption expires the
+  day an admin grants `members.manage` to a non-admin role, with no schema change
+  to review. Adds `private.auth_user_may_assign_role(org_id, role_id)`, mirroring
+  `auth_user_has_permission`'s exact shape (same joins, same active-only guards on
+  membership AND org) with one changed predicate: `r.is_admin OR r.id = p_role_id`
+  — you may confer only a role you already hold, unless you are an admin (who may
+  confer anything, else nobody could staff a new role). `auth.uid()` null ⇒ false,
+  by construction rather than special case. Enforced by a BEFORE ROW trigger, not
+  a policy: the rule relates the ACTOR's roles to the row's role, the DELETE half
+  must inspect OLD, and **a trigger fires for `service_role`, which RLS does not**.
+  That last point is the design: a no-JWT privileged caller is rejected, so the
+  dev seed, `add-member`, and the harness fixtures now assign roles AS a real
+  actor instead of through a secret-key back door — the fixtures exercise the
+  production path, so if assignment breaks, they break first. Two exemptions, both
+  structural: (1) **bootstrap** — an org with ZERO role rows accepts its first
+  assignment, because nobody can hold a role in an org that has none (step 6's
+  personal-org-on-signup is otherwise unbuildable); one-shot, since re-arming it
+  means deleting rows this same trigger guards. (2) **referential cleanup** — a
+  DELETE whose parent membership or role is already gone is a CASCADE, not a
+  revocation; without it `delete from organizations` and user deletion would be
+  impossible for anyone (verified: the org survived). That is the exact trap
+  `20260609000005`'s header warns of, and this reuses its "parent gone ⇒ moot"
+  construction; BOTH parents are checked because the cascade paths differ (org ⇒
+  both, user ⇒ memberships only, role ⇒ roles only — probed, not assumed). Honest
+  limit, stated in the header: the service key CAN re-arm the bootstrap by
+  emptying an org's memberships — acceptable only because such a caller already
+  owns the database. **Deliberately does NOT split `members.manage` into
+  `members.manage_admins`** (the roadmap's step-5 proposal): with this trigger
+  such a permission could never fire — assigning an is_admin role already requires
+  holding one, and any is_admin holder implicitly has every permission via
+  `auth_user_has_permission`'s `r.is_admin` branch — so it would be
+  granted-but-unenforceable, exactly the defect this migration deletes
+  `users.view` for. Also **deletes `users.view`**, following `20260610000003`
+  exactly: granted to every Member role, checked nowhere (every registry's
+  `requiredPermission` is null or `members.manage`). Consequence, and correct: the
+  seeded Member role is left with ZERO permissions — membership is the marker,
+  permissions are for actions. Forward-only; `20260605000001`'s seed is untouched.
+  Verified by `scripts/verify-role-escalation.ts` (29 assertions), proven
+  non-vacuous by mutating the final predicate to `true` (7 assertions fail —
+  every non-admin escalation; the admin, bootstrap-without-JWT, soft-delete, and
+  `users.view` assertions correctly do not move, as they turn on other clauses).
 
 ## Usage
 

@@ -61,7 +61,7 @@ a member of a child reads nothing of the parent's.
 | 4d | `shell.grant_access` — the only door to granting | YES | DONE, pushed |
 | 4e | tighten client grants: Cortex tables + future public tables | — | DONE, NOT pushed |
 | 3b | `events.org_id` NOT NULL + add `ai_log.org_id` | YES | DONE, NOT pushed |
-| 5 | split `members.manage` / `members.manage_admins`; delete `users.view` | YES (2) | |
+| 5 | forbid role-assignment escalation (trigger, NOT the split — see (3)); delete `users.view` | YES (2) | DONE, NOT pushed |
 | 6 | personal organization on signup (trigger + role bundle) | YES | |
 | 7 | Cortex -> real DB -> auth -> inventory end-to-end | — | FIRST REAL USERS |
 | 8 | `connections` + messaging (cross-org) | no | off the critical path |
@@ -73,6 +73,16 @@ a member of a child reads nothing of the parent's.
 (2) Step 5 blocks only because step 6 seeds roles. Ordering matters: if 6 runs
     first it seeds the OLD permission vocabulary, and 5 then needs a data
     migration over auto-created roles. 5 MUST precede 6.
+(3) The `members.manage` / `members.manage_admins` SPLIT was dropped, deliberately.
+    `20260717000003` enforces the boundary with a trigger instead, which makes the
+    permission unenforceable-by-construction: assigning an is_admin role already
+    requires holding one, and every is_admin holder implicitly has all permissions
+    via `auth_user_has_permission`'s `r.is_admin` branch — so the new key would be
+    granted-but-never-fired, the same defect that step deletes `users.view` for.
+    Step 6 now has a hard dependency on 5's BOOTSTRAP exemption: the escalation
+    trigger fires for `service_role` too, so a personal org's first admin role can
+    only be assigned while that org has zero role rows. Build 6 to place exactly
+    ONE membership_roles row per new org; a second no-JWT insert raises.
 
 Step 6 is not optional. `org_id` is NOT NULL on every Cortex table, so a new
 signup with zero memberships cannot install an app or see anything. Without it,

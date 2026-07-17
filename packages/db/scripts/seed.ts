@@ -10,6 +10,14 @@
  *   and is NEVER used by the web app.
  * - Creates REAL Supabase auth users (via the admin API) plus their
  *   public.users profiles, so logins work and RLS (auth.uid()) behaves.
+ * - ROLE ASSIGNMENT GOES THROUGH THE REAL ADMIN PATH (migration 20260717000003).
+ *   The service key bypasses RLS but NOT triggers, and the escalation guard on
+ *   membership_roles rejects a caller with no JWT (auth.uid() is null) — except
+ *   for an org's very first assignment, which is bootstrap-exempt. So each org
+ *   seeds its FIRST admin's role with the service key (the bootstrap), then signs
+ *   that admin in and assigns every remaining role AS them, exactly as the UI
+ *   does. This is an upgrade, not a tax: the fixtures now exercise the real
+ *   assignment path, so if role assignment ever breaks, the seed breaks first.
  * - Idempotent: clears previously-seeded test data (seed orgs by name + auth
  *   users whose email ends in ".test") before inserting, so it is safe to
  *   re-run without duplicate-key errors.
@@ -28,13 +36,19 @@ dotenv.config({ path: existsSync(rootEnv) ? rootEnv : undefined });
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
+// The publishable key is what a real client uses. Needed because role assignment
+// now happens as a signed-in admin, not as service_role (see the header).
+const PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 /** Shared password for every seeded test user (dev only). */
 const TEST_PASSWORD = "123456";
 /** Permissions granted to the non-admin "Member" role. */
-// `users.invite` was removed (security review L3, migration 20260610000003): it
-// was unused and the member-management gate is `members.manage` (admin-only).
-const MEMBER_PERMISSIONS = ["users.view"];
+// EMPTY on purpose — mirrors @platform/auth's NEW_ORG_MEMBER_PERMISSIONS. Both
+// former entries were granted but checked nowhere and have been deleted:
+// `users.invite` (migration 20260610000003) and `users.view` (20260717000003).
+// A seeded Member therefore holds ZERO permissions, which is correct: membership
+// is the marker, permissions are for actions.
+const MEMBER_PERMISSIONS: string[] = [];
 
 /**
  * Dev PLATFORM OWNER (super admin). Kept deliberately SEPARATE from the org
@@ -131,10 +145,24 @@ async function clearTestData(supabase: SupabaseClient): Promise<void> {
   console.log(`Cleared seed orgs and ${testUsers.length} existing seed auth user(s).`);
 }
 
+/**
+ * Sign in as a seeded user and return a client that is subject to RLS and to the
+ * membership_roles escalation guard — i.e. a real client, not a privileged one.
+ */
+async function signInAs(email: string): Promise<SupabaseClient> {
+  const client = createClient(SUPABASE_URL!, PUBLISHABLE_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { error } = await client.auth.signInWithPassword({ email, password: TEST_PASSWORD });
+  if (error) throw new Error(`sign in ${email}: ${error.message}`);
+  return client;
+}
+
 async function main(): Promise<void> {
-  if (!SUPABASE_URL || !SECRET_KEY) {
+  if (!SUPABASE_URL || !SECRET_KEY || !PUBLISHABLE_KEY) {
     throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL and/or SUPABASE_SECRET_KEY. Set them in the root .env."
+      "Missing NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY and/or " +
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Set them in the root .env."
     );
   }
 
@@ -206,6 +234,10 @@ async function main(): Promise<void> {
       if (rp.error) throw new Error(`insert role_permissions for ${org.name}: ${rp.error.message}`);
     }
 
+    // Users + memberships first (plain tables: the service key is fine here — no
+    // trigger, and RLS is what it legitimately bypasses). Role assignment is
+    // deliberately NOT done in this loop; see below.
+    const seeded: Array<{ user: SeedUser; membershipId: string }> = [];
     for (const user of org.users) {
       const created = await supabase.auth.admin.createUser({
         email: user.email,
@@ -232,12 +264,7 @@ async function main(): Promise<void> {
         `insert membership ${user.email}`
       );
 
-      const roleId = user.role === "admin" ? adminRole.id : memberRole.id;
-      const mr = await supabase
-        .from("membership_roles")
-        .insert({ membership_id: membership.id, role_id: roleId, organization_id: orgId });
-      if (mr.error) throw new Error(`assign role to ${user.email}: ${mr.error.message}`);
-
+      seeded.push({ user, membershipId: membership.id });
       credentials.push({
         email: user.email,
         password: TEST_PASSWORD,
@@ -246,7 +273,38 @@ async function main(): Promise<void> {
       });
     }
 
-    console.log(`✓ Seeded "${org.name}" with ${org.users.length} users (Admin + Member roles).`);
+    // --- Role assignment: bootstrap once, then act as a real admin -----------
+    // The escalation guard (20260717000003) fires for service_role too. Exactly
+    // ONE assignment per org is exempt — the first, when the org holds zero
+    // membership_roles rows and nobody can hold a role yet. We spend it on the
+    // first admin, then sign in AS that admin (a real JWT, RLS and trigger both
+    // live) to assign everyone else. A second no-JWT insert here would raise, and
+    // it should: that is the one-shot property doing its job.
+    const bootstrapAdmin = seeded.find((s) => s.user.role === "admin");
+    if (!bootstrapAdmin) throw new Error(`${org.name}: needs at least one admin to bootstrap`);
+
+    const boot = await supabase.from("membership_roles").insert({
+      membership_id: bootstrapAdmin.membershipId,
+      role_id: adminRole.id,
+      organization_id: orgId,
+    });
+    if (boot.error) throw new Error(`bootstrap admin role for ${org.name}: ${boot.error.message}`);
+
+    const adminClient = await signInAs(bootstrapAdmin.user.email);
+    for (const { user, membershipId } of seeded) {
+      if (user.email === bootstrapAdmin.user.email) continue; // already bootstrapped
+      const roleId = user.role === "admin" ? adminRole.id : memberRole.id;
+      const mr = await adminClient
+        .from("membership_roles")
+        .insert({ membership_id: membershipId, role_id: roleId, organization_id: orgId });
+      if (mr.error) throw new Error(`assign role to ${user.email}: ${mr.error.message}`);
+    }
+    await adminClient.auth.signOut();
+
+    console.log(
+      `✓ Seeded "${org.name}" with ${org.users.length} users ` +
+        `(Admin + Member roles; roles assigned as ${bootstrapAdmin.user.email}).`
+    );
   }
 
   // ---------------------------------------------------------------------------
