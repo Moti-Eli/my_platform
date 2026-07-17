@@ -3,16 +3,14 @@
 /**
  * The shell header — a three-zone sticky top row (RTL):
  *  - leading edge (right): a search button that opens a floating search bar;
- *  - center: the "cortex" wordmark, a styled-text placeholder for a future SVG
- *    logo (kept LTR — latin letters — even inside the RTL layout);
+ *  - center: the "cortex" {@link Wordmark} (its own component, so the bare auth
+ *    screens render the same element rather than a copy that drifts);
  *  - trailing edge (left): a bell that opens the urgency inbox.
- *
- * There is no brand/display font token in the design-system, so the wordmark
- * uses a cursive fallback stack (the one non-token value here, by design).
  */
 import { useEffect, useRef, useState } from "react";
 import { SearchIcon, BellIcon, ChevronIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
+import { Wordmark } from "./Wordmark";
 
 export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
   const { t } = useI18n();
@@ -30,13 +28,7 @@ export function Header({ onOpenInbox }: { onOpenInbox: () => void }) {
           <SearchIcon />
         </button>
 
-        <span
-          dir="ltr"
-          className="flex-1 text-center type-display text-accent"
-          style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Brush Script MT", cursive' }}
-        >
-          cortex
-        </span>
+        <Wordmark className="flex-1 text-center" />
 
         <button
           type="button"

@@ -11,7 +11,6 @@ import {
 import { getDirection, defaultLocale, isLocale, I18nProvider } from "@/i18n";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { LANG_COOKIE, THEME_COOKIE, migrateLegacyTheme } from "@/lib/cookies";
-import { AppShell } from "@/components/shell/AppShell";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
 
@@ -38,6 +37,15 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * The DOCUMENT shell, and nothing more: html/body, dir + lang, the design-system
+ * stylesheet, and the locale/theme providers every screen needs.
+ *
+ * IT DOES NOT MOUNT AppShell. Chrome (header, app tabs, bottom nav, AI button)
+ * belongs to `(app)/layout.tsx`, because the auth screens must NOT have it — a
+ * login form wrapped in a shell full of tools you cannot use yet is both wrong
+ * and unusable. Route groups make that split without touching a single URL.
+ */
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // Language + theme come from cookies so the first server paint is already
   // correct (no flash / hydration mismatch); the client providers take over for
@@ -59,9 +67,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         />
         <ServiceWorkerRegister />
         <I18nProvider initialLocale={locale}>
-          <ThemeProvider initialTheme={theme}>
-            <AppShell>{children}</AppShell>
-          </ThemeProvider>
+          <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
         </I18nProvider>
       </body>
     </html>
