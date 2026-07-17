@@ -45,9 +45,12 @@ export interface FeatureDefinition {
  * - `members` and `chat` are gated only by login + organization membership.
  *   No permission check guards ACCESS today — on the members screen,
  *   `members.manage` only toggles the edit controls, it does not gate viewing —
- *   so `requiredPermission` is null. `users.view` is members' natural permission
- *   key (seeded but not yet enforced anywhere); wire it when guards start
- *   consuming this registry in Phase 2.
+ *   so `requiredPermission` is null, and that is the FINAL answer, not a stub.
+ *   `users.view` used to be described here as members' natural key, waiting to be
+ *   wired; it was deleted instead (migration 20260717000003). Viewing an org's
+ *   members is already gated by RLS via membership, so a permission on top would
+ *   be a second source of truth that can only disagree with it. Membership is the
+ *   marker; permissions are for ACTIONS.
  * - `platform` is platform-owner-only (`isPlatformOwner`), living at
  *   /[locale]/platform — outside /dashboard, hence the full route below.
  *

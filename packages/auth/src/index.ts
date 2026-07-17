@@ -313,7 +313,7 @@ export async function getAllPermissionKeys(supabase: SupabaseClient): Promise<st
  * `hasPermission` call sites that want key safety. Runtime checks still take a
  * plain `string`, so this is purely additive and changes no behavior.
  */
-export type PermissionKey = "users.view" | "roles.manage" | "members.manage";
+export type PermissionKey = "roles.manage" | "members.manage";
 
 // ===========================================================================
 // Platform owner (super admin) — the access level ABOVE organization admins.
@@ -360,10 +360,13 @@ export interface CreateOrganizationResult {
 }
 
 /** Permissions granted to a new org's non-admin "Member" role (matches the seed). */
-// NOTE: `users.invite` was removed (security review L3) — it was checked nowhere
-// and the member-management gate is `members.manage` (admin-only). See migration
-// 20260610000003.
-const NEW_ORG_MEMBER_PERMISSIONS = ["users.view"];
+// EMPTY, and deliberately so — not a list waiting to be refilled. Both former
+// entries were granted-but-never-checked and were deleted: `users.invite`
+// (migration 20260610000003) and `users.view` (20260717000003). A plain member's
+// baseline is MEMBERSHIP itself, which is what RLS keys on; permissions are for
+// ACTIONS beyond that baseline, and a plain member has none. The lookup below is
+// kept as the seam for when a real member-level action exists.
+const NEW_ORG_MEMBER_PERMISSIONS: PermissionKey[] = [];
 
 const ORG_ADMIN_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

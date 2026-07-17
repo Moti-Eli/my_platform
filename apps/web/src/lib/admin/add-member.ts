@@ -160,8 +160,18 @@ export async function addMemberToOrganization(
     return fail("addFailed");
   }
 
-  // 4) initial role on that membership.
-  const mr = await admin.from("membership_roles").insert({
+  // 4) initial role on that membership — assigned AS THE ACTING USER, not with the
+  //    secret key. The escalation guard (migration 20260717000003) fires for
+  //    service_role too, and a no-JWT caller has auth.uid() = null, so this write
+  //    MUST carry the actor's identity. That is not a workaround for the trigger;
+  //    it is the trigger forcing this step to be what it always claimed to be. The
+  //    permission check above runs as the acting user, so doing the write as
+  //    anyone else was always a gap between the check and the act: it let a holder
+  //    of members.manage be handed a role they could not themselves confer.
+  //    Now the DB re-decides that, per-row, against the real actor.
+  //    RLS admits this write: the actor was just confirmed to hold members.manage
+  //    in this org, which is exactly what the INSERT policy requires.
+  const mr = await authClient.from("membership_roles").insert({
     membership_id: (membershipRes.data as { id: string }).id,
     role_id: roleId,
     organization_id: organizationId,
@@ -169,7 +179,9 @@ export async function addMemberToOrganization(
   if (mr.error) {
     await rollback();
     captureException(mr.error, { action: "addMember", organizationId, actorId: actingUser.id, step: "membership_role" });
-    return fail("addFailed");
+    // The actor may not confer this role (e.g. a non-admin with members.manage
+    // trying to create an admin). That is a permission answer, not a server fault.
+    return fail(/Not allowed to assign the role/.test(mr.error.message) ? "notAllowed" : "addFailed");
   }
 
   logger.info("member added", {
