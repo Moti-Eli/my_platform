@@ -296,9 +296,12 @@ full explanation.
   touched anywhere: it is the only write path. **Scope boundary**: this changes NO
   existing my-platform table's grants — they keep client writes gated by RLS alone,
   a known deferred debt (see the roadmap). Verified by
-  `scripts/verify-client-grants.ts` (35 assertions, incl. a default-privileges proof
+  `scripts/verify-client-grants.ts` (38 assertions, incl. a default-privileges proof
   against a throwaway table), shown non-vacuous by failing 14 assertions against the
-  pre-migration state.
+  pre-migration state. Updated for `20260717000005`: it now asserts `inventory_items`
+  as the RLS-gated client write path (authenticated holds INSERT+UPDATE, not DELETE;
+  writes gated by policy, not privilege) while the other three Cortex tables stay
+  write-sealed.
 - `20260717000002_shell_audit_org_scope.sql` — **org-scopes the shell audit tables
   and fixes a LIVE bug** (both verified EMPTY first: `events` = 0, `ai_log` = 0).
   `events.org_id` becomes NOT NULL (the old comment "NULL for a personal-context
