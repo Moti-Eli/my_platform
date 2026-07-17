@@ -372,6 +372,50 @@ full explanation.
   every non-admin escalation; the admin, bootstrap-without-JWT, soft-delete, and
   `users.view` assertions correctly do not move, as they turn on other clauses).
 
+## Local-only guard (every script that writes)
+
+**Scripts under `scripts/` refuse to run against a non-local database.**
+
+This is not a precaution in the abstract — it is a fix. Harness fixtures were once
+written to the **LIVE remote project**: the root `.env` points
+`NEXT_PUBLIC_SUPABASE_URL` at the hosted project while `SUPABASE_DB_URL` is unset
+and falls back to the local stack, so a run was split-brained — supabase-js
+fixtures went to remote while the `pg` assertions ran against local. Test
+organizations and users were created on the real project and removed by hand. The
+mitigation at the time was a per-run env override, which protects only whoever
+remembers to type it. `scripts/db-guard.ts` disarms the trap for everyone.
+`seed.ts` is the worst case: it creates auth users with a known shared password.
+
+`assertLocalDatabase()` is the **first statement** of every writing script. It
+resolves every URL the script will use — `NEXT_PUBLIC_SUPABASE_URL` and
+`SUPABASE_DB_URL` (which defaults to the local literal the scripts already
+shared) — and refuses unless **all** of them are local, naming the offending
+variable and the host it resolved to. It **fails closed**: an unset or blank
+variable is a refusal, not a pass, and a URL it cannot parse is treated as remote.
+
+Hosts are **parsed, never substring-matched** — `https://localhost.evil.supabase.co`
+contains "localhost" and is correctly refused. That is the load-bearing property,
+and `scripts/verify-db-guard.ts` exists mostly to hold it in place.
+
+It **refuses; it does not redirect.** Point your environment at the local stack
+and re-run — the guard will never silently send writes somewhere you did not ask
+for. Nothing here reads or writes any env file, and no `.env.local` / `.env.test`
+is involved.
+
+Not guarded: `verify-observability.ts`, which touches no database at all (it is a
+unit test of the logging package).
+
+### Escape hatch
+
+```bash
+ALLOW_REMOTE_DB_WRITES=i-understand   # EXACT string; 1 / true / yes all still refuse
+```
+
+An exact-match string, deliberately not a truthy check — so it cannot be tripped
+by reflex or by a CI system that helpfully sets flags to `1`. **Nothing in this
+repo sets it**; it exists so a human can type it, once, on purpose. When it is
+used the script warns loudly that it is writing to a non-local database.
+
 ## Usage
 
 ```typescript
@@ -388,7 +432,8 @@ you can develop and demo tenant isolation by logging in as different org admins.
 
 It seeds **2 organizations** (Organization A, Organization B), each with **5
 users** (2 admins + 3 members), an **Admin** role (`is_admin = true`) and a
-**Member** role (granted `users.view`), plus real Supabase
+**Member** role (holding **zero** permissions — `users.view` was deleted in
+`20260717000003`; membership is the marker, permissions are for actions), plus real Supabase
 **auth users** + their `public.users` profiles, memberships, and role
 assignments. It also seeds one **platform owner** (super admin),
 `owner@platform.test`, flagged in `platform_admins` and belonging to **no**

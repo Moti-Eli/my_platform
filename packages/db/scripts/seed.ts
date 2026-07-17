@@ -29,6 +29,13 @@ import { existsSync } from "node:fs";
 import dotenv from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { assertLocalDatabase } from "./db-guard";
+
+// FIRST statement: refuse to run against a non-local database. This script WRITES —
+// and it is the worst case, creating auth users with a known shared password.
+// (db-guard loads the root .env itself, so this is safe before dotenv.config below.)
+assertLocalDatabase("seed.ts");
+
 // Env lives at the monorepo root .env. When run via pnpm the cwd is
 // packages/db, so the root is two levels up.
 const rootEnv = resolve(process.cwd(), "../../.env");

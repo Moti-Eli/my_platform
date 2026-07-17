@@ -36,6 +36,12 @@ import dotenv from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Client } from "pg";
 
+import { assertLocalDatabase } from "./db-guard";
+
+// FIRST statement: refuse to run against a non-local database. This script WRITES.
+// (db-guard loads the root .env itself, so this is safe before dotenv.config below.)
+assertLocalDatabase("verify-shell-audit.ts");
+
 const rootEnv = resolve(process.cwd(), "../../.env");
 dotenv.config({ path: existsSync(rootEnv) ? rootEnv : undefined });
 

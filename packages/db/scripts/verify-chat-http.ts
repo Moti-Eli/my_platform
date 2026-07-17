@@ -11,6 +11,12 @@ import { existsSync } from "node:fs";
 import dotenv from "dotenv";
 import { createServerClient } from "@supabase/ssr";
 
+import { assertLocalDatabase } from "./db-guard";
+
+// FIRST statement: refuse to run against a non-local database. This script WRITES.
+// (db-guard loads the root .env itself, so this is safe before dotenv.config below.)
+assertLocalDatabase("verify-chat-http.ts");
+
 const rootEnv = resolve(process.cwd(), "../../.env");
 dotenv.config({ path: existsSync(rootEnv) ? rootEnv : undefined });
 
