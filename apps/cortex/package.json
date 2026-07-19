@@ -15,6 +15,7 @@
     "@platform/auth": "workspace:^",
     "@platform/cortex-core": "workspace:*",
     "@platform/db": "workspace:*",
+    "@tanstack/react-query": "^5.0.0",
     "next": "^16.2.7",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

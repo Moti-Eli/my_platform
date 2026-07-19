@@ -12,6 +12,7 @@ import { getDirection, defaultLocale, isLocale, I18nProvider } from "@/i18n";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { LANG_COOKIE, THEME_COOKIE, migrateLegacyTheme } from "@/lib/cookies";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { QueryProvider } from "@/lib/query/QueryProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -66,9 +67,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           dangerouslySetInnerHTML={{ __html: baseStylesheet() + "\n" + themeStylesheet() }}
         />
         <ServiceWorkerRegister />
-        <I18nProvider initialLocale={locale}>
-          <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
-        </I18nProvider>
+        <QueryProvider>
+          <I18nProvider initialLocale={locale}>
+            <ThemeProvider initialTheme={theme}>{children}</ThemeProvider>
+          </I18nProvider>
+        </QueryProvider>
       </body>
     </html>
   );
