@@ -142,6 +142,8 @@ const he = {
     // DEV placeholder identity — no auth yet; replace with the session user.
     name: "המשתמש",
     contactPlaceholder: "הוספת אימייל או טלפון",
+    roleAdmin: "מנהל",
+    roleMember: "חבר",
     menu: "תפריט",
     changePhoto: "שינוי תמונה",
     // Section headers
@@ -309,6 +311,8 @@ const en: Messages = {
     // DEV placeholder identity — no auth yet; replace with the session user.
     name: "User",
     contactPlaceholder: "Add email or phone",
+    roleAdmin: "Admin",
+    roleMember: "Member",
     menu: "Menu",
     changePhoto: "Change photo",
     // Section headers

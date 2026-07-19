@@ -68,9 +68,22 @@ const GROUPS: Group[] = [
   },
 ];
 
-export function ProfileView() {
+interface ProfileViewProps {
+  /** public.users.display_name — may be null (fall back to the email local part). */
+  displayName: string | null;
+  /** The auth user's email. */
+  email: string;
+  /** The active organization's name. */
+  orgName: string;
+  /** Whether the user is an admin in the active org (from requireSession). */
+  isAdmin: boolean;
+}
+
+export function ProfileView({ displayName, email, orgName, isAdmin }: ProfileViewProps) {
   const { t } = useI18n();
-  const name = t("profile.name");
+  // The REAL name now, falling back to the email's local part when display_name
+  // is null — never the old static i18n string.
+  const name = displayName ?? email.split("@")[0] ?? "";
   const initial = [...name][0] ?? "";
 
   // Wired to a no-op for now — image upload lands later.
@@ -110,7 +123,19 @@ export function ProfileView() {
         </button>
         <div className="flex flex-col items-center gap-2xs">
           <span className="type-title text-ink">{name}</span>
-          <span className="type-label text-muted">{t("profile.contactPlaceholder")}</span>
+          {/* Email is LTR even under an RTL layout. */}
+          <span className="type-label text-muted" dir="ltr">{email}</span>
+          <div className="flex items-center gap-xs pt-2xs">
+            {/* Role: admin in the accent, member muted. */}
+            <span
+              className={`rounded-pill px-sm py-2xs type-caption ${
+                isAdmin ? "bg-accent/15 text-accent" : "bg-hairline text-muted"
+              }`}
+            >
+              {isAdmin ? t("profile.roleAdmin") : t("profile.roleMember")}
+            </span>
+            {orgName ? <span className="type-label text-muted">{orgName}</span> : null}
+          </div>
         </div>
       </div>
 
