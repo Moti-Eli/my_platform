@@ -41,7 +41,6 @@ function stub(
 export const STUB_APPS: AppManifest[] = [
   // --- Installable: open a working placeholder screen -----------------------
   stub("calendar", "grid", "indigo", "productivity", "coming_soon"),
-  stub("tasks", "check", "teal", "productivity", "coming_soon"),
   stub("contacts", "user", "coral", "crm", "coming_soon"),
   stub("expenses", "box", "amber", "finance", "coming_soon"),
   stub("notes", "pin", "indigo", "productivity", "coming_soon"),

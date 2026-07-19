@@ -31,6 +31,10 @@ import { manifest } from "@/tools/inventory/manifest";
 import { createInventoryLogic } from "@/tools/inventory/logic";
 import { createInventoryIntents } from "@/tools/inventory/intents";
 import { listeners } from "@/tools/inventory/events";
+import { manifest as tasksManifest } from "@/tools/tasks/manifest";
+import { createTasksLogic } from "@/tools/tasks/logic";
+import { createTasksIntents } from "@/tools/tasks/intents";
+import { listeners as tasksListeners } from "@/tools/tasks/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -50,6 +54,10 @@ function build(): Runtime {
   const inventoryLogic = createInventoryLogic({ db, emit: eventBus.emit });
   if (!getApp(manifest.id)) {
     registerApp(manifest, createInventoryIntents(inventoryLogic), listeners);
+  }
+  const tasksLogic = createTasksLogic({ db, emit: eventBus.emit });
+  if (!getApp(tasksManifest.id)) {
+    registerApp(tasksManifest, createTasksIntents(tasksLogic), tasksListeners);
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),
