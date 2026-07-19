@@ -35,5 +35,9 @@ export function buildCtx(session: Session): Ctx {
     // Audit metadata only, and never a scoping key. Null until installed-apps
     // moves off localStorage — see the header.
     instanceId: null,
+    // Admin status in the active org, resolved by the guard. A convenience for
+    // gating admin-only UI/intents — never a scoping key, never a substitute for
+    // RLS (see `Ctx` in @platform/cortex-core).
+    isAdmin: session.isAdmin,
   };
 }

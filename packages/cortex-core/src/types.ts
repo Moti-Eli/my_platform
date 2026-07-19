@@ -24,6 +24,8 @@ import type { ZodType } from "zod";
  * - `orgId`      the active organization. THE ONLY SCOPING KEY. Never null.
  * - `instanceId` audit metadata ONLY. Never a scoping key. Null until
  *                installed-apps moves off localStorage.
+ * - `isAdmin`    admin status in the active org. A convenience, not a gate of
+ *                record — the DB still enforces access.
  */
 export interface Ctx {
   userId: string;
@@ -58,6 +60,18 @@ export interface Ctx {
    * null until installed-apps moves off localStorage and real instance rows exist.
    */
   instanceId: string | null;
+
+  /**
+   * Admin status in the ACTIVE org — derived from `roles.is_admin` (via
+   * `membership_roles`) for the caller's membership in `orgId`. A CONVENIENCE the
+   * shell reads to gate admin-only UI/intents, nothing more.
+   *
+   * NOT A SCOPING KEY: `orgId` remains the only axis anything is scoped by. And
+   * NOT A SUBSTITUTE FOR RLS: the database still enforces every access row-by-row
+   * (auth_user_can_read / _write); this flag only lets the shell decide what to
+   * OFFER, never what the DB will ALLOW. Reading it true does not widen access.
+   */
+  isAdmin: boolean;
 }
 
 /**

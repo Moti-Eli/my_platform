@@ -14,6 +14,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export interface Session {
   userId: string;
   orgId: string;
+  /** Whether the user holds an `is_admin` role in the ACTIVE org. The deliberate
+   * "asks for more" this header describes — the shell reads it to gate admin-only
+   * UI/intents. Derived, never a scoping key; RLS still enforces every access. */
+  isAdmin: boolean;
 }
 
 /**
@@ -78,7 +82,7 @@ export async function requireSession(): Promise<Session> {
   //     the caller's own rows; this line does.
   const res = await supabase
     .from("memberships")
-    .select("organization_id, created_at")
+    .select("id, organization_id, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
@@ -86,6 +90,7 @@ export async function requireSession(): Promise<Session> {
     throw new Error(`requireSession (memberships): ${res.error.message}`);
   }
   const memberships = (res.data ?? []) as Array<{
+    id: string;
     organization_id: string;
     created_at: string;
   }>;
@@ -114,5 +119,32 @@ export async function requireSession(): Promise<Session> {
   //         stable across requests, which a picker-less UI needs. It is NOT a
   //         claim that the first org is the right one.
   const active = memberships[0]!;
-  return { userId: user.id, orgId: active.organization_id };
+
+  // (f) Admin status in the ACTIVE org. This is the "a page that wants more asks
+  //     for more, explicitly" the Session header promises — a deliberate second
+  //     question, not scope creep: every page now wants to know whether the caller
+  //     is an admin here, so the shell can gate admin-only UI/intents.
+  //
+  //     Same RLS-scoped client, NEVER the admin client — the DB already answers
+  //     "may THIS caller see these role rows" correctly, and service_role would
+  //     only bypass the policy to re-implement it worse. Scoped to `active.id` (the
+  //     membership row for the active org), so the roles considered are exactly the
+  //     ones held IN that org. `!inner` + the embedded `roles.is_admin` filter make
+  //     this "does any is_admin role hang off this membership".
+  //
+  //     FAILS CLOSED: a query error throws (like the memberships query above); it
+  //     never defaults to true. Zero matching rows -> not an admin (false).
+  const adminRes = await supabase
+    .from("membership_roles")
+    .select("membership_id, roles!inner(is_admin)")
+    .eq("membership_id", active.id)
+    .eq("roles.is_admin", true)
+    .limit(1);
+
+  if (adminRes.error) {
+    throw new Error(`requireSession (admin role): ${adminRes.error.message}`);
+  }
+  const isAdmin = (adminRes.data ?? []).length > 0;
+
+  return { userId: user.id, orgId: active.organization_id, isAdmin };
 }
