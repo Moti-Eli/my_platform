@@ -122,19 +122,19 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-card px-sm py-sm shadow-lifted">
-          {!hasQuery ? (
-            <p className="px-2xs py-xs type-label text-muted">{t("search.hint")}</p>
-          ) : groups.length === 0 ? (
-            <p className="px-2xs py-xs type-label text-muted">{t("search.noResults")}</p>
-          ) : (
-            <div className="flex flex-col gap-sm">
-              {groups.map((group) => (
-                <SearchResultGroup key={group.tool} group={group} onNavigate={onClose} />
-              ))}
-            </div>
-          )}
-        </div>
+        {hasQuery ? (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-card px-sm py-sm shadow-lifted">
+            {groups.length === 0 ? (
+              <p className="px-2xs py-xs type-label text-muted">{t("search.noResults")}</p>
+            ) : (
+              <div className="flex flex-col gap-sm">
+                {groups.map((group) => (
+                  <SearchResultGroup key={group.tool} group={group} onNavigate={onClose} />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );
