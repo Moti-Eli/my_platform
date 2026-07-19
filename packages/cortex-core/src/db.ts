@@ -54,6 +54,9 @@ export interface CortexDb {
   select(table: string, match?: DbMatch): Promise<DbRow[]>;
   /** Apply `patch` to every row matching `match`; returns the updated rows. */
   update(table: string, match: DbMatch, patch: DbRow): Promise<DbRow[]>;
+  /** Delete every row matching `match`. Like `update`, it is RLS-gated by the
+   * adapter's client choice — never service_role for a tool table. */
+  delete(table: string, match: DbMatch): Promise<void>;
 }
 
 /** An in-memory {@link CortexDb} that also lets tests read back what was written. */
@@ -103,6 +106,12 @@ export function createInMemoryDb(): InMemoryDb {
         }
       }
       return updated;
+    },
+    async delete(table, match) {
+      store.set(
+        table,
+        tableOf(table).filter((row) => !matches(row, match)),
+      );
     },
     rows(table) {
       return tableOf(table);

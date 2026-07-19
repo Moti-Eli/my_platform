@@ -100,5 +100,18 @@ export function createSupabaseCortexDb({ getRls, service }: SupabaseCortexDbDeps
       if (error) fail("update", table, error.message);
       return (data ?? []) as DbRow[];
     },
+
+    async delete(table, match) {
+      // Same client choice as update — the RLS client for tool tables, so the
+      // DELETE policy's auth_user_can_write gate runs — and the same throw-on-error
+      // contract (a denial must never look like a silent no-op).
+      const client = await clientFor(table);
+      let query = client.from(table).delete();
+      for (const [column, value] of Object.entries(match)) {
+        query = query.eq(column, value);
+      }
+      const { error } = await query;
+      if (error) fail("delete", table, error.message);
+    },
   };
 }
