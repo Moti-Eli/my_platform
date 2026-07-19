@@ -2,10 +2,11 @@
  * Verification harness for the client-grant tightening (migration 20260717000001).
  *
  * UPDATED for 20260717000005, which opens inventory_items to client INSERT/UPDATE as
- * the Cortex WRITE PATH. This file now asserts inventory_items as the deliberate,
- * RLS-gated exception — writes go through the policies, not a table-privilege revoke —
- * while app_instances / groups / group_members stay write-sealed and DELETE on
- * inventory_items stays denied (it was never granted).
+ * the Cortex WRITE PATH, and for 20260717000007, which extends that path to DELETE.
+ * This file now asserts inventory_items as the deliberate, RLS-gated exception —
+ * writes go through the policies, not a table-privilege revoke — while app_instances /
+ * groups / group_members stay write-sealed. inventory_items' DELETE is now the same
+ * open, RLS-gated path as its INSERT/UPDATE (same auth_user_can_write gate).
  *
  * Asserts on ACTUAL CATALOG STATE, not on behavior alone. Behavior can be right for
  * the wrong reason: before this migration every one of these tables was already
@@ -18,21 +19,24 @@
  *   CATALOG:
  *     - anon holds NO privileges on any of the five Cortex tables
  *     - authenticated holds SELECT on all Cortex tables. Writes: NONE on
- *       app_instances / groups / group_members; on inventory_items it now holds
- *       INSERT + UPDATE (but NOT DELETE) — the write path opened by 20260717000005,
- *       gated by RLS policies rather than table privilege. (record_grants:
- *       authenticated holds nothing at all — sealed by 20260716000004, untouched here.)
+ *       app_instances / groups / group_members; on inventory_items it holds
+ *       INSERT + UPDATE + DELETE — the write path opened by 20260717000005 and
+ *       extended to DELETE by 20260717000007, gated by RLS policies rather than table
+ *       privilege. (record_grants: authenticated holds nothing at all — sealed by
+ *       20260716000004, untouched here.)
  *     - service_role still holds insert/update/delete on all five. Asserted
  *       explicitly: the shell writes as service_role, and revoking it would break
  *       every Cortex write path there is.
  *
  *   BEHAVIORAL:
- *     - as authenticated, a permitted member's UPDATE/INSERT on inventory_items now
- *       SUCCEEDS (the open write path), while the same role's write to a row it may
+ *     - as authenticated, a permitted member's UPDATE/INSERT/DELETE on inventory_items
+ *       now SUCCEEDS (the open write path), while the same role's write to a row it may
  *       not touch is filtered by RLS (0 rows), and an INSERT with a forged owner_id
- *       is rejected by the insert policy's owner pin. DELETE still RAISES 42501
- *       'permission denied' — never granted, so the table-privilege revoke (not RLS)
- *       is what blocks it, and the distinct-message proof now rides on DELETE.
+ *       is rejected by the insert policy's owner pin. The privilege-revoke distinct-
+ *       message proof (a 42501 'permission denied for table', the message only a
+ *       table-privilege revoke produces — never RLS) now RIDES ON app_instances, which
+ *       stays write-sealed: an authenticated INSERT there is blocked at the privilege
+ *       layer, not by RLS.
  *     - as authenticated, SELECT on inventory_items still works and still returns
  *       exactly what can_read allows — the write path did not touch reads.
  *
@@ -141,14 +145,14 @@ async function main(): Promise<void> {
     // [2] authenticated: SELECT yes, writes no
     // ---------------------------------------------------------------------
     console.log("\n[2] authenticated: SELECT on all; writes only on inventory_items (the write path)");
-    // inventory_items is the deliberate exception: 20260717000005 grants INSERT+UPDATE
-    // so client writes can be gated by RLS policies. It keeps SELECT and is NOT
-    // granted DELETE (logic.ts has no delete path).
+    // inventory_items is the deliberate exception: 20260717000005 granted INSERT+UPDATE
+    // and 20260717000007 added DELETE, so all three client writes are gated by RLS
+    // policies rather than by table privilege. It keeps SELECT throughout.
     {
       const p = await privs(pg, "inventory_items", "authenticated");
       check("authenticated on inventory_items has SELECT", p.has("SELECT"), show(p));
       check("authenticated on inventory_items has INSERT + UPDATE (the write path)", p.has("INSERT") && p.has("UPDATE"), show(p));
-      check("authenticated on inventory_items has NO DELETE", !p.has("DELETE"), show(p));
+      check("authenticated on inventory_items has DELETE (the delete path)", p.has("DELETE"), show(p));
     }
     // The other three Cortex tables stay sealed: SELECT only, no client writes.
     for (const t of ["app_instances", "groups", "group_members"] as const) {
@@ -175,7 +179,7 @@ async function main(): Promise<void> {
     // ---------------------------------------------------------------------
     // [4] BEHAVIORAL — the observable difference
     // ---------------------------------------------------------------------
-    console.log("\n[4] BEHAVIORAL: inventory_items is the OPEN write path — writes RLS-gated, DELETE privilege-denied");
+    console.log("\n[4] BEHAVIORAL: inventory_items is the OPEN write path — INSERT/UPDATE/DELETE RLS-gated");
 
     const org = await admin.from("organizations").insert({ name: `${PREFIX} — Org` }).select("id").single();
     if (org.error || !org.data) throw new Error(`org: ${org.error?.message}`);
@@ -310,29 +314,59 @@ async function main(): Promise<void> {
       forgeOk ? "INSERT SUCCEEDED — owner pin missing" : `${forgeCode}: ${forgeMsg}`
     );
 
-    // DELETE is deliberately NOT granted (logic.ts has no delete path), so it is
-    // still stopped at the TABLE-PRIVILEGE layer: a 42501 'permission denied for
-    // table', the distinct proof that a revoke, not RLS, is what blocks it. (RLS
-    // raises 42501 too, but with a 'row-level security' message; 'permission denied'
-    // is only ever the privilege revoke — the check that used to ride on INSERT.)
+    // DELETE is now the OPEN, RLS-gated path (20260717000007) — the SAME
+    // auth_user_can_write gate as UPDATE, no owner-only carve-out. A member may
+    // delete a row they may write. Run inside a rolled-back tx so the row survives
+    // for section [5]'s read checks below.
     await pg.query("begin");
-    let delCode = "";
-    let delMsg = "";
+    let delOk = false;
+    let delRows = 0;
+    let delErr = "";
     try {
       await pg.query("set local role authenticated");
       await pg.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid })]);
-      await pg.query(`delete from public.inventory_items where id = $1`, [itemId]);
+      const r = await pg.query(`delete from public.inventory_items where id = $1`, [itemId]);
+      delRows = r.rowCount ?? 0;
+      delOk = true;
     } catch (err: unknown) {
       const e = err as { code?: string; message?: string };
-      delCode = e.code ?? "";
-      delMsg = e.message ?? "";
+      delErr = `${e.code}: ${e.message}`;
     } finally {
       await pg.query("rollback");
     }
     check(
-      "authenticated DELETE on inventory_items still RAISES 42501 'permission denied' (delete not granted)",
-      delCode === "42501" && /permission denied/i.test(delMsg),
-      delCode ? `${delCode}: ${delMsg}` : "NO ERROR"
+      "authenticated DELETE on their own 'org' row SUCCEEDS (the delete path is open, RLS-gated)",
+      delOk && delRows === 1,
+      delOk ? `${delRows} row(s)` : delErr
+    );
+
+    // The privilege-revoke layer (distinct from RLS) is still proven behaviorally —
+    // re-anchored onto a table that IS still write-sealed now that inventory_items'
+    // DELETE is open. authenticated holds no INSERT on app_instances, so the attempt
+    // is stopped at the TABLE-PRIVILEGE layer: a 42501 'permission denied for table',
+    // the message ONLY a privilege revoke produces. (RLS raises 42501 too, but with a
+    // 'row-level security' message.) This is the proof that used to ride on DELETE.
+    await pg.query("begin");
+    let sealCode = "";
+    let sealMsg = "";
+    try {
+      await pg.query("set local role authenticated");
+      await pg.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid })]);
+      await pg.query(
+        `insert into public.app_instances (definition_id, owner_id, org_id) values (gen_random_uuid(), $1, $2)`,
+        [uid, orgId]
+      );
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
+      sealCode = e.code ?? "";
+      sealMsg = e.message ?? "";
+    } finally {
+      await pg.query("rollback");
+    }
+    check(
+      "authenticated INSERT on write-sealed app_instances RAISES 42501 'permission denied' (privilege revoke, not RLS)",
+      sealCode === "42501" && /permission denied/i.test(sealMsg),
+      sealCode ? `${sealCode}: ${sealMsg}` : "NO ERROR"
     );
 
     // ---------------------------------------------------------------------
