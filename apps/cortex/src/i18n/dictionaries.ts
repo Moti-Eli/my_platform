@@ -14,6 +14,8 @@ import tasksHe from "@/tools/tasks/i18n/he.json";
 import tasksEn from "@/tools/tasks/i18n/en.json";
 import staffHe from "@/tools/staff/i18n/he.json";
 import staffEn from "@/tools/staff/i18n/en.json";
+import notesHe from "@/tools/notes/i18n/he.json";
+import notesEn from "@/tools/notes/i18n/en.json";
 
 const he = {
   login: {
@@ -184,6 +186,7 @@ const he = {
   inventory: inventoryHe,
   tasks: tasksHe,
   staff: staffHe,
+  notes: notesHe,
 } as const;
 
 /** The canonical message shape (derived from `he`). */
@@ -355,6 +358,7 @@ const en: Messages = {
   inventory: inventoryEn,
   tasks: tasksEn,
   staff: staffEn,
+  notes: notesEn,
 };
 
 export const dictionaries: Record<Locale, Messages> = { he, en };
