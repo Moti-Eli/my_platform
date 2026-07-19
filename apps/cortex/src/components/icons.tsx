@@ -325,3 +325,14 @@ export function WalletIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Open book / diary — journal, entries, a written record. */
+export function BookIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 6c-1.6-1.2-3.6-1.8-6-1.8V17c2.4 0 4.4.6 6 1.8" />
+      <path d="M12 6c1.6-1.2 3.6-1.8 6-1.8V17c-2.4 0-4.4.6-6 1.8" />
+      <path d="M12 6v12.8" />
+    </svg>
+  );
+}

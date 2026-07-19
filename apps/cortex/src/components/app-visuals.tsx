@@ -22,6 +22,7 @@ import {
   SearchIcon,
   DocumentIcon,
   WalletIcon,
+  BookIcon,
 } from "@/components/icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -40,6 +41,7 @@ const ICONS: Record<string, IconComponent> = {
   search: SearchIcon,
   document: DocumentIcon,
   wallet: WalletIcon,
+  book: BookIcon,
 };
 
 /** The icon component for a manifest `icon` id (falls back to a generic box). */
@@ -54,6 +56,7 @@ const COLOR_CLASSES: Record<string, string> = {
   coral: "bg-app-coral/15 text-app-coral",
   amber: "bg-app-amber/15 text-app-amber",
   green: "bg-app-green/15 text-app-green",
+  blue: "bg-app-blue/15 text-app-blue",
 };
 
 /** The tinted icon-circle classes for a manifest `color` token. */
