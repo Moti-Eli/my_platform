@@ -10,6 +10,8 @@ import type { Locale } from "./config";
 // type-checked (e.g. t("inventory.name")).
 import inventoryHe from "@/tools/inventory/i18n/he.json";
 import inventoryEn from "@/tools/inventory/i18n/en.json";
+import tasksHe from "@/tools/tasks/i18n/he.json";
+import tasksEn from "@/tools/tasks/i18n/en.json";
 
 const he = {
   login: {
@@ -175,6 +177,7 @@ const he = {
       "Cortex הוא סופר-אפליקציה לניהול העסק שלך: כל הכלים שאתה צריך במקום אחד, עם עוזר AI שמחבר ביניהם.",
   },
   inventory: inventoryHe,
+  tasks: tasksHe,
 } as const;
 
 /** The canonical message shape (derived from `he`). */
@@ -341,6 +344,7 @@ const en: Messages = {
       "Cortex is a super-app for running your business: every tool you need in one place, tied together by an AI assistant.",
   },
   inventory: inventoryEn,
+  tasks: tasksEn,
 };
 
 export const dictionaries: Record<Locale, Messages> = { he, en };
