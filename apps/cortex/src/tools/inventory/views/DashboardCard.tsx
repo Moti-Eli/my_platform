@@ -106,19 +106,31 @@ export function DashboardCard(_props: ToolViewProps) {
         </ul>
       ) : error ? (
         <p className="type-label text-muted">{t("inventory.loadFailed")}</p>
-      ) : low.length > 0 ? (
+      ) : items.length > 0 ? (
         <ul className="flex flex-col divide-y divide-hairline">
-          {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
-            <li
-              key={item.id}
-              className="flex items-center justify-between py-sm"
-            >
-              <span className="type-body text-ink">{item.name}</span>
-              <span className="type-label text-muted" dir="ltr">
-                {item.quantity} {item.unit}
-              </span>
-            </li>
-          ))}
+          {items.slice(0, MAX_PREVIEW_ROWS).map((item) => {
+            // Low stock is now a per-row SIGNAL, not a gate: the row renders
+            // either way, and only wears the badge when it's below threshold.
+            const isLow = item.quantity < item.reorderThreshold;
+            return (
+              <li
+                key={item.id}
+                className="flex items-center justify-between py-sm"
+              >
+                <span className="flex items-center gap-xs type-body text-ink">
+                  {item.name}
+                  {isLow ? (
+                    <span className="rounded-pill bg-warning/15 px-xs py-2xs type-caption text-warning">
+                      {t("inventory.lowBadge")}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="type-label text-muted" dir="ltr">
+                  {item.quantity} {item.unit}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="type-label text-muted">{t("inventory.allStockedBody")}</p>
