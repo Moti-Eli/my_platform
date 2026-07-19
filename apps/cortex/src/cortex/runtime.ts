@@ -34,7 +34,7 @@ import { listeners } from "@/tools/inventory/events";
 import { manifest as tasksManifest } from "@/tools/tasks/manifest";
 import { createTasksLogic } from "@/tools/tasks/logic";
 import { createTasksIntents } from "@/tools/tasks/intents";
-import { listeners as tasksListeners } from "@/tools/tasks/events";
+import { createTasksListeners } from "@/tools/tasks/events";
 import { manifest as staffManifest } from "@/tools/staff/manifest";
 import { createStaffLogic } from "@/tools/staff/logic";
 import { createStaffIntents } from "@/tools/staff/intents";
@@ -61,7 +61,10 @@ function build(): Runtime {
   }
   const tasksLogic = createTasksLogic({ db, emit: eventBus.emit });
   if (!getApp(tasksManifest.id)) {
-    registerApp(tasksManifest, createTasksIntents(tasksLogic), tasksListeners);
+    // Listeners close over tasksLogic (see events.ts). On the client this registers
+    // the same wiring, but the inventory.low chain only ever fires server-side (that
+    // is where inventory writes run), so this listener is inert here.
+    registerApp(tasksManifest, createTasksIntents(tasksLogic), createTasksListeners(tasksLogic));
   }
   // Staff's read runs SERVER-SIDE ONLY (through runIntentAction → the server
   // data-layer). This client runtime registers the tool so the catalog/chips can
