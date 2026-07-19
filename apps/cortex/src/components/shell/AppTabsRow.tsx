@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { PlusIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
 import { uninstall } from "@/lib/installed-apps";
@@ -38,6 +38,7 @@ const MENU_EST_HEIGHT = 44;
 interface MenuAnchor {
   id: string;
   label: string;
+  route: string;
   centerX: number;
   top: number;
   bottom: number;
@@ -46,6 +47,7 @@ interface MenuAnchor {
 export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const { t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
 
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,7 +61,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const openMenu = (tab: ToolTab, chip: HTMLElement) => {
     const r = chip.getBoundingClientRect();
     suppressClick.current = true;
-    setMenu({ id: tab.id, label: tab.label, centerX: r.left + r.width / 2, top: r.top, bottom: r.bottom });
+    setMenu({ id: tab.id, label: tab.label, route: tab.route, centerX: r.left + r.width / 2, top: r.top, bottom: r.bottom });
   };
 
   const clearTimer = () => {
@@ -207,8 +209,14 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
                 type="button"
                 role="menuitem"
                 onClick={() => {
+                  // Capture the removed tool's route BEFORE clearing the menu, so we
+                  // can tell whether we're currently ON that tool's page. If we are,
+                  // its page is about to lose its chip and context — go home. If not,
+                  // stay put; only the chip disappears.
+                  const removedRoute = menu.route;
                   uninstall(menu.id);
                   setMenu(null);
+                  if (pathname === removedRoute) router.push("/");
                 }}
                 className="whitespace-nowrap rounded-md px-sm py-2xs type-label text-danger touch-manipulation interactive"
               >
