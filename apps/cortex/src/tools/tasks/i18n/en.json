@@ -1,0 +1,22 @@
+{
+  "name": "Tasks",
+  "openTasks": "open",
+  "allDone": "All done",
+  "doneBadge": "done",
+  "openTool": "Open tasks",
+  "addTask": "Add task",
+  "taskTitle": "Task title",
+  "dueDate": "Due date",
+  "add": "Add",
+  "cancel": "Cancel",
+  "emptyTitle": "No tasks yet",
+  "emptyHint": "Add your first task to get started.",
+  "markDone": "Mark done",
+  "markUndone": "Mark not done",
+  "titlePlaceholder": "e.g. Call the supplier",
+  "fieldRequired": "Required",
+  "errorDenied": "You don't have permission to make that change.",
+  "errorFailed": "Something went wrong. Please try again.",
+  "allDoneBody": "Nothing on your list",
+  "loadFailed": "Couldn't load tasks"
+}

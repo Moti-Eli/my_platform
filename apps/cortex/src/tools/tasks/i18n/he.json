@@ -1,0 +1,22 @@
+{
+  "name": "משימות",
+  "openTasks": "פתוחות",
+  "allDone": "הכל הושלם",
+  "doneBadge": "בוצע",
+  "openTool": "פתח משימות",
+  "addTask": "הוסף משימה",
+  "taskTitle": "כותרת המשימה",
+  "dueDate": "תאריך יעד",
+  "add": "הוסף",
+  "cancel": "ביטול",
+  "emptyTitle": "אין משימות עדיין",
+  "emptyHint": "הוסף משימה ראשונה כדי להתחיל.",
+  "markDone": "סמן כבוצע",
+  "markUndone": "סמן כלא בוצע",
+  "titlePlaceholder": "לדוגמה: להתקשר לספק",
+  "fieldRequired": "שדה חובה",
+  "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
+  "errorFailed": "משהו השתבש. נסה שוב.",
+  "allDoneBody": "אין משימות ברשימה",
+  "loadFailed": "טעינת המשימות נכשלה"
+}
