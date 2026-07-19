@@ -21,5 +21,6 @@
   "loadFailed": "Couldn't load tasks",
   "delete": "Delete",
   "confirmDelete": "Delete?",
-  "deleteFailed": "Couldn't delete. Please try again."
+  "deleteFailed": "Couldn't delete. Please try again.",
+  "autoReorderTitle": "Reorder: {product}"
 }

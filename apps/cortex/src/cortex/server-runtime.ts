@@ -17,7 +17,7 @@ import { listeners } from "@/tools/inventory/events";
 import { manifest as tasksManifest } from "@/tools/tasks/manifest";
 import { createTasksLogic } from "@/tools/tasks/logic";
 import { createTasksIntents } from "@/tools/tasks/intents";
-import { listeners as tasksListeners } from "@/tools/tasks/events";
+import { createTasksListeners } from "@/tools/tasks/events";
 import { manifest as staffManifest } from "@/tools/staff/manifest";
 import { createStaffLogic } from "@/tools/staff/logic";
 import { createStaffIntents } from "@/tools/staff/intents";
@@ -98,7 +98,10 @@ function build(): DataLayer {
   }
   const tasksLogic = createTasksLogic({ db, emit: eventBus.emit });
   if (!getApp(tasksManifest.id)) {
-    registerApp(tasksManifest, createTasksIntents(tasksLogic), tasksListeners);
+    // The listeners CLOSE OVER tasksLogic so the inventory.low → create-a-reorder-task
+    // chain can write through the tasks tool's own create path. Same logic instance
+    // the intents use.
+    registerApp(tasksManifest, createTasksIntents(tasksLogic), createTasksListeners(tasksLogic));
   }
   // Staff reads through the RLS client directly (not the CortexDb), because it uses
   // @platform/auth's multi-table getOrganizationMembers — see staff/logic.ts.

@@ -154,6 +154,16 @@ export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit })
         created_at: now,
         updated_at: now,
       });
+      // Fire the low-stock event on ADD too, not only on update: a product created
+      // already below its reorder threshold is just as low. No inventory.updated here
+      // — a create is not an update. Same payload shape the update path emits.
+      if (input.quantity < input.reorderThreshold) {
+        await emit(
+          "inventory.low",
+          { product: input.name, quantity: input.quantity, threshold: input.reorderThreshold },
+          ctx,
+        );
+      }
       return { id };
     },
 

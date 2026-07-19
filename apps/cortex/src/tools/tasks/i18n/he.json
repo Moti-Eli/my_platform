@@ -21,5 +21,6 @@
   "loadFailed": "טעינת המשימות נכשלה",
   "delete": "מחיקה",
   "confirmDelete": "למחוק?",
-  "deleteFailed": "המחיקה נכשלה. נסה שוב."
+  "deleteFailed": "המחיקה נכשלה. נסה שוב.",
+  "autoReorderTitle": "להזמין מלאי: {product}"
 }
