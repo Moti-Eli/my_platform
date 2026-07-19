@@ -20,6 +20,7 @@ import {
   GearIcon,
   HomeIcon,
   SearchIcon,
+  DocumentIcon,
 } from "@/components/icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -36,6 +37,7 @@ const ICONS: Record<string, IconComponent> = {
   gear: GearIcon,
   home: HomeIcon,
   search: SearchIcon,
+  document: DocumentIcon,
 };
 
 /** The icon component for a manifest `icon` id (falls back to a generic box). */
