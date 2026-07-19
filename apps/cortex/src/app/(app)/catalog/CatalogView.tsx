@@ -19,7 +19,15 @@ import { appIcon, appColorClasses } from "@/components/app-visuals";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
 
-function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed: boolean }) {
+function CatalogCard({
+  manifest,
+  installed,
+  locked,
+}: {
+  manifest: AppManifest;
+  installed: boolean;
+  locked: boolean;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const Icon = appIcon(manifest.icon);
@@ -48,6 +56,21 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
         {cardContent}
         <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-xs py-2xs type-caption text-muted">
           {t("apps.unavailable")}
+        </span>
+      </div>
+    );
+  }
+
+  // requiresAdmin, and the caller is not an admin: mirror the unavailable branch
+  // EXACTLY — dimmed, aria-disabled, not a button (no navigation), and NO install
+  // toggle (a non-admin can't use it, so don't let them add it to the bar). Only
+  // the badge text differs.
+  if (locked) {
+    return (
+      <div aria-disabled className={`${cardClass} opacity-50`}>
+        {cardContent}
+        <span className="absolute end-1.5 top-1.5 rounded-full bg-hairline px-xs py-2xs type-caption text-muted">
+          {t("apps.adminOnly")}
         </span>
       </div>
     );
@@ -94,7 +117,7 @@ function CatalogCard({ manifest, installed }: { manifest: AppManifest; installed
   );
 }
 
-export function CatalogView() {
+export function CatalogView({ isAdmin }: { isAdmin: boolean }) {
   const { t } = useI18n();
   const apps = useRegisteredApps();
   const installed = useInstalledApps();
@@ -108,6 +131,7 @@ export function CatalogView() {
             key={manifest.id}
             manifest={manifest}
             installed={installed.includes(manifest.id)}
+            locked={Boolean(manifest.requiresAdmin) && !isAdmin}
           />
         ))}
       </section>

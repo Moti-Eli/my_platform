@@ -118,6 +118,7 @@ const he = {
     fitness: "כושר",
     comingSoon: "בקרוב",
     unavailable: "לא זמין",
+    adminOnly: "מנהל",
     remove: "הסרה",
   },
   home: {
@@ -287,6 +288,7 @@ const en: Messages = {
     fitness: "Fitness",
     comingSoon: "Coming soon",
     unavailable: "Unavailable",
+    adminOnly: "Admin only",
     remove: "Remove",
   },
   home: {

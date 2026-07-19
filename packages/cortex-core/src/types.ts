@@ -134,6 +134,12 @@ export interface AppManifest {
    * whether the catalog lets the user install the app.
    */
   status?: AppStatus;
+  /** When true, only an org admin may open this tool. Absent ⇒ open to all
+      members. Enforced in three places: the catalog dims+locks the card, the
+      tool's own route re-checks isAdmin server-side, and RLS enforces the
+      underlying writes. UI+route are convenience/defence-in-depth; RLS is the
+      real boundary. */
+  requiresAdmin?: boolean;
 }
 
 /**
