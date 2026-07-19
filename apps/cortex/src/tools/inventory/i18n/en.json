@@ -15,5 +15,10 @@
   "emptyHint": "Add your first product to get started.",
   "decrease": "Decrease",
   "increase": "Increase",
-  "writeUnavailable": "Editing inventory isn't available yet"
+  "unitPlaceholder": "kg",
+  "fieldRequired": "Required",
+  "errorDenied": "You don't have permission to make that change.",
+  "errorFailed": "Something went wrong. Please try again.",
+  "allStockedBody": "Everything is above its reorder threshold",
+  "loadFailed": "Couldn't load inventory"
 }

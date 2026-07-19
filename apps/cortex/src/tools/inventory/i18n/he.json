@@ -15,5 +15,10 @@
   "emptyHint": "הוסף מוצר ראשון כדי להתחיל.",
   "decrease": "הפחתה",
   "increase": "הוספה",
-  "writeUnavailable": "עריכת מלאי עדיין לא זמינה"
+  "unitPlaceholder": "ק\"ג",
+  "fieldRequired": "שדה חובה",
+  "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
+  "errorFailed": "משהו השתבש. נסה שוב.",
+  "allStockedBody": "כל המוצרים מעל סף ההזמנה מחדש",
+  "loadFailed": "טעינת המלאי נכשלה"
 }

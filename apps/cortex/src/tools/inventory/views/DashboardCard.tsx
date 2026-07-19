@@ -7,6 +7,15 @@
  * items. Built from the design-system utilities (amber accent from the palette)
  * and i18n only — no hard-coded colors or text.
  *
+ * THREE STATES, MODELLED EXPLICITLY (this card is the template the next tool's
+ * card is cloned from, so the states must be clean):
+ *   - loading         → a skeleton (header as-is + placeholder rows), never a
+ *                        flash of empty. The card mounts with loading=true, so the
+ *                        first paint is the skeleton, not a blank body.
+ *   - loaded, low      → the low-stock list, as before.
+ *   - loaded, none low → an explicit "all stocked" body, not a blank card.
+ *   - error            → a short muted "couldn't load" line, never silently blank.
+ *
  * Reads through the SERVER action (`runIntentAction`), not a client runtime: the
  * grants revoked client writes on every Cortex table, and reads must carry the
  * user's JWT so `auth_user_can_read` runs. The action builds ctx from the session.
@@ -23,6 +32,10 @@ import type { InventoryItem } from "../logic";
  * the real total. */
 const MAX_PREVIEW_ROWS = 4;
 
+/** Muted placeholder block. `bg-hairline` is a token; `motion-safe:animate-pulse`
+ * so reduced-motion users get a static (still visible) skeleton, not a pulse. */
+const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
+
 // The page passes userId/orgId (it called requireSession()), but this view does
 // NOT send them anywhere: the server action derives identity from the session
 // cookie, never from a client-supplied value — that is the whole defence. They
@@ -31,6 +44,10 @@ const MAX_PREVIEW_ROWS = 4;
 export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
   const [items, setItems] = useState<InventoryItem[]>([]);
+  // Starts true so the first paint is the skeleton, not an empty body. Cleared
+  // once the request settles — on success AND on failure.
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -39,9 +56,16 @@ export function DashboardCard(_props: ToolViewProps) {
       .then((res) => {
         if (!alive) return;
         if (res.ok) setItems(res.data as InventoryItem[]);
-        else console.error("Cortex: inventory dashboard card failed to load", res.code);
+        else {
+          setError(true);
+          console.error("Cortex: inventory dashboard card failed to load", res.code);
+        }
+        setLoading(false);
       })
       .catch((err: unknown) => {
+        if (!alive) return;
+        setError(true);
+        setLoading(false);
         console.error("Cortex: inventory dashboard card failed to load", err);
       });
     return () => {
@@ -60,12 +84,29 @@ export function DashboardCard(_props: ToolViewProps) {
           </span>
           <span className="type-heading text-ink">{t("inventory.name")}</span>
         </div>
-        <span className={`type-label ${low.length > 0 ? "text-warning" : "text-muted"}`}>
-          {low.length > 0 ? `${low.length} ${t("inventory.lowItems")}` : t("inventory.allStocked")}
-        </span>
+        {/* Status: a skeleton while loading (we don't know the count yet), nothing
+            on error (the body carries the message), the real count otherwise. */}
+        {loading ? (
+          <span className={`h-4 w-20 ${SKELETON}`} aria-hidden="true" />
+        ) : error ? null : (
+          <span className={`type-label ${low.length > 0 ? "text-warning" : "text-muted"}`}>
+            {low.length > 0 ? `${low.length} ${t("inventory.lowItems")}` : t("inventory.allStocked")}
+          </span>
+        )}
       </div>
 
-      {low.length > 0 ? (
+      {loading ? (
+        <ul className="flex flex-col divide-y divide-hairline" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="flex items-center justify-between py-sm">
+              <span className={`h-4 w-28 ${SKELETON}`} />
+              <span className={`h-4 w-12 ${SKELETON}`} />
+            </li>
+          ))}
+        </ul>
+      ) : error ? (
+        <p className="type-label text-muted">{t("inventory.loadFailed")}</p>
+      ) : low.length > 0 ? (
         <ul className="flex flex-col divide-y divide-hairline">
           {low.slice(0, MAX_PREVIEW_ROWS).map((item) => (
             <li
@@ -79,7 +120,9 @@ export function DashboardCard(_props: ToolViewProps) {
             </li>
           ))}
         </ul>
-      ) : null}
+      ) : (
+        <p className="type-label text-muted">{t("inventory.allStockedBody")}</p>
+      )}
     </div>
   );
 }
