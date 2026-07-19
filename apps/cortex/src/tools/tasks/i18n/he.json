@@ -18,5 +18,8 @@
   "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
   "errorFailed": "משהו השתבש. נסה שוב.",
   "allDoneBody": "אין משימות ברשימה",
-  "loadFailed": "טעינת המשימות נכשלה"
+  "loadFailed": "טעינת המשימות נכשלה",
+  "delete": "מחיקה",
+  "confirmDelete": "למחוק?",
+  "deleteFailed": "המחיקה נכשלה. נסה שוב."
 }

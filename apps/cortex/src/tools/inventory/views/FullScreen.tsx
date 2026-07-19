@@ -28,7 +28,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { ChevronIcon, PlusIcon, MinusIcon, InfoIcon } from "@/components/icons";
+import { ChevronIcon, PlusIcon, MinusIcon, CloseIcon, InfoIcon } from "@/components/icons";
 import type { InventoryItem } from "../logic";
 import { useInventoryStock, INVENTORY_STOCK_KEY } from "@/lib/query/useInventoryStock";
 
@@ -79,6 +79,15 @@ export function FullScreen(_props: ToolViewProps) {
   // taps, before a re-render lands); `pending` mirrors it only to disable buttons.
   const pendingRef = useRef<Set<string>>(new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+
+  // In-flight DELETES, keyed by row id — a SEPARATE guard from the +/- set above,
+  // so a quantity write and a delete never share a lock. (This one keys on id,
+  // matching the delete intent + the cache filter, not the product name.)
+  const deletingRef = useRef<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(deletingRef.current);
+  // Which row is mid two-tap delete confirm (null = none). Tapping a different row's
+  // trash moves the confirm there; a second tap on the SAME row commits the delete.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   // Patch one row in the shared cache by name. Functional updater, so concurrent
   // in-flight writes compose instead of clobbering. `prev ?? []` because the cache
@@ -140,6 +149,55 @@ export function FullScreen(_props: ToolViewProps) {
     [patchItem],
   );
 
+  const removeItem = useCallback(
+    async (id: string) => {
+      // 0. GUARD double-delete (mirrors changeQuantity's in-flight guard): ignore a
+      //    delete for a row whose delete is already running.
+      if (deletingRef.current.has(id)) return;
+
+      // Snapshot the row AND its index from the cache BEFORE removing, so a failure
+      // can restore it exactly where it was.
+      const prevList = queryClient.getQueryData<InventoryItem[]>(INVENTORY_STOCK_KEY) ?? [];
+      const index = prevList.findIndex((it) => it.id === id);
+      const removed = index >= 0 ? prevList[index] : null;
+
+      const nextDeleting = new Set(deletingRef.current).add(id);
+      deletingRef.current = nextDeleting;
+      setDeleting(nextDeleting);
+
+      // 1. OPTIMISTIC: drop the row from the SHARED cache immediately, so the
+      //    dashboard card (reading the same cache) drops it in lockstep.
+      setWriteError(null);
+      queryClient.setQueryData<InventoryItem[]>(INVENTORY_STOCK_KEY, (prev) =>
+        (prev ?? []).filter((it) => it.id !== id),
+      );
+
+      try {
+        const res = await runIntentAction("inventory.delete_product", { id });
+        // 2. On success: leave it removed — nothing to reconcile.
+        if (!res.ok) {
+          // 3. REVERT: re-insert the removed row at its original position and surface
+          //    the error via the existing writeError alert. The cache is written only
+          //    on these chosen paths, so a failure leaves it consistent.
+          if (removed) {
+            queryClient.setQueryData<InventoryItem[]>(INVENTORY_STOCK_KEY, (prev) => {
+              const list = [...(prev ?? [])];
+              list.splice(Math.min(index, list.length), 0, removed);
+              return list;
+            });
+          }
+          if (mounted.current) setWriteError(res.code);
+        }
+      } finally {
+        const cleared = new Set(deletingRef.current);
+        cleared.delete(id);
+        deletingRef.current = cleared;
+        if (mounted.current) setDeleting(cleared);
+      }
+    },
+    [queryClient],
+  );
+
   return (
     <>
       <div className="flex items-center gap-xs">
@@ -199,9 +257,11 @@ export function FullScreen(_props: ToolViewProps) {
         <ul className="flex flex-col divide-y divide-hairline">
           {items.map((item) => {
             const low = item.quantity < item.reorderThreshold;
-            // This row has a +/- write in flight — disable its steppers so a second
-            // tap can't double-apply. Other rows are unaffected.
+            // This row has a +/- write or a delete in flight — disable its controls
+            // so a second tap can't double-apply. Other rows are unaffected.
             const rowPending = pending.has(item.name);
+            const rowDeleting = deleting.has(item.id);
+            const confirming = confirmId === item.id;
             return (
               <li
                 key={item.id}
@@ -226,7 +286,7 @@ export function FullScreen(_props: ToolViewProps) {
                     type="button"
                     aria-label={t("inventory.decrease")}
                     onClick={() => changeQuantity(item.name, -1)}
-                    disabled={rowPending}
+                    disabled={rowPending || rowDeleting}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-hairline text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <MinusIcon width={18} height={18} />
@@ -235,11 +295,39 @@ export function FullScreen(_props: ToolViewProps) {
                     type="button"
                     aria-label={t("inventory.increase")}
                     onClick={() => changeQuantity(item.name, 1)}
-                    disabled={rowPending}
+                    disabled={rowPending || rowDeleting}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-hairline text-ink interactive motion-safe:active:scale-[0.97]"
                   >
                     <PlusIcon width={18} height={18} />
                   </button>
+
+                  {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
+                      first tap arms "Delete?", a second tap commits. Tapping another
+                      row's trash moves the confirm there. */}
+                  {confirming ? (
+                    <button
+                      type="button"
+                      aria-label={t("inventory.confirmDelete")}
+                      onClick={() => {
+                        setConfirmId(null);
+                        void removeItem(item.id);
+                      }}
+                      disabled={rowDeleting}
+                      className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+                    >
+                      {t("inventory.confirmDelete")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={t("inventory.delete")}
+                      onClick={() => setConfirmId(item.id)}
+                      disabled={rowDeleting}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+                    >
+                      <CloseIcon width={16} height={16} />
+                    </button>
+                  )}
                 </div>
               </li>
             );

@@ -61,5 +61,13 @@ export function createInventoryIntents(logic: InventoryLogic) {
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.addProduct(input, ctx),
     }),
+
+    defineIntent({
+      name: "inventory.delete_product",
+      description: "Delete a product from inventory",
+      input: z.object({ id: z.string() }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.deleteProduct(input, ctx),
+    }),
   ];
 }

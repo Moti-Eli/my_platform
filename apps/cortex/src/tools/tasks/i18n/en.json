@@ -18,5 +18,8 @@
   "errorDenied": "You don't have permission to make that change.",
   "errorFailed": "Something went wrong. Please try again.",
   "allDoneBody": "Nothing on your list",
-  "loadFailed": "Couldn't load tasks"
+  "loadFailed": "Couldn't load tasks",
+  "delete": "Delete",
+  "confirmDelete": "Delete?",
+  "deleteFailed": "Couldn't delete. Please try again."
 }

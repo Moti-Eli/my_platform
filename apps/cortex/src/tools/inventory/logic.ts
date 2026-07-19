@@ -49,6 +49,9 @@ export interface AddProductInput {
   unit: string;
   reorderThreshold: number;
 }
+export interface DeleteProductInput {
+  id: string;
+}
 
 export interface InventoryLogic {
   queryStock(input: QueryStockInput, ctx: Ctx): Promise<InventoryItem[]>;
@@ -57,6 +60,7 @@ export interface InventoryLogic {
     ctx: Ctx,
   ): Promise<{ name: string; quantity: number }>;
   addProduct(input: AddProductInput, ctx: Ctx): Promise<{ id: string }>;
+  deleteProduct(input: DeleteProductInput, ctx: Ctx): Promise<{ id: string }>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -151,6 +155,14 @@ export function createInventoryLogic({ db, emit }: { db: CortexDb; emit: Emit })
         updated_at: now,
       });
       return { id };
+    },
+
+    async deleteProduct(input, _ctx) {
+      // RLS gates the delete ROW BY ROW (auth_user_can_write behind the DELETE
+      // policy): a member may delete only rows they may write. The where is by id
+      // alone — org scope is enforced by RLS, not this filter, exactly like update.
+      await db.delete(INVENTORY_TABLE, { id: input.id });
+      return { id: input.id };
     },
   };
 }

@@ -37,11 +37,15 @@ export interface ToggleTaskInput {
   id: string;
   done: boolean;
 }
+export interface DeleteTaskInput {
+  id: string;
+}
 
 export interface TasksLogic {
   queryList(input: QueryListInput, ctx: Ctx): Promise<Task[]>;
   createTask(input: CreateTaskInput, ctx: Ctx): Promise<{ id: string }>;
   toggleTask(input: ToggleTaskInput, ctx: Ctx): Promise<{ id: string; done: boolean }>;
+  deleteTask(input: DeleteTaskInput, ctx: Ctx): Promise<{ id: string }>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -108,6 +112,14 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         await emit("tasks.completed", { id: input.id }, ctx);
       }
       return { id: input.id, done: input.done };
+    },
+
+    async deleteTask(input, _ctx) {
+      // RLS gates the delete ROW BY ROW (auth_user_can_write behind the DELETE
+      // policy): a member may delete only rows they may write. The where is by id
+      // alone — org scope is enforced by RLS, not this filter, exactly like update.
+      await db.delete(TASKS_TABLE, { id: input.id });
+      return { id: input.id };
     },
   };
 }

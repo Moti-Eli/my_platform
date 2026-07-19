@@ -57,5 +57,13 @@ export function createTasksIntents(logic: TasksLogic) {
       // → may emit tasks.completed when a task transitions into done
       handler: (input, ctx) => logic.toggleTask(input, ctx),
     }),
+
+    defineIntent({
+      name: "tasks.delete_task",
+      description: "Delete a task",
+      input: z.object({ id: z.string() }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.deleteTask(input, ctx),
+    }),
   ];
 }

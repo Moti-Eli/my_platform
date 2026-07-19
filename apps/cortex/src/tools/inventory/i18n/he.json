@@ -20,5 +20,8 @@
   "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
   "errorFailed": "משהו השתבש. נסה שוב.",
   "allStockedBody": "כל המוצרים מעל סף ההזמנה מחדש",
-  "loadFailed": "טעינת המלאי נכשלה"
+  "loadFailed": "טעינת המלאי נכשלה",
+  "delete": "מחיקה",
+  "confirmDelete": "למחוק?",
+  "deleteFailed": "המחיקה נכשלה. נסה שוב."
 }

@@ -20,5 +20,8 @@
   "errorDenied": "You don't have permission to make that change.",
   "errorFailed": "Something went wrong. Please try again.",
   "allStockedBody": "Everything is above its reorder threshold",
-  "loadFailed": "Couldn't load inventory"
+  "loadFailed": "Couldn't load inventory",
+  "delete": "Delete",
+  "confirmDelete": "Delete?",
+  "deleteFailed": "Couldn't delete. Please try again."
 }
