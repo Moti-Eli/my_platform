@@ -4,8 +4,11 @@
  * Inventory full screen (Standard §2 `views/FullScreen.tsx`, §8).
  *
  * Product list with per-item quantity + inline +/- update, and an add-product
- * action. Everything — reads AND writes — goes through the SERVER action
- * (`runIntentAction`), which builds ctx from the session, so no identity is sent
+ * action. The read is the SHARED react-query cache (`useInventoryStock`, queryKey
+ * ["inventory","stock"]) — the same entry the dashboard card reads — so this screen
+ * renders from cache and each write reconciles that cache via setQueryData (no
+ * refetch). Writes still go straight through the SERVER action (`runIntentAction`);
+ * every call — read or write — builds ctx from the session, so no identity is sent
  * from here.
  *
  * WRITES WORK (20260717000005 opened the path). `authenticated` now holds
@@ -21,11 +24,13 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { ChevronIcon, PlusIcon, MinusIcon, InfoIcon } from "@/components/icons";
 import type { InventoryItem } from "../logic";
+import { useInventoryStock, INVENTORY_STOCK_KEY } from "@/lib/query/useInventoryStock";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -37,15 +42,23 @@ type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 export function FullScreen(_props: ToolViewProps) {
   const { t, dir } = useI18n();
   const router = useRouter();
-  const [items, setItems] = useState<InventoryItem[]>([]);
+  const queryClient = useQueryClient();
+  // The READ: straight from the shared query cache — this screen is a reader of the
+  // SAME entry the dashboard card reads. It renders from the cache (the single
+  // source of truth) and writes back into it via setQueryData, so the two views can
+  // never hold diverging copies. Arriving from the card, the cache is warm and the
+  // list paints instantly; react-query revalidates in the background.
+  const { items } = useInventoryStock();
   const [adding, setAdding] = useState(false);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
   // "unavailable" (the DB refused — you may not) vs "failed" (something broke).
   // Never a silent no-op, and never a pretend-success.
   const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
-  // Guard the async setState (mirrors DashboardCard's `alive` flag): handlers
-  // resolve after an await, so a navigation away before they settle must not write
-  // state on an unmounted component.
+  // Guards the async setState in the WRITE callbacks below: they resolve after an
+  // await, so a navigation away before they settle must not set component state on
+  // an unmounted component. (Cache writes via queryClient are safe either way — and
+  // are intentionally NOT gated on this, so a write still reconciles the shared
+  // cache even if this screen has since unmounted.)
   const mounted = useRef(true);
   useEffect(() => {
     // Re-arm on every (re)mount. Under StrictMode React runs mount → cleanup →
@@ -67,65 +80,65 @@ export function FullScreen(_props: ToolViewProps) {
   const pendingRef = useRef<Set<string>>(new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
 
-  const refresh = useCallback(async () => {
-    // No ctx argument — the server builds it from the session.
-    const res = await runIntentAction("inventory.query_stock", {});
-    if (!mounted.current) return;
-    if (res.ok) setItems(res.data as InventoryItem[]);
-    // The effect below fires this without awaiting, so a rejection here would
-    // otherwise vanish and leave the screen blank with no trace.
-    else console.error("Cortex: inventory list failed to load", res.code);
-  }, []);
+  // Patch one row in the shared cache by name. Functional updater, so concurrent
+  // in-flight writes compose instead of clobbering. `prev ?? []` because the cache
+  // can momentarily be undefined (a write racing ahead of the first read).
+  const patchItem = useCallback(
+    (name: string, patch: (it: InventoryItem) => InventoryItem) => {
+      queryClient.setQueryData<InventoryItem[]>(INVENTORY_STOCK_KEY, (prev) =>
+        (prev ?? []).map((it) => (it.name === name ? patch(it) : it)),
+      );
+    },
+    [queryClient],
+  );
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const changeQuantity = useCallback(
+    async (product: string, delta: number) => {
+      // 0. GUARD double-submit: ignore a +/- for a product whose write is still in
+      //    flight. The ref check is synchronous, so it also catches a second tap in
+      //    the micro-window before the disabled buttons re-render.
+      if (pendingRef.current.has(product)) return;
+      const nextPending = new Set(pendingRef.current).add(product);
+      pendingRef.current = nextPending;
+      setPending(nextPending);
 
-  const changeQuantity = useCallback(async (product: string, delta: number) => {
-    // 0. GUARD double-submit: ignore a +/- for a product whose write is still in
-    //    flight. The ref check is synchronous, so it also catches a second tap in
-    //    the micro-window before the disabled buttons re-render.
-    if (pendingRef.current.has(product)) return;
-    const nextPending = new Set(pendingRef.current).add(product);
-    pendingRef.current = nextPending;
-    setPending(nextPending);
+      // 1. OPTIMISTIC: apply the delta straight into the SHARED cache, before
+      //    awaiting, so the tap has instant feedback AND the dashboard card (reading
+      //    the same cache) moves in lockstep.
+      setWriteError(null);
+      patchItem(product, (it) => ({ ...it, quantity: it.quantity + delta }));
 
-    // 1. OPTIMISTIC: apply the delta to local state immediately, before awaiting,
-    //    so the tap has instant feedback. Functional update (never a stale closure
-    //    over `items`), so concurrent clicks compose instead of clobbering.
-    setWriteError(null);
-    setItems((prev) =>
-      prev.map((it) => (it.name === product ? { ...it, quantity: it.quantity + delta } : it)),
-    );
+      try {
+        const res = await runIntentAction("inventory.update_quantity", { product, delta });
 
-    try {
-      const res = await runIntentAction("inventory.update_quantity", { product, delta });
-      if (!mounted.current) return;
-
-      if (res.ok) {
-        // 2. Reconcile to the server's AUTHORITATIVE quantity. No refresh() — the
-        //    server already told us the answer, so a second round trip would only
-        //    re-fetch the whole list to learn what we already know.
-        const { name, quantity } = res.data as { name: string; quantity: number };
-        setItems((prev) => prev.map((it) => (it.name === name ? { ...it, quantity } : it)));
-      } else {
-        // 3. REVERT the optimistic delta (subtracting the same delta is safe under
-        //    concurrent clicks — it removes only THIS click's contribution) and
-        //    surface the real error.
-        setItems((prev) =>
-          prev.map((it) => (it.name === product ? { ...it, quantity: it.quantity - delta } : it)),
-        );
-        setWriteError(res.code);
+        if (res.ok) {
+          // 2. Reconcile the cache to the server's AUTHORITATIVE quantity. No
+          //    refetch — the server already told us the answer, so invalidating
+          //    would only re-fetch the whole list to learn what we already know.
+          //    Deliberately runs even if we've since unmounted: the cache is shared,
+          //    so this keeps the dashboard card correct.
+          const { name, quantity } = res.data as { name: string; quantity: number };
+          patchItem(name, (it) => ({ ...it, quantity }));
+        } else {
+          // 3. REVERT this click's optimistic delta in the cache (subtracting the
+          //    same delta removes only THIS click's contribution, safe under
+          //    concurrent clicks) and surface the real error. The cache is written
+          //    only on these chosen paths, so a failure leaves it consistent — never
+          //    corrupted.
+          patchItem(product, (it) => ({ ...it, quantity: it.quantity - delta }));
+          if (mounted.current) setWriteError(res.code);
+        }
+      } finally {
+        // Clear the in-flight mark whether the write succeeded, failed, or threw —
+        // the row's buttons re-enable and the ref never leaks a stuck product.
+        const cleared = new Set(pendingRef.current);
+        cleared.delete(product);
+        pendingRef.current = cleared;
+        if (mounted.current) setPending(cleared);
       }
-    } finally {
-      // Clear the in-flight mark whether the write succeeded, failed, or threw —
-      // the row's buttons re-enable and the ref never leaks a stuck product.
-      const cleared = new Set(pendingRef.current);
-      cleared.delete(product);
-      pendingRef.current = cleared;
-      if (mounted.current) setPending(cleared);
-    }
-  }, []);
+    },
+    [patchItem],
+  );
 
   return (
     <>
@@ -164,8 +177,12 @@ export function FullScreen(_props: ToolViewProps) {
         <AddProductForm
           onCreated={(item) => {
             // add_product returns { id }; the rest of the row is exactly what we
-            // submitted, so we can append it directly — no refresh() round trip.
-            setItems((prev) => [...prev, item]);
+            // submitted, so append it straight into the SHARED cache — no refetch,
+            // and the dashboard card sees the new item immediately.
+            queryClient.setQueryData<InventoryItem[]>(INVENTORY_STOCK_KEY, (prev) => [
+              ...(prev ?? []),
+              item,
+            ]);
             setAdding(false);
             setWriteError(null);
           }}

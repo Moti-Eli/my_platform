@@ -16,16 +16,17 @@
  *   - loaded, none low → an explicit "all stocked" body, not a blank card.
  *   - error            → a short muted "couldn't load" line, never silently blank.
  *
- * Reads through the SERVER action (`runIntentAction`), not a client runtime: the
- * grants revoked client writes on every Cortex table, and reads must carry the
- * user's JWT so `auth_user_can_read` runs. The action builds ctx from the session.
+ * Reads through the SHARED react-query cache (`useInventoryStock`, queryKey
+ * ["inventory","stock"]) — the SAME cache the full screen uses, so opening the full
+ * screen paints instantly from cache and revalidates in the background. The query's
+ * fetch is still the SERVER action (`runIntentAction`), which builds ctx from the
+ * session, so every fetch (including a background refetch) is re-authenticated; the
+ * client never carries identity.
  */
-import { useEffect, useState } from "react";
-import { runIntentAction } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { BoxIcon } from "@/components/icons";
-import type { InventoryItem } from "../logic";
+import { useInventoryStock } from "@/lib/query/useInventoryStock";
 
 /** Cap on preview rows so the Home card stays a fixed height (matching the other
  * preview cards) no matter how many items are low — the header count still shows
@@ -43,35 +44,10 @@ const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
 // deliberately unused here.
 export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
-  const [items, setItems] = useState<InventoryItem[]>([]);
-  // Starts true so the first paint is the skeleton, not an empty body. Cleared
-  // once the request settles — on success AND on failure.
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    // No ctx argument — the server builds it. We send only the intent + input.
-    runIntentAction("inventory.query_stock", {})
-      .then((res) => {
-        if (!alive) return;
-        if (res.ok) setItems(res.data as InventoryItem[]);
-        else {
-          setError(true);
-          console.error("Cortex: inventory dashboard card failed to load", res.code);
-        }
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (!alive) return;
-        setError(true);
-        setLoading(false);
-        console.error("Cortex: inventory dashboard card failed to load", err);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
+  // From the shared query cache. react-query's `isLoading` is "pending AND no cached
+  // data yet", so the skeleton shows only on the very first load; arriving from the
+  // full screen (cache already warm) paints the list immediately, no skeleton flash.
+  const { items, isLoading: loading, isError: error } = useInventoryStock();
 
   const low = items.filter((item) => item.quantity < item.reorderThreshold);
 
