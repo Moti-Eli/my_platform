@@ -43,6 +43,10 @@ import { manifest as notesManifest } from "@/tools/notes/manifest";
 import { createNotesLogic } from "@/tools/notes/logic";
 import { createNotesIntents } from "@/tools/notes/intents";
 import { createNotesListeners } from "@/tools/notes/events";
+import { manifest as expensesManifest } from "@/tools/expenses/manifest";
+import { createExpensesLogic } from "@/tools/expenses/logic";
+import { createExpensesIntents } from "@/tools/expenses/intents";
+import { createExpensesListeners } from "@/tools/expenses/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -87,6 +91,16 @@ function build(): Runtime {
     // Listeners close over notesLogic (see events.ts); notes has none today, so
     // this registers an empty listener set, same shape as the other tools.
     registerApp(notesManifest, createNotesIntents(notesLogic), createNotesListeners(notesLogic));
+  }
+  const expensesLogic = createExpensesLogic({ db, emit: eventBus.emit });
+  if (!getApp(expensesManifest.id)) {
+    // Listeners close over expensesLogic (see events.ts); expenses has none today,
+    // so this registers an empty listener set, same shape as the other tools.
+    registerApp(
+      expensesManifest,
+      createExpensesIntents(expensesLogic),
+      createExpensesListeners(expensesLogic),
+    );
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),

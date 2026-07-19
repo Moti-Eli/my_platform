@@ -26,6 +26,10 @@ import { manifest as notesManifest } from "@/tools/notes/manifest";
 import { createNotesLogic } from "@/tools/notes/logic";
 import { createNotesIntents } from "@/tools/notes/intents";
 import { createNotesListeners } from "@/tools/notes/events";
+import { manifest as expensesManifest } from "@/tools/expenses/manifest";
+import { createExpensesLogic } from "@/tools/expenses/logic";
+import { createExpensesIntents } from "@/tools/expenses/intents";
+import { createExpensesListeners } from "@/tools/expenses/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
@@ -116,6 +120,14 @@ function build(): DataLayer {
   const notesLogic = createNotesLogic({ db, emit: eventBus.emit });
   if (!getApp(notesManifest.id)) {
     registerApp(notesManifest, createNotesIntents(notesLogic), createNotesListeners(notesLogic));
+  }
+  const expensesLogic = createExpensesLogic({ db, emit: eventBus.emit });
+  if (!getApp(expensesManifest.id)) {
+    registerApp(
+      expensesManifest,
+      createExpensesIntents(expensesLogic),
+      createExpensesListeners(expensesLogic),
+    );
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);
