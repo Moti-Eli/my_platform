@@ -23,10 +23,10 @@ export interface ToolTab {
   route: string;
 }
 
-// `touch-manipulation` drops the ~300ms mobile tap delay; `min-h-11` (44px) +
-// inline-flex centering gives an accessible tap target while staying compact.
+// `touch-manipulation` drops the ~300ms mobile tap delay; `py-2xs` lets the
+// chip's height hug its text (YouTube-style) rather than lock a tall tap target.
 const CHIP_BASE =
-  "inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md touch-manipulation interactive motion-safe:active:scale-[0.97]";
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md py-2xs touch-manipulation interactive motion-safe:active:scale-[0.97]";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
@@ -103,7 +103,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         href="/"
         role="tab"
         aria-selected={isActive("/")}
-        className={`${CHIP_BASE} ${isActive("/") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"}`}
+        className={`${CHIP_BASE} ${isActive("/") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-heading"}`}
       >
         {t("home.allTab")}
       </Link>
@@ -118,7 +118,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             href={tab.route}
             role="tab"
             aria-selected={active}
-            className={`${CHIP_BASE} ${active ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"} ${
+            className={`${CHIP_BASE} ${active ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-heading"} ${
               menuOpen ? "ring-2 ring-danger" : ""
             }`}
             onClick={(e) => {
@@ -164,7 +164,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
         className={`${CHIP_BASE} ${
-          isActive("/catalog") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-label"
+          isActive("/catalog") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-heading"
         }`}
       >
         <PlusIcon width={18} height={18} />
