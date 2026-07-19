@@ -47,6 +47,10 @@ import { manifest as expensesManifest } from "@/tools/expenses/manifest";
 import { createExpensesLogic } from "@/tools/expenses/logic";
 import { createExpensesIntents } from "@/tools/expenses/intents";
 import { createExpensesListeners } from "@/tools/expenses/events";
+import { manifest as journalManifest } from "@/tools/journal/manifest";
+import { createJournalLogic } from "@/tools/journal/logic";
+import { createJournalIntents } from "@/tools/journal/intents";
+import { createJournalListeners } from "@/tools/journal/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -100,6 +104,16 @@ function build(): Runtime {
       expensesManifest,
       createExpensesIntents(expensesLogic),
       createExpensesListeners(expensesLogic),
+    );
+  }
+  const journalLogic = createJournalLogic({ db, emit: eventBus.emit });
+  if (!getApp(journalManifest.id)) {
+    // Listeners close over journalLogic (see events.ts); journal has none today,
+    // so this registers an empty listener set, same shape as the other tools.
+    registerApp(
+      journalManifest,
+      createJournalIntents(journalLogic),
+      createJournalListeners(journalLogic),
     );
   }
 
