@@ -1,0 +1,10 @@
+{
+  "name": "Staff",
+  "members": "members",
+  "roleAdmin": "Admin",
+  "roleMember": "Member",
+  "openTool": "Open staff",
+  "emptyTitle": "No members yet",
+  "emptyHint": "Members of your organization will appear here.",
+  "loadFailed": "Couldn't load staff"
+}

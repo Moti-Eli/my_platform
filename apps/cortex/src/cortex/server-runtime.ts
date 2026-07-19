@@ -18,6 +18,10 @@ import { manifest as tasksManifest } from "@/tools/tasks/manifest";
 import { createTasksLogic } from "@/tools/tasks/logic";
 import { createTasksIntents } from "@/tools/tasks/intents";
 import { listeners as tasksListeners } from "@/tools/tasks/events";
+import { manifest as staffManifest } from "@/tools/staff/manifest";
+import { createStaffLogic } from "@/tools/staff/logic";
+import { createStaffIntents } from "@/tools/staff/intents";
+import { listeners as staffListeners } from "@/tools/staff/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
@@ -64,21 +68,23 @@ function build(): DataLayer {
   // depends on it, so it must fail with the reason named, not degrade to "no rows".
   const service = createCortexAdminClient();
 
-  const db = createSupabaseCortexDb({
-    // Resolved per operation, inside the request, so each read carries the right
-    // user's JWT. Throws if the public env is absent (a real misconfiguration).
-    getRls: async () => {
-      const rls = await createSupabaseServerClient();
-      if (!rls) {
-        throw new Error(
-          "Cortex server runtime: NEXT_PUBLIC_SUPABASE_URL / " +
-            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are not set."
-        );
-      }
-      return rls;
-    },
-    service,
-  });
+  // Resolved per operation, inside the request, so each read carries the right
+  // user's JWT. Throws if the public env is absent (a real misconfiguration).
+  // Shared by the CortexDb adapter AND staff logic — staff reads existing platform
+  // tables (memberships/roles/users) through @platform/auth with THIS same per-user
+  // RLS client, never the service client.
+  const getRls = async () => {
+    const rls = await createSupabaseServerClient();
+    if (!rls) {
+      throw new Error(
+        "Cortex server runtime: NEXT_PUBLIC_SUPABASE_URL / " +
+          "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY are not set."
+      );
+    }
+    return rls;
+  };
+
+  const db = createSupabaseCortexDb({ getRls, service });
 
   const dataLayer = createDataLayer({ db });
   const eventBus = createEventBus(db);
@@ -93,6 +99,12 @@ function build(): DataLayer {
   const tasksLogic = createTasksLogic({ db, emit: eventBus.emit });
   if (!getApp(tasksManifest.id)) {
     registerApp(tasksManifest, createTasksIntents(tasksLogic), tasksListeners);
+  }
+  // Staff reads through the RLS client directly (not the CortexDb), because it uses
+  // @platform/auth's multi-table getOrganizationMembers — see staff/logic.ts.
+  const staffLogic = createStaffLogic({ getRls });
+  if (!getApp(staffManifest.id)) {
+    registerApp(staffManifest, createStaffIntents(staffLogic), staffListeners);
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);

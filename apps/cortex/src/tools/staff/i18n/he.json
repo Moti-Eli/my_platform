@@ -1,0 +1,10 @@
+{
+  "name": "צוות",
+  "members": "חברים",
+  "roleAdmin": "מנהל",
+  "roleMember": "חבר",
+  "openTool": "פתח צוות",
+  "emptyTitle": "אין חברי צוות עדיין",
+  "emptyHint": "חברי הארגון שלך יופיעו כאן.",
+  "loadFailed": "טעינת הצוות נכשלה"
+}

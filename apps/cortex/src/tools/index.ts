@@ -7,6 +7,7 @@
 import type { ComponentType } from "react";
 import { DashboardCard as InventoryDashboardCard } from "./inventory/views/DashboardCard";
 import { DashboardCard as TasksDashboardCard } from "./tasks/views/DashboardCard";
+import { DashboardCard as StaffDashboardCard } from "./staff/views/DashboardCard";
 
 /**
  * The identity every tool view is handed by the shell.
@@ -33,4 +34,5 @@ export interface ToolUI {
 export const TOOL_VIEWS: Record<string, ToolUI> = {
   inventory: { DashboardCard: InventoryDashboardCard, route: "/tools/inventory" },
   tasks: { DashboardCard: TasksDashboardCard, route: "/tools/tasks" },
+  staff: { DashboardCard: StaffDashboardCard, route: "/tools/staff" },
 };
