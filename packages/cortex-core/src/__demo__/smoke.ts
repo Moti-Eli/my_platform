@@ -106,6 +106,9 @@ async function main(): Promise<void> {
     userId: "deadbeef-dead-4dea-8dea-deadbeefdead",
     orgId: "facadefa-cade-4fac-8fac-facadefacade",
     instanceId: null,
+    // Admin status is a shell convenience, irrelevant to the in-memory smoke;
+    // false keeps this fixture fail-closed, matching the guard's default.
+    isAdmin: false,
   };
 
   // --- 2. runIntent ----------------------------------------------------------

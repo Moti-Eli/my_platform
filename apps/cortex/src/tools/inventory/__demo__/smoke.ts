@@ -56,6 +56,9 @@ import { buildCtx } from "../../../cortex/build-ctx";
 const SMOKE_SESSION = {
   userId: "deadbeef-dead-4dea-8dea-deadbeefdead",
   orgId: "facadefa-cade-4fac-8fac-facadefacade",
+  // Admin status is irrelevant to what this smoke exercises; false matches the
+  // guard's fail-closed default.
+  isAdmin: false,
 };
 
 const ctx = buildCtx(SMOKE_SESSION);
