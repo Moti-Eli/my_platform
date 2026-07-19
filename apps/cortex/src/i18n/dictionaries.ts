@@ -187,6 +187,11 @@ const he = {
     versionAbout:
       "Cortex הוא סופר-אפליקציה לניהול העסק שלך: כל הכלים שאתה צריך במקום אחד, עם עוזר AI שמחבר ביניהם.",
   },
+  search: {
+    hint: "התחל להקליד כדי לחפש",
+    noResults: "לא נמצאו תוצאות",
+    more: "עוד {count}",
+  },
   inventory: inventoryHe,
   tasks: tasksHe,
   staff: staffHe,
@@ -360,6 +365,11 @@ const en: Messages = {
     themeClay: "Clay",
     versionAbout:
       "Cortex is a super-app for running your business: every tool you need in one place, tied together by an AI assistant.",
+  },
+  search: {
+    hint: "Start typing to search",
+    noResults: "No results",
+    more: "+{count} more",
   },
   inventory: inventoryEn,
   tasks: tasksEn,
