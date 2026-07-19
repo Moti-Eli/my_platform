@@ -47,7 +47,16 @@ export function FullScreen(_props: ToolViewProps) {
   // resolve after an await, so a navigation away before they settle must not write
   // state on an unmounted component.
   const mounted = useRef(true);
-  useEffect(() => () => void (mounted.current = false), []);
+  useEffect(() => {
+    // Re-arm on every (re)mount. Under StrictMode React runs mount → cleanup →
+    // mount; setting `true` here (not only `false` in cleanup) means the second
+    // mount re-enables the guard instead of leaving it permanently disarmed,
+    // which would swallow every later setState and strand the view empty.
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   // In-flight +/- writes, keyed by product name. A second +/- for a product whose
   // write is still running is ignored (and that row's buttons are disabled), so a
@@ -249,7 +258,16 @@ function AddProductForm({
   // Guard: onCreated/onError setState in the PARENT after the await. If we unmount
   // mid-submit, this stops us from touching the parent's state.
   const mounted = useRef(true);
-  useEffect(() => () => void (mounted.current = false), []);
+  useEffect(() => {
+    // Re-arm on every (re)mount. Under StrictMode React runs mount → cleanup →
+    // mount; setting `true` here (not only `false` in cleanup) means the second
+    // mount re-enables the guard instead of leaving it permanently disarmed,
+    // which would swallow every later setState and strand the view empty.
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const inputClass =
     "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
