@@ -43,7 +43,6 @@ export const STUB_APPS: AppManifest[] = [
   stub("calendar", "grid", "indigo", "productivity", "coming_soon"),
   stub("contacts", "user", "coral", "crm", "coming_soon"),
   stub("expenses", "box", "amber", "finance", "coming_soon"),
-  stub("notes", "pin", "indigo", "productivity", "coming_soon"),
 
   // --- Not yet available: shown in the catalog, disabled --------------------
   stub("invoices", "box", "teal", "finance", "unavailable"),

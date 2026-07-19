@@ -39,6 +39,10 @@ import { manifest as staffManifest } from "@/tools/staff/manifest";
 import { createStaffLogic } from "@/tools/staff/logic";
 import { createStaffIntents } from "@/tools/staff/intents";
 import { listeners as staffListeners } from "@/tools/staff/events";
+import { manifest as notesManifest } from "@/tools/notes/manifest";
+import { createNotesLogic } from "@/tools/notes/logic";
+import { createNotesIntents } from "@/tools/notes/intents";
+import { createNotesListeners } from "@/tools/notes/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -77,6 +81,12 @@ function build(): Runtime {
   });
   if (!getApp(staffManifest.id)) {
     registerApp(staffManifest, createStaffIntents(staffLogic), staffListeners);
+  }
+  const notesLogic = createNotesLogic({ db, emit: eventBus.emit });
+  if (!getApp(notesManifest.id)) {
+    // Listeners close over notesLogic (see events.ts); notes has none today, so
+    // this registers an empty listener set, same shape as the other tools.
+    registerApp(notesManifest, createNotesIntents(notesLogic), createNotesListeners(notesLogic));
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),
