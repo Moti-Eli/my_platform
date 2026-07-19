@@ -6,5 +6,9 @@
   "openTool": "Open staff",
   "emptyTitle": "No members yet",
   "emptyHint": "Members of your organization will appear here.",
-  "loadFailed": "Couldn't load staff"
+  "loadFailed": "Couldn't load staff",
+  "roleToggle": "Change role",
+  "makeAdmin": "Make admin",
+  "makeMember": "Make member",
+  "roleChangeFailed": "Couldn't change the role. Please try again."
 }

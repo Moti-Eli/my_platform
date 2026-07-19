@@ -6,5 +6,9 @@
   "openTool": "פתח צוות",
   "emptyTitle": "אין חברי צוות עדיין",
   "emptyHint": "חברי הארגון שלך יופיעו כאן.",
-  "loadFailed": "טעינת הצוות נכשלה"
+  "loadFailed": "טעינת הצוות נכשלה",
+  "roleToggle": "שינוי תפקיד",
+  "makeAdmin": "הפוך למנהל",
+  "makeMember": "הפוך לחבר",
+  "roleChangeFailed": "שינוי התפקיד נכשל. נסה שוב."
 }

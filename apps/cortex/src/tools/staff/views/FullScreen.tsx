@@ -2,26 +2,35 @@
 
 /**
  * Staff full screen (Standard §2 `views/FullScreen.tsx`, §8). Cloned from Tasks'
- * full screen, on the app-teal identity accent — but READ-ONLY: no add form and no
- * per-row actions this step. Just the org member list.
+ * full screen, on the app-teal identity accent. The member list plus ONE write:
+ * an admin can switch a member between Member and Admin.
  *
  * The read is the SHARED react-query cache (`useStaffMembers`, queryKey
- * ["staff","members"]) — the same entry the dashboard card reads. The query's fetch
- * is the SERVER action (`runIntentAction`), which builds ctx from the session, so
- * every fetch is re-authenticated; no identity is sent from here.
+ * ["staff","members"]) — the same entry the dashboard card reads. The role write is
+ * OPTIMISTIC (flip in the cache, reconcile on success, revert on failure), mirroring
+ * the tasks toggle. All calls go through the SERVER action (`runIntentAction`),
+ * which builds ctx from the session, so no identity is sent from here.
  *
  * This route is ADMIN-ONLY (manifest `requiresAdmin`); the page above re-checks
- * isAdmin server-side and redirects a non-admin before this ever renders. RLS is
- * the real boundary beneath both.
+ * isAdmin server-side and redirects a non-admin before this ever renders. And the
+ * role write itself is gated at the DB: `membership_roles`' triggers refuse a
+ * non-admin's write and refuse demoting the org's last admin. This screen does NOT
+ * pre-check either — it attempts the write and surfaces the DB's error.
  *
  * Built from design-system utilities + i18n only.
  */
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { ChevronIcon } from "@/components/icons";
-import { useStaffMembers } from "@/lib/query/useStaffMembers";
+import { ChevronIcon, InfoIcon } from "@/components/icons";
+import { useStaffMembers, STAFF_MEMBERS_KEY } from "@/lib/query/useStaffMembers";
 import type { Member } from "../logic";
+
+/** The failure codes a write can come back with (from {@link IntentResult}). */
+type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 
 /** Muted placeholder block for the loading skeleton. */
 const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
@@ -37,7 +46,79 @@ function memberName(m: Member): string {
 export function FullScreen(_props: ToolViewProps) {
   const { t, dir } = useI18n();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { members, isLoading, isError } = useStaffMembers();
+
+  // Set when a role write actually FAILS — a demote-last-admin or non-admin attempt
+  // (both refused by the DB triggers) lands here. Never a silent no-op.
+  const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
+
+  // Guards the async setState in the write callback: it resolves after an await, so
+  // a navigation away before it settles must not set component state on an unmounted
+  // component. (Cache writes via queryClient are safe either way.)
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // In-flight role changes, keyed by membershipId (mirrors tasks' per-row guard). A
+  // second toggle for a member whose write is still running is ignored, and that
+  // row's control is disabled, so a double-tap can't double-apply.
+  const pendingRef = useRef<Set<string>>(new Set());
+  const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+
+  // Patch one member in the shared cache by membershipId. Functional updater, so
+  // concurrent in-flight writes compose instead of clobbering. `prev ?? []` because
+  // the cache can momentarily be undefined.
+  const patchMember = useCallback(
+    (membershipId: string, patch: (m: Member) => Member) => {
+      queryClient.setQueryData<Member[]>(STAFF_MEMBERS_KEY, (prev) =>
+        (prev ?? []).map((m) => (m.membershipId === membershipId ? patch(m) : m)),
+      );
+    },
+    [queryClient],
+  );
+
+  const setRole = useCallback(
+    async (membershipId: string, targetRole: "admin" | "member") => {
+      // 0. GUARD double-submit: ignore a toggle whose write is still in flight.
+      if (pendingRef.current.has(membershipId)) return;
+      const nextPending = new Set(pendingRef.current).add(membershipId);
+      pendingRef.current = nextPending;
+      setPending(nextPending);
+
+      const nextIsAdmin = targetRole === "admin";
+      // 1. OPTIMISTIC: flip isAdmin straight into the SHARED cache.
+      setWriteError(null);
+      patchMember(membershipId, (m) => ({ ...m, isAdmin: nextIsAdmin }));
+
+      try {
+        const res = await runIntentAction("staff.set_member_role", { membershipId, targetRole });
+        if (res.ok) {
+          // 2. Reconcile to the server's AUTHORITATIVE isAdmin.
+          const { membershipId: rid, isAdmin } = res.data as {
+            membershipId: string;
+            isAdmin: boolean;
+          };
+          patchMember(rid, (m) => ({ ...m, isAdmin }));
+        } else {
+          // 3. REVERT to the prior value and surface the error. A demote of the last
+          //    admin, or a non-admin attempt, is refused by the DB and lands here.
+          patchMember(membershipId, (m) => ({ ...m, isAdmin: !nextIsAdmin }));
+          if (mounted.current) setWriteError(res.code);
+        }
+      } finally {
+        const cleared = new Set(pendingRef.current);
+        cleared.delete(membershipId);
+        pendingRef.current = cleared;
+        if (mounted.current) setPending(cleared);
+      }
+    },
+    [patchMember],
+  );
 
   return (
     <>
@@ -52,6 +133,16 @@ export function FullScreen(_props: ToolViewProps) {
         </button>
         <h1 className="flex-1 type-title text-ink">{t("staff.name")}</h1>
       </div>
+
+      {writeError ? (
+        <p
+          role="alert"
+          className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
+        >
+          <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
+          <span>{t("staff.roleChangeFailed")}</span>
+        </p>
+      ) : null}
 
       {isLoading ? (
         <ul className="flex flex-col divide-y divide-hairline" aria-hidden="true">
@@ -74,25 +165,35 @@ export function FullScreen(_props: ToolViewProps) {
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-hairline">
-          {members.map((m) => (
-            <li key={m.membershipId} className="flex items-center justify-between gap-sm py-sm">
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate type-heading text-ink">{memberName(m)}</span>
-                <span className="truncate type-label text-muted" dir="ltr">
-                  {m.email}
-                </span>
-              </div>
-              {/* Role pill — reuses the profile role-pill style: admin in the accent,
-                  member muted. */}
-              <span
-                className={`shrink-0 rounded-pill px-sm py-2xs type-caption ${
-                  m.isAdmin ? "bg-accent/15 text-accent" : "bg-hairline text-muted"
-                }`}
-              >
-                {m.isAdmin ? t("staff.roleAdmin") : t("staff.roleMember")}
-              </span>
-            </li>
-          ))}
+          {members.map((m) => {
+            // This row has a role write in flight — disable its toggle so a second
+            // tap can't double-apply. Other rows are unaffected.
+            const rowPending = pending.has(m.membershipId);
+            return (
+              <li key={m.membershipId} className="flex items-center justify-between gap-sm py-sm">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate type-heading text-ink">{memberName(m)}</span>
+                  <span className="truncate type-label text-muted" dir="ltr">
+                    {m.email}
+                  </span>
+                </div>
+                {/* The role pill IS the toggle — a single tap flips Member↔Admin (no
+                    confirm; it's reversible). aria-label names the ACTION; the label
+                    shows the current role. Reuses the profile role-pill style. */}
+                <button
+                  type="button"
+                  onClick={() => setRole(m.membershipId, m.isAdmin ? "member" : "admin")}
+                  disabled={rowPending}
+                  aria-label={m.isAdmin ? t("staff.makeMember") : t("staff.makeAdmin")}
+                  className={`shrink-0 rounded-pill px-sm py-2xs type-caption interactive motion-safe:active:scale-[0.97] ${
+                    m.isAdmin ? "bg-accent/15 text-accent" : "bg-hairline text-muted"
+                  }`}
+                >
+                  {m.isAdmin ? t("staff.roleAdmin") : t("staff.roleMember")}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

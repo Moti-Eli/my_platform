@@ -1,6 +1,6 @@
 /**
- * Staff — the AI API ("the connection file", Standard §4). READ-ONLY this step:
- * one intent, `staff.list_members`, and no writes.
+ * Staff — the AI API ("the connection file", Standard §4). Two intents: the read
+ * `staff.list_members`, and the single write `staff.set_member_role` (Member↔Admin).
  *
  * The handler delegates to `logic` (the only code that touches the client) and
  * receives `ctx` from the shell — it never fetches identity or writes SQL itself.
@@ -32,6 +32,17 @@ export function createStaffIntents(logic: StaffLogic) {
       input: z.object({}),
       output: z.array(member),
       handler: (input, ctx) => logic.listMembers(input, ctx),
+    }),
+
+    defineIntent({
+      name: "staff.set_member_role",
+      description: "Switch a member between Admin and Member in the current organization",
+      input: z.object({
+        membershipId: z.string(),
+        targetRole: z.enum(["admin", "member"]),
+      }),
+      output: z.object({ membershipId: z.string(), isAdmin: z.boolean() }),
+      handler: (input, ctx) => logic.setMemberRole(input, ctx),
     }),
   ];
 }
