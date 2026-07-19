@@ -26,7 +26,7 @@ export interface ToolTab {
 // `touch-manipulation` drops the ~300ms mobile tap delay; `py-2xs` lets the
 // chip's height hug its text (YouTube-style) rather than lock a tall tap target.
 const CHIP_BASE =
-  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-md py-2xs touch-manipulation interactive motion-safe:active:scale-[0.97]";
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-lg py-2xs touch-manipulation interactive motion-safe:active:scale-[0.97]";
 
 const LONG_PRESS_MS = 500;
 /** Gap between a chip and its popover, and a rough popover height for the
