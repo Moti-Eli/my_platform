@@ -71,11 +71,13 @@ a member of a child reads nothing of the parent's.
 | 7d | sign-out | — | DONE, pushed |
 | 8 | `connections` + messaging (cross-org) | no | off the critical path |
 
-Remote migration count: **28** (`20260605000001` … `20260717000003`) — verified as
-28 committed migration files, all git-tracked, on `feat/cortex-shell` which is in
-sync with origin, and all 28 applied on the local stack. The remote DB itself was
-NOT queried (db-guard refuses non-local; the publishable key returns 401 on
-member-gated tables) — see the last standing rule.
+Remote migration count: **36** (`20260605000001` … `20260717000011`) — 36 committed
+migration files on `feat/cortex-shell`, all pushed (notes / expenses / journal /
+tool-delete-path / `set_member_role` RPC all landed). Six tools now exist:
+inventory, tasks, staff, notes, expenses, journal. Unlike the earlier findings in
+this file, the grant/policy surface WAS queried directly against the production
+catalog this session (`aclexplode(relacl)`, `pg_policies`); that query — not
+migration-file inference — is the source for the corrections in this update.
 
 (1) Step 4b does not block reading. The current policy —
     `is_member_of_tree(org_id) AND visibility = 'org'` — works and fails closed.
@@ -204,37 +206,6 @@ the app is registered and `userId` is non-empty. Self-service signup.
 From a full inventory of the users/auth/DB surface, 17 Jul. Each is a fact with a
 source. Nothing here is fixed.
 
-**READY TO FIX — one migration, one pattern: vocabulary and grants the catalog
-contradicts.**
-
-A. `roles.manage` is DEAD. Zero check sites. It exists only as a type union
-   (`packages/auth/src/index.ts:316`), the seed INSERT (`20260605000001:236`), and
-   docs. `auth_user_may_assign_role` checks `is_admin` OR holds-that-role — never
-   `roles.manage`. This is the third instance of the `users.view`/`users.invite`
-   defect, and it survived two deletions because both were searched for BY NAME.
-   Consequence: `members.manage` is the only live permission in the system.
-   Distinction worth recording: `users.view` was WRONG (user reads are governed by
-   membership); `roles.manage` is UNBUILT (there is no role-editing UI). The
-   precedent is the same either way — delete it, and re-add it in the migration
-   that enforces it.
-
-B. `anon` — not just `authenticated` — holds DELETE,INSERT,SELECT,UPDATE on
-   `organizations`, `memberships`, `roles`, `role_permissions`, `users`,
-   `permissions` and `messages`. This roadmap previously recorded the debt as
-   authenticated-only. That was wrong. RLS masks it today; it is still the only
-   layer there.
-
-C. `app_definitions` was never tightened. `20260717000001` named four tables
-   (`inventory_items`, `app_instances`, `groups`, `group_members`) and
-   `20260717000002` covered `events` and `ai_log` — `app_definitions` was missed by
-   both and still carries the broad anon+authenticated DML grant. It is the only
-   Cortex shell table that does.
-
-D. `20260605000002:144` asserts "`anon` is granted nothing and has no policy".
-   FALSE — see B. `20260609000004` stripped only truncate/trigger/references from
-   `anon`; insert/update/delete were never revoked from the core tables. This is
-   the same defect as `20260714000001`'s header, older and wider than recorded.
-
 **NEEDS A DECISION — touches my-platform, the asset:**
 
 E. `createOrganizationWithFirstAdmin`: the `membership_roles` grant at
@@ -262,6 +233,19 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
 
 **CONFIRMED CLEAN — recorded so nobody re-checks:**
 
+- The `anon` / `authenticated` grant surface — queried directly against the
+  production catalog this session (`aclexplode(relacl)`). `anon` holds only
+  `MAINTAIN` on the core tables: a PG17 privilege covering VACUUM/ANALYZE/REINDEX
+  that reads and writes NOTHING — it is NOT DML — plus a deliberate `SELECT` on
+  `permissions` (`20260608000001`, the landing-page health check). There is NO DML
+  granted to `anon` ANYWHERE. `authenticated` holds SELECT-only on `organizations`
+  / `users` / `roles` / `role_permissions` / `memberships`; the only client DML is
+  on `membership_roles` and `messages`, both behind real write policies.
+  `app_definitions` carries only `anon | MAINTAIN` — an asymmetry, not a hole. (This
+  retires the former "anon holds DML on 7 tables" / "app_definitions untightened" /
+  "20260605000002 header is a lie" findings: all three were inferred from migration
+  DDL and are FALSE. The header was merely STALE — "anon granted nothing" was true
+  when written; `20260608000001` added the `permissions` SELECT three days later.)
 - Every `className` in `apps/cortex` resolves to a defined token. 243 match lines
   scanned; colour and typography are closed sets; no raw `text-<size>` anywhere.
 - No `userId`/`orgId`/`instanceId` used for a data operation originates from a
@@ -284,42 +268,32 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
    the manifest is code. Either the table is seeded from code at startup (a
    projection), or it is dead weight. Decide in step 7.
 
-2. Existing my-platform tables (`organizations`, `users`, `memberships`, `roles`,
-   `permissions`, `role_permissions`, `membership_roles`, `messages`) still grant
-   `insert`/`update`/`delete` to **both `anon` AND `authenticated`** (this entry
-   previously said authenticated only — that was wrong; see Open findings B). RLS
-   is the ONLY layer there — a dropped or mis-scoped policy means direct client
-   writes, with no privilege boundary behind it. Step 4e fixed this for the Cortex
-   tables and for all FUTURE public tables, but deliberately did not touch the
-   existing ones: my-platform is a working asset with live client policies
-   (`messages` has a real INSERT policy), so re-grant-auditing it is its own task
-   with its own harness. Not in scope, deliberately.
-
-3. The inventory manifest declares `permissions: ["org.read","org.write"]` and
+2. The inventory manifest declares `permissions: ["org.read","org.write"]` and
    `roles: ["owner","manager","employee"]`. NONE exist: `public.permissions` holds
-   only `members.manage` and `roles.manage` (and `roles.manage` is dead — see Open
-   findings A), and roles are per-org data with no global names. It declares no
-   `recordTypes`/`defaultVisibility`/`defaultGrants`, which the access model is
-   built to consume. The server data-layer passes no checker, so this is latent: a
-   real RBAC checker would fail every call for a reason unrelated to permissions.
+   exactly one row — `members.manage` (`roles.manage` was deleted in
+   `20260717000004`; see Resolved debts) — and roles are per-org data with no
+   global names. It declares no `recordTypes`/`defaultVisibility`/`defaultGrants`,
+   which the access model is built to consume. The server data-layer passes no
+   checker, so this is latent: a real RBAC checker would fail every call for a
+   reason unrelated to permissions.
 
-4. add-member is broken in production. `origin/main` writes `membership_roles` with
+3. add-member is broken in production. `origin/main` writes `membership_roles` with
    the service client; the escalation trigger now rejects it. It fails closed and
    rolls back — an outage of that one feature, not corruption. The fix is on
    `feat/cortex-shell`, pushed to origin but never merged to main.
 
-5. Seed accounts exist on the remote with a shared known password, including the
+4. Seed accounts exist on the remote with a shared known password, including the
    sole platform owner (`owner@platform.test`). The `SUPABASE_SECRET_KEY` was
    exposed in a chat and never rotated. Rotate everything at once, before a single
    real user exists.
 
-6. `docs/Cortex-SubApp-Standard.md` §2 and §6 are dead: §2 mandates a per-tool
+5. `docs/Cortex-SubApp-Standard.md` §2 and §6 are dead: §2 mandates a per-tool
    `schema.sql` (deleted; the migration is the single source of truth); §6 lists
    `instance_id` as mandatory (gone; branches are child organizations). A tool
    built from the Standard today is born with both mistakes. Fix BEFORE the next
    tool — step 7 rewires the existing tool, it does not build a new one.
 
-7. Commit `56549e1` carries the message "tighten client grants on Cortex tables
+6. Commit `56549e1` carries the message "tighten client grants on Cortex tables
    and future public tables" but contains step 5's content
    (`20260717000003_role_escalation_guard.sql` and `verify-role-escalation.ts`).
    `19df092` carries step 5's message. The two subjects are swapped. No content was
@@ -329,6 +303,15 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
 
 ## Resolved debts
 
+- `roles.manage` was a DEAD permission — seeded in `20260605000001` but checked
+  NOWHERE (`auth_user_may_assign_role` gates on `is_admin` OR holding-the-role, and
+  never reads `role_permissions`). RESOLVED by `20260717000004`, pushed & verified
+  against the production catalog: `public.permissions` now holds exactly ONE row,
+  `members.manage`. `verify-role-escalation.ts` failed 29/1 before the migration and
+  passed 30/0 after — non-vacuity proven. It was the third instance of the
+  `users.invite` / `users.view` dead-permission defect and, like both, survived
+  earlier sweeps because it was searched for BY NAME. `members.manage` is now the
+  only live permission in the system.
 - inventory `apps/cortex/src/tools/inventory/logic.ts` and `Ctx.instanceId`
   (`packages/cortex-core/src/types.ts`) scoping reads by `instance_id`, a column
   that no longer exists — RESOLVED by step 7a. `instance_id` was demoted to
@@ -368,3 +351,9 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
 - Cortex's harnesses cannot reach the remote: `db-guard.ts` refuses non-local
   writes. Any claim about remote state must come from a real query, not from a
   local stack that happens to be fully migrated.
+- A finding must be sourced from a CATALOG QUERY (`aclexplode(relacl)`,
+  `pg_policies`, `pg_proc.prosrc`), never inferred from migration files. A migration
+  grants a privilege; a later one may narrow it, and neither header says so. Of the
+  four findings in the last "ready to fix" queue, THREE were read off migration DDL
+  and were FALSE (the anon-DML / app_definitions / stale-header trio). This is the
+  "catalog is the truth; a header is a photograph" rule, applied to findings too.

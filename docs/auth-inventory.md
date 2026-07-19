@@ -135,10 +135,12 @@ the HTTP one under `scripts/`.
   closed (false on error).
 - `createOrganizationWithFirstAdmin(...)` — re-checks `isPlatformOwner` before any
   privileged write.
-- `PermissionKey` type — compile-time mirror of catalog keys: `users.view` /
-  `roles.manage` / `members.manage`.
-- `NEW_ORG_MEMBER_PERMISSIONS = ["users.view"]` — baseline granted to a new org's
-  Member role.
+- `PermissionKey` type — compile-time mirror of the live catalog: `members.manage`
+  ONLY. `users.view` (deleted in `20260717000003`) and `roles.manage` (deleted in
+  `20260717000004`) are both gone from `public.permissions`; the type reflects that.
+- `NEW_ORG_MEMBER_PERMISSIONS = []` — deliberately empty. A member's baseline is
+  membership itself, not any permission key (the sole live key, `members.manage`, is
+  an admin capability). It was `["users.view"]` before that key was deleted.
 
 ### Enforcement call sites
 

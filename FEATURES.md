@@ -128,8 +128,8 @@ export const FEATURES: FeatureDefinition[] = [
     labelKey: 'members.navLabel',
     icon: 'users',
     // Gated today by login + org membership only — `members.manage` gates the
-    // EDIT controls, not viewing. `users.view` is its natural key (seeded but
-    // not yet enforced); wire it when guards consume the registry in Phase 2.
+    // EDIT controls, not viewing. There is no view-permission: `users.view` was
+    // deleted as dead, and viewing is governed by membership.
     requiredPermission: null,
     platforms: ['web', 'mobile'],
     enabled: true,
@@ -157,8 +157,9 @@ export const FEATURES: FeatureDefinition[] = [
 
 > The snippet above matches the live registry in
 > `packages/core/src/features/registry.ts`. `PermissionKey` is a string-union
-> type exported from `@platform/auth` (a compile-time mirror of the seeded
-> permission catalog: `users.view`, `roles.manage`, `members.manage`).
+> type exported from `@platform/auth`; the live catalog now holds exactly one key,
+> `members.manage` (`users.view` and `roles.manage` were both deleted as
+> dead/unenforced — migrations `20260717000003` / `20260717000004`).
 
 **Who reads the registry:**
 
@@ -264,8 +265,8 @@ along, which is exactly why the layers above are kept loosely coupled.
 - **Feature id / folder / route**: lowercase slug, singular domain noun
   (`chat`, `calendar`, `invoice`). Same string everywhere.
 - **i18n namespace**: the feature id (`"calendar": { … }`).
-- **Permission keys**: `<feature>.<action>` (matches the existing
-  `members.manage`, `roles.manage`, `users.view`).
+- **Permission keys**: `<feature>.<action>` (the one live key today is
+  `members.manage`; `roles.manage` and `users.view` were deleted as dead).
 - **Migration files**: `<timestamp>_<id>_<what>.sql` so a feature's schema is
   greppable as a group.
 - **Commit scope**: the feature id (`feat(calendar): add month view`).
