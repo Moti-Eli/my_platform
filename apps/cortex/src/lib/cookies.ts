@@ -8,6 +8,7 @@
  */
 export const LANG_COOKIE = "cortex_lang";
 export const THEME_COOKIE = "cortex_theme";
+export const ORG_COOKIE = "cortex_active_org";
 
 const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 

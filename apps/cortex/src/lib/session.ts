@@ -1,9 +1,11 @@
 // SERVER-ONLY. THE access boundary for every protected Cortex page.
 import "server-only";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@platform/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ORG_COOKIE } from "@/lib/cookies";
 
 /**
  * The two halves of identity, and nothing else.
@@ -106,19 +108,30 @@ export async function requireSession(): Promise<Session> {
   }
 
   // (d)/(e) One membership -> that is the active org.
-  //         More than one -> the earliest by created_at, deterministically.
+  //         More than one -> the user's chosen org (ORG_COOKIE) if it names one of
+  //         these memberships, else the earliest by created_at, deterministically.
   //
-  //         TODO(org-picker): this is a DELIBERATE DEFERRAL, not an oversight. A
-  //         user can genuinely belong to many organizations (the schema is built
-  //         for it: memberships is a join table, and roles are per-org precisely
-  //         so the same person can be an admin in one org and a member in
-  //         another). The shell will need a switcher, and "the active org" will
-  //         then come from the user's choice — probably a cookie, the way locale
-  //         and theme already do — with this ordering as the first-visit default.
-  //         Until that exists, picking the first is the only honest option: it is
-  //         stable across requests, which a picker-less UI needs. It is NOT a
-  //         claim that the first org is the right one.
-  const active = memberships[0]!;
+  //         TODO(org-picker): PARTIALLY DONE. A user can genuinely belong to many
+  //         organizations (the schema is built for it: memberships is a join table,
+  //         and roles are per-org precisely so the same person can be an admin in
+  //         one org and a member in another). The cookie READER now exists — the
+  //         active org comes from the user's choice (ORG_COOKIE, the way locale and
+  //         theme already do), with the earliest-by-created_at as the no-cookie
+  //         first-visit default (stable across requests, which a picker-less UI
+  //         needs; NOT a claim that the first org is the right one). The remaining
+  //         piece is the WRITER — the "My organizations" page that sets the cookie.
+  //
+  //         SECURITY: the cookie is only ever matched AGAINST the memberships array
+  //         already fetched through the RLS-scoped, `.eq("user_id")`-filtered client
+  //         — never trusted as a scoping key on its own. A value that isn't one of
+  //         the caller's own active memberships falls through to memberships[0].
+  //         RLS already excluded soft-deleted memberships and inactive orgs, so a
+  //         match is inherently a valid, active org owned by this user.
+  const activeOrgCookie = (await cookies()).get(ORG_COOKIE)?.value;
+  const active =
+    (activeOrgCookie
+      ? memberships.find((m) => m.organization_id === activeOrgCookie)
+      : undefined) ?? memberships[0]!;
 
   // (f) Admin status in the ACTIVE org. This is the "a page that wants more asks
   //     for more, explicitly" the Session header promises — a deliberate second
