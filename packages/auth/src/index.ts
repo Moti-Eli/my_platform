@@ -704,3 +704,153 @@ export async function createOrganizationWithFirstAdmin(
 
   return { error: null, organizationId: createdOrgId, adminUserId: createdAuthId };
 }
+
+export interface AddMemberInput {
+  email: string;
+  displayName: string;
+  organizationId: string;
+  /**
+   * Password for the new user's auth account. The CALLER decides it (dev temp vs.
+   * random, never-disclosed), mirroring createOrganizationWithFirstAdmin — this
+   * package never hard-codes a credential.
+   */
+  password: string;
+}
+
+export interface AddMemberResult {
+  /** Null on success; otherwise a short error key. */
+  error: string | null;
+  /** The new user's id on success; null otherwise. */
+  userId: string | null;
+}
+
+/** DB CHECK caps display names at 200 raw chars (see SCHEMA.md). Reject before the DB. */
+const MAX_MEMBER_NAME_LEN = 200;
+
+/**
+ * Add a NEW auth user to an EXISTING organization as a plain member. SERVER-SIDE
+ * ONLY. The org and its Admin/Member roles already exist (self-signup created
+ * them); this only provisions the user and joins them.
+ *
+ * MEMBER-ONLY, deliberately: this always assigns the org's Member (non-admin)
+ * role. There is no `targetRole` parameter — promotion to admin already exists
+ * via the `set_member_role` RPC, so "add" stays simple.
+ *
+ * SECURITY — the two clients are NOT interchangeable, and which write goes on
+ * which is the whole correctness of this function:
+ * - `actingClient` must be authenticated as the acting user (their JWT). We
+ *   re-check `members.manage` IN THE TARGET ORG on it FIRST — the security
+ *   boundary, which also enforces tenant isolation (an Org A admin has no
+ *   members.manage in Org B, so `hasPermission` is false there).
+ * - `serviceClient` (secret/service-role key, bypasses RLS) does the user +
+ *   profile + membership writes, which have no INSERT policy for `authenticated`.
+ * - The ROLE assignment goes back through `actingClient`, NOT the service client:
+ *   membership_roles has a `members.manage` INSERT policy AND a no-escalation
+ *   trigger (20260717000003) that fires for service_role too and reads
+ *   auth.uid(); a no-JWT service caller has auth.uid()=null and is rejected. The
+ *   write must carry the actor's identity so the DB re-decides it per-row against
+ *   the real actor.
+ *
+ * Atomic-ish with rollback: the auth user is created first; any later failure
+ * deletes it again (FK ON DELETE CASCADE removes profile/membership/role).
+ */
+export async function addMemberToOrg(
+  actingClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+  input: { email: string; displayName: string; organizationId: string; password: string }
+): Promise<AddMemberResult> {
+  const email = input.email.trim();
+  const displayName = input.displayName.trim();
+  const { organizationId } = input;
+
+  const fail = (error: string): AddMemberResult => ({ error, userId: null });
+
+  // --- Input validation (before touching the DB / admin client) -------------
+  if (!ORG_ADMIN_EMAIL_RE.test(email)) return fail("invalidEmail");
+  // Reject empty (trimmed) and over-length (raw) — the DB caps the raw length.
+  if (displayName.length === 0 || input.displayName.length > MAX_MEMBER_NAME_LEN) {
+    return fail("invalidName");
+  }
+  if (!organizationId) return fail("invalidRequest");
+
+  // --- Authorization (acting client, RLS-scoped) — the security boundary -----
+  const actingUser = await getCurrentUser(actingClient);
+  if (!actingUser) return fail("notAllowed");
+  // Re-check the acting user's permission IN THE TARGET ORG. Runs as that user,
+  // so it also forbids cross-org creation.
+  const allowed = await hasPermission(
+    actingClient,
+    actingUser.id,
+    organizationId,
+    "members.manage"
+  );
+  if (!allowed) return fail("notAllowed");
+
+  // Resolve the org's Member role via the acting client (RLS lets a member read
+  // their org's roles). Prefer the canonical "Member", else any non-admin role.
+  const rolesRes = await actingClient
+    .from("roles")
+    .select("id, name, is_admin")
+    .eq("organization_id", organizationId);
+  if (rolesRes.error) return fail("addFailed");
+  const roles = (rolesRes.data ?? []) as Array<{ id: string; name: string; is_admin: boolean }>;
+  const memberRole =
+    roles.find((r) => !r.is_admin && r.name === "Member") ?? roles.find((r) => !r.is_admin);
+  const memberRoleId = memberRole?.id;
+  if (!memberRoleId) return fail("addFailed");
+
+  // --- Privileged writes (service role) — only after the check above passed --
+  // 1) Create the Supabase auth user. email_confirm so they can log in at once.
+  const created = await serviceClient.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+  });
+  if (created.error || !created.data.user) {
+    return fail(isDuplicateEmail(created.error?.message) ? "emailExists" : "addFailed");
+  }
+  const authId = created.data.user.id;
+  const normalizedEmail = created.data.user.email ?? email.toLowerCase();
+
+  const rollback = async (): Promise<void> => {
+    // Deleting the auth user cascades its profile/membership/role. Best-effort.
+    await serviceClient.auth.admin.deleteUser(authId);
+  };
+
+  // 2) public.users profile row.
+  const profileRes = await serviceClient
+    .from("users")
+    .insert({ id: authId, email: normalizedEmail, display_name: displayName });
+  if (profileRes.error) {
+    await rollback();
+    return fail(isDuplicateEmail(profileRes.error.message) ? "emailExists" : "addFailed");
+  }
+
+  // 3) Membership in the target org.
+  const membershipRes = await serviceClient
+    .from("memberships")
+    .insert({ user_id: authId, organization_id: organizationId })
+    .select("id")
+    .single();
+  if (membershipRes.error || !membershipRes.data) {
+    await rollback();
+    return fail("addFailed");
+  }
+
+  // 4) Member role on that membership — assigned AS THE ACTING USER, not with the
+  //    service key. The escalation guard (20260717000003) fires for service_role
+  //    too and a no-JWT caller has auth.uid()=null, so this write MUST carry the
+  //    actor's identity; the DB re-decides it per-row against the real actor.
+  const mrRes = await actingClient.from("membership_roles").insert({
+    membership_id: (membershipRes.data as { id: string }).id,
+    role_id: memberRoleId,
+    organization_id: organizationId,
+  });
+  if (mrRes.error) {
+    await rollback();
+    // The actor may not confer this role. That is a permission answer, not a fault.
+    return fail(/Not allowed to assign the role/.test(mrRes.error.message) ? "notAllowed" : "addFailed");
+  }
+
+  return { error: null, userId: authId };
+}
