@@ -15,14 +15,8 @@
  * uses, for a different reason: here it is `useActionState` and `useI18n` that
  * need the client, not a guard that needs the server.
  */
-import { LoginTitle } from "./LoginTitle";
-import { LoginForm } from "./LoginForm";
+import { AuthPanel } from "./AuthPanel";
 
 export default function LoginPage() {
-  return (
-    <div className="flex flex-col gap-lg">
-      <LoginTitle />
-      <LoginForm />
-    </div>
-  );
+  return <AuthPanel />;
 }

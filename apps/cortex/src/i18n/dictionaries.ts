@@ -44,6 +44,13 @@ const he = {
   // 1:1 from a `signUpWithNewOrganization` error key in @platform/auth, plus
   // `notConfigured` (admin client env missing) — same never-render-raw rule as login.
   signup: {
+    title: "הרשמה ל-Cortex",
+    subtitle: "צור חשבון חדש כדי להתחיל",
+    displayName: "שם (לא חובה)",
+    submit: "הרשמה",
+    signingUp: "נרשם…",
+    switchToSignup: "אין לך חשבון? הרשמה",
+    switchToLogin: "כבר יש לך חשבון? כניסה",
     invalidEmail: "כתובת אימייל לא תקינה",
     invalidName: "יש להזין שם",
     invalidOrgName: "יש להזין שם ארגון",
@@ -231,6 +238,13 @@ const en: Messages = {
     failed: "Sign-in failed, please try again",
   },
   signup: {
+    title: "Sign up for Cortex",
+    subtitle: "Create a new account to get started",
+    displayName: "Name (optional)",
+    submit: "Sign up",
+    signingUp: "Signing up…",
+    switchToSignup: "Don't have an account? Sign up",
+    switchToLogin: "Already have an account? Sign in",
     invalidEmail: "Invalid email address",
     invalidName: "Please enter a name",
     invalidOrgName: "Please enter an organization name",

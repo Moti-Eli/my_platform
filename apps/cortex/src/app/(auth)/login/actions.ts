@@ -109,7 +109,17 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const displayName = String(formData.get("displayName") ?? "");
+  // organizationName may be absent from the form entirely (Model A: the org is
+  // created invisibly, named after the user). That is expected now.
   const organizationName = String(formData.get("organizationName") ?? "");
+
+  // Model A fallbacks: name and org are optional in the UI, but the seam requires
+  // both non-empty. Derive them here so empty values never reach it — display name
+  // falls back to the email's local part, and the org is named after the user.
+  // Email/password are left untouched so the seam's own rules still apply.
+  const emailTrim = email.trim();
+  const finalDisplayName = displayName.trim() || emailTrim.split("@")[0] || emailTrim;
+  const finalOrgName = organizationName.trim() || finalDisplayName;
 
   // The admin client FAILS LOUD (throws) when the secret key is absent. Here we
   // want the login surface to degrade, not stack-trace, so we catch and report
@@ -124,8 +134,8 @@ export async function signupAction(_prev: SignupState, formData: FormData): Prom
   const { error } = await signUpWithNewOrganization(serviceClient, {
     email,
     password,
-    displayName,
-    organizationName,
+    displayName: finalDisplayName,
+    organizationName: finalOrgName,
   });
   if (error) return { error: toSignupErrorKey(error) };
 
