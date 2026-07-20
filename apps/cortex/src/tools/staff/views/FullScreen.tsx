@@ -70,6 +70,19 @@ export function FullScreen(_props: ToolViewProps) {
   const pendingRef = useRef<Set<string>>(new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
 
+  // --- Add-member form (additive, top of screen) -----------------------------
+  // Its error state is SEPARATE from `writeError` so an add failure and a role
+  // failure never clobber each other's alert.
+  const [formOpen, setFormOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newDisplayName, setNewDisplayName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [addError, setAddError] = useState<WriteErrorCode | null>(null);
+  const [addedOk, setAddedOk] = useState(false);
+
+  const fieldClass =
+    "min-h-11 w-full rounded-md bg-card px-sm py-xs type-body text-ink outline-none placeholder:text-muted interactive";
+
   // Patch one member in the shared cache by membershipId. Functional updater, so
   // concurrent in-flight writes compose instead of clobbering. `prev ?? []` because
   // the cache can momentarily be undefined.
@@ -120,6 +133,33 @@ export function FullScreen(_props: ToolViewProps) {
     [patchMember],
   );
 
+  const addMember = useCallback(async () => {
+    // GUARD double-submit: the button is disabled while submitting, this is belt-
+    // and-suspenders. `submitting` is in deps so the closure reads a fresh value.
+    if (submitting) return;
+    setSubmitting(true);
+    setAddError(null);
+    setAddedOk(false);
+    try {
+      const res = await runIntentAction("staff.add_member", {
+        email: newEmail,
+        displayName: newDisplayName,
+      });
+      if (res.ok) {
+        // Clear + close, then refresh the SHARED cache so the new member loads.
+        setNewEmail("");
+        setNewDisplayName("");
+        setFormOpen(false);
+        await queryClient.invalidateQueries({ queryKey: STAFF_MEMBERS_KEY });
+        if (mounted.current) setAddedOk(true);
+      } else if (mounted.current) {
+        setAddError(res.code);
+      }
+    } finally {
+      if (mounted.current) setSubmitting(false);
+    }
+  }, [submitting, newEmail, newDisplayName, queryClient]);
+
   return (
     <>
       <div className="flex items-center gap-xs">
@@ -132,6 +172,78 @@ export function FullScreen(_props: ToolViewProps) {
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
         <h1 className="flex-1 type-title text-ink">{t("staff.name")}</h1>
+      </div>
+
+      {/* Add-member: a toggle that reveals an inline form. Additive to the top of
+          the screen; the list and role toggle below are unchanged. */}
+      <div className="flex flex-col gap-xs">
+        <button
+          type="button"
+          onClick={() => {
+            setAddError(null);
+            setAddedOk(false);
+            setFormOpen((o) => !o);
+          }}
+          className="self-start rounded-md bg-card px-sm py-xs type-label text-ink interactive motion-safe:active:scale-[0.97]"
+        >
+          {t("staff.addMember")}
+        </button>
+
+        {formOpen ? (
+          <div className="flex flex-col gap-xs">
+            <label className="flex flex-col gap-2xs">
+              <span className="type-label text-muted">{t("staff.addMemberEmail")}</span>
+              <input
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                dir="ltr"
+                className={`${fieldClass} text-start`}
+              />
+            </label>
+
+            <label className="flex flex-col gap-2xs">
+              <span className="type-label text-muted">{t("staff.addMemberName")}</span>
+              <input
+                value={newDisplayName}
+                onChange={(e) => setNewDisplayName(e.target.value)}
+                type="text"
+                autoComplete="name"
+                className={fieldClass}
+              />
+            </label>
+
+            {addError ? (
+              <p
+                role="alert"
+                className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
+              >
+                <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
+                <span>
+                  {addError === "emailExists"
+                    ? t("staff.addMemberEmailExists")
+                    : t("staff.addMemberFailed")}
+                </span>
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={addMember}
+              disabled={submitting}
+              className="self-start rounded-md bg-accent/15 px-sm py-xs type-label text-accent interactive motion-safe:active:scale-[0.97]"
+            >
+              {submitting ? t("staff.addMemberSubmitting") : t("staff.addMemberSubmit")}
+            </button>
+          </div>
+        ) : null}
+
+        {addedOk ? (
+          <p role="status" className="type-label text-muted">
+            {t("staff.addMemberSuccess")}
+          </p>
+        ) : null}
       </div>
 
       {writeError ? (
