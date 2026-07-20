@@ -41,6 +41,22 @@ only** (no cross-org RLS), so these need a privileged service-role client.
   Admin/Member roles + first admin (auth user + profile + membership + admin
   role), rolling everything back on any failure.
 
+## Self-service signup — server-side
+
+Public registration, the counterpart to `createOrganizationWithFirstAdmin` but
+with **no acting user and no authorization gate**: the call is what creates the
+user's identity, so there is nothing to authorize yet. Server-side only.
+
+- `signUpWithNewOrganization(serviceClient, input)` →
+  `{ error, userId, organizationId }` — where `input` is
+  `{ email, password, displayName, organizationName }`. Uses **only** the
+  service-role client (required: `organizations`/`memberships` have SELECT-only
+  RLS with no INSERT policy). Atomically creates the org + Admin/Member roles +
+  the auth user + profile + membership + Admin role (the signup user owns the org
+  they create), rolling everything back on any failure. `error` is `null` on
+  success or one of `invalidEmail | invalidName | invalidOrgName |
+  invalidPassword | emailExists | createFailed`.
+
 ## Usage
 
 ```typescript
