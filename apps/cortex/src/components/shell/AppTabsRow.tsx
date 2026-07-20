@@ -13,9 +13,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { PlusIcon } from "@/components/icons";
+import { PinIcon, PlusIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
-import { uninstall } from "@/lib/installed-apps";
+import { isPinned, togglePin, uninstall } from "@/lib/installed-apps";
 
 export interface ToolTab {
   id: string;
@@ -203,8 +203,20 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
             <div
               role="menu"
               aria-label={menu.label}
-              className="ds-panel rounded-lg bg-card p-2xs shadow-lifted"
+              className="ds-panel flex flex-col rounded-lg bg-card p-2xs shadow-lifted"
             >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  togglePin(menu.id);
+                  setMenu(null);
+                }}
+                className="inline-flex items-center gap-2xs whitespace-nowrap rounded-md px-sm py-2xs type-label text-ink touch-manipulation interactive"
+              >
+                <PinIcon width={16} height={16} />
+                {t(isPinned(menu.id) ? "apps.unpin" : "apps.pin")}
+              </button>
               <button
                 type="button"
                 role="menuitem"

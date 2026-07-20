@@ -147,6 +147,8 @@ const he = {
     unavailable: "לא זמין",
     adminOnly: "מנהל",
     remove: "הסרה",
+    pin: "נעץ",
+    unpin: "בטל נעיצה",
   },
   home: {
     appTabsLabel: "לשוניות כלים",
@@ -342,6 +344,8 @@ const en: Messages = {
     unavailable: "Unavailable",
     adminOnly: "Admin only",
     remove: "Remove",
+    pin: "Pin",
+    unpin: "Unpin",
   },
   home: {
     appTabsLabel: "Tool tabs",

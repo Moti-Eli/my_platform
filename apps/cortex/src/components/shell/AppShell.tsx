@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
-import { useInstalledApps } from "@/lib/installed-apps";
+import { useInstalledApps, usePinnedApps } from "@/lib/installed-apps";
 import { useI18n, type MessageKey } from "@/i18n";
 import { Header } from "./Header";
 import { TabBar } from "./TabBar";
@@ -104,8 +104,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Labels are translated at render so they follow locale.
   const apps = useRegisteredApps();
   const installed = useInstalledApps();
+  const pinned = usePinnedApps();
   const byId = new Map(apps.map((manifest) => [manifest.id, manifest]));
-  const tabs: ToolTab[] = installed.flatMap((id) => {
+  // Pinned apps sort to the front (in pin order), then the remaining installed
+  // apps (in install order), with no duplicates.
+  const orderedIds = [
+    ...pinned.filter((id) => installed.includes(id)),
+    ...installed.filter((id) => !pinned.includes(id)),
+  ];
+  const tabs: ToolTab[] = orderedIds.flatMap((id) => {
     const manifest = byId.get(id);
     if (!manifest) return [];
     return [{ id, label: t(manifest.name.key as MessageKey), route: appRoute(id) }];
