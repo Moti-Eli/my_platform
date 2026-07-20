@@ -12,6 +12,6 @@ import { requireSession } from "@/lib/session";
 import { HomeView } from "./HomeView";
 
 export default async function HomePage() {
-  const { userId, orgId } = await requireSession();
-  return <HomeView userId={userId} orgId={orgId} />;
+  const { userId, orgId, isAdmin } = await requireSession();
+  return <HomeView userId={userId} orgId={orgId} isAdmin={isAdmin} />;
 }

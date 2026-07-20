@@ -147,9 +147,15 @@ export function createStaffLogic({
       // stable key so the action maps it (emailExists/notAllowed/... → IntentResult).
       const password = newUserPassword();
       const rls = await getRls();
+      // The form labels the name optional, but the seam rejects an empty name with
+      // "invalidName". Fall back to the email local-part (as signup/ProfileView do)
+      // when the caller left it blank; harmless on the existing-identity link path,
+      // which never writes a profile.
+      const email = input.email.trim();
+      const displayName = input.displayName.trim() || (email.split("@")[0] ?? "");
       const result = await addMemberToOrg(rls, service, {
-        email: input.email,
-        displayName: input.displayName,
+        email,
+        displayName,
         organizationId: ctx.orgId,
         password,
       });

@@ -49,7 +49,15 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
   );
 }
 
-export function HomeView({ userId, orgId }: { userId: string; orgId: string }) {
+export function HomeView({
+  userId,
+  orgId,
+  isAdmin,
+}: {
+  userId: string;
+  orgId: string;
+  isAdmin: boolean;
+}) {
   const { t } = useI18n();
   const apps = useRegisteredApps();
   const installed = useInstalledApps();
@@ -59,7 +67,11 @@ export function HomeView({ userId, orgId }: { userId: string; orgId: string }) {
   const byId = new Map(apps.map((manifest) => [manifest.id, manifest]));
   const installedApps = installed.flatMap((id) => {
     const manifest = byId.get(id);
-    return manifest ? [manifest] : [];
+    if (!manifest) return [];
+    // Hide an admin-only tool's card from non-admins, matching the catalog gate
+    // that dims/locks the same tool.
+    if (manifest.requiresAdmin && !isAdmin) return [];
+    return [manifest];
   });
 
   if (installedApps.length === 0) {
