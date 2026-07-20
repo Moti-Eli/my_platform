@@ -36,6 +36,7 @@ function TabLink({
   return (
     <Link
       href={href}
+      prefetch={true}
       onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}

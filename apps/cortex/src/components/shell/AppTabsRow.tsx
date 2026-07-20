@@ -104,6 +104,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       {/* "הכל" — Home / the glance view. Not removable. */}
       <Link
         href="/"
+        prefetch={true}
         role="tab"
         aria-selected={isActive("/")}
         className={`${CHIP_BASE} ${isActive("/") ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-heading"}`}
@@ -119,6 +120,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
           <Link
             key={tab.id}
             href={tab.route}
+            prefetch={true}
             role="tab"
             aria-selected={active}
             className={`${CHIP_BASE} ${active ? "bg-accent text-on-fill type-heading" : "bg-hairline text-ink type-heading"} ${
@@ -163,6 +165,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
       {/* Trailing "+" pill — same chip design AND same route-active treatment. */}
       <Link
         href="/catalog"
+        prefetch={true}
         role="tab"
         aria-selected={isActive("/catalog")}
         aria-label={t("catalog.title")}
