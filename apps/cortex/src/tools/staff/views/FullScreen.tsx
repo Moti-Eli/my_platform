@@ -223,7 +223,9 @@ export function FullScreen(_props: ToolViewProps) {
                 <span>
                   {addError === "emailExists"
                     ? t("staff.addMemberEmailExists")
-                    : t("staff.addMemberFailed")}
+                    : addError === "alreadyMember"
+                      ? t("staff.addMemberAlreadyMember")
+                      : t("staff.addMemberFailed")}
                 </span>
               </p>
             ) : null}

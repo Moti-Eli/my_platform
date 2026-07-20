@@ -799,6 +799,55 @@ export async function addMemberToOrg(
   const memberRoleId = memberRole?.id;
   if (!memberRoleId) return fail("addFailed");
 
+  // --- Existing-identity branch: LINK rather than create --------------------
+  // If an identity with this email already exists, we do NOT create a user and do
+  // NOT touch their profile — we only JOIN them to this org as a member. The
+  // lookup is via the SERVICE client because the acting client can't read a
+  // non-co-member's user row (RLS). Only the membership+role writes follow, each
+  // on the same client the new-user tail uses.
+  const existing = await serviceClient
+    .from("users")
+    .select("id")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+  if (existing.error) return fail("addFailed");
+  if (existing.data) {
+    const existingUserId = (existing.data as { id: string }).id;
+
+    // Membership via SERVICE (memberships has no INSERT policy for authenticated).
+    const membershipRes = await serviceClient
+      .from("memberships")
+      .insert({ user_id: existingUserId, organization_id: organizationId })
+      .select("id")
+      .single();
+    if (membershipRes.error || !membershipRes.data) {
+      // The DB enforces UNIQUE (user_id, organization_id) = memberships_user_org_unique.
+      // A duplicate is the "already a member" outcome, distinct from a real fault.
+      const e = membershipRes.error;
+      const isDup =
+        e?.code === "23505" ||
+        /duplicate key|memberships_user_org_unique/i.test(e?.message ?? "");
+      return fail(isDup ? "alreadyMember" : "addFailed");
+    }
+    const newMembershipId = (membershipRes.data as { id: string }).id;
+
+    // Role via the ACTING client — same escalation-guarded path as the new-user
+    // tail: the DB re-decides it per-row against the real actor's auth.uid().
+    const mrRes = await actingClient.from("membership_roles").insert({
+      membership_id: newMembershipId,
+      role_id: memberRoleId,
+      organization_id: organizationId,
+    });
+    if (mrRes.error) {
+      // ISOLATED ROLLBACK: delete ONLY the membership we just made — NEVER the
+      // user. The identity pre-existed this call; we must not remove it.
+      await serviceClient.from("memberships").delete().eq("id", newMembershipId);
+      return fail(/Not allowed to assign the role/.test(mrRes.error.message) ? "notAllowed" : "addFailed");
+    }
+
+    return { error: null, userId: existingUserId };
+  }
+
   // --- Privileged writes (service role) — only after the check above passed --
   // 1) Create the Supabase auth user. email_confirm so they can log in at once.
   const created = await serviceClient.auth.admin.createUser({

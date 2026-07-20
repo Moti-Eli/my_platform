@@ -18,6 +18,7 @@
   "addMemberSubmitting": "Adding…",
   "addMemberSuccess": "Member added",
   "addMemberEmailExists": "That email is already registered",
+  "addMemberAlreadyMember": "This user is already a member of this organization",
   "addMemberInvalidEmail": "Invalid email address",
   "addMemberFailed": "Couldn't add the member. Please try again."
 }

@@ -18,6 +18,7 @@
   "addMemberSubmitting": "מוסיף…",
   "addMemberSuccess": "החבר נוסף בהצלחה",
   "addMemberEmailExists": "כתובת האימייל כבר רשומה במערכת",
+  "addMemberAlreadyMember": "המשתמש כבר חבר בארגון הזה",
   "addMemberInvalidEmail": "כתובת אימייל לא תקינה",
   "addMemberFailed": "הוספת החבר נכשלה, נסה שוב"
 }

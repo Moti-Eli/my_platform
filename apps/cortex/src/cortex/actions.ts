@@ -10,7 +10,7 @@ import { getServerRuntime } from "@/cortex/server-runtime";
  */
 export type IntentResult<T = unknown> =
   | { ok: true; data: T }
-  | { ok: false; code: "unavailable" | "denied" | "failed" | "emailExists" };
+  | { ok: false; code: "unavailable" | "denied" | "failed" | "emailExists" | "alreadyMember" };
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -60,6 +60,14 @@ export async function runIntentAction(
     // never match this message, but keep this explicit and first regardless).
     if (/emailExists/.test(message)) {
       return { ok: false, code: "emailExists" };
+    }
+
+    // Expected outcome of staff.add_member when the email belongs to an existing
+    // identity ALREADY in this org: addMemberToOrg links rather than creates, and
+    // returns "alreadyMember" on the UNIQUE(user_id, organization_id) conflict.
+    // Same treatment as emailExists — a dedicated code, mapped BEFORE the heuristics.
+    if (/alreadyMember/.test(message)) {
+      return { ok: false, code: "alreadyMember" };
     }
 
     // A write to a tool table is denied by grants until the write step lands —
