@@ -61,6 +61,7 @@ export interface Runtime {
 }
 
 let ready: Promise<Runtime> | null = null;
+let syncRuntime: Runtime | null = null;
 
 function build(): Runtime {
   const db = createInMemoryDb();
@@ -145,6 +146,13 @@ function build(): Runtime {
  * habit this whole step exists to end. Data (reads/writes) does need identity, and
  * it runs through `runIntentAction` on the server — never here.
  */
+/** Build (and register every tool) once, synchronously. build() is sync — no
+ * fetch/await — so the registry is available on first render with no promise. */
+export function ensureRuntimeSync(): Runtime {
+  if (!syncRuntime) syncRuntime = build();
+  return syncRuntime;
+}
+
 export function getRuntime(): Promise<Runtime> {
   if (ready) return ready;
 
