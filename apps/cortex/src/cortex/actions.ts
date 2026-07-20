@@ -10,7 +10,7 @@ import { getServerRuntime } from "@/cortex/server-runtime";
  */
 export type IntentResult<T = unknown> =
   | { ok: true; data: T }
-  | { ok: false; code: "unavailable" | "denied" | "failed" };
+  | { ok: false; code: "unavailable" | "denied" | "failed" | "emailExists" };
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -52,6 +52,15 @@ export async function runIntentAction(
     // policy internals) never crosses to the client. Logged server-side only.
     console.error(`Cortex runIntentAction(${intentName}) failed`, err);
     const message = err instanceof Error ? err.message : String(err);
+
+    // Specific, expected outcome of staff.add_member: the email is already
+    // registered. addMemberToOrg returns "emailExists"; staff logic throws it as
+    // the message. Surface a dedicated code so the form can say exactly that,
+    // BEFORE the generic RLS/permission heuristics below (which would otherwise
+    // never match this message, but keep this explicit and first regardless).
+    if (/emailExists/.test(message)) {
+      return { ok: false, code: "emailExists" };
+    }
 
     // A write to a tool table is denied by grants until the write step lands —
     // `authenticated` has no INSERT/UPDATE on inventory_items. That is expected,

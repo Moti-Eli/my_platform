@@ -10,5 +10,14 @@
   "roleToggle": "שינוי תפקיד",
   "makeAdmin": "הפוך למנהל",
   "makeMember": "הפוך לחבר",
-  "roleChangeFailed": "שינוי התפקיד נכשל. נסה שוב."
+  "roleChangeFailed": "שינוי התפקיד נכשל. נסה שוב.",
+  "addMember": "הוסף חבר",
+  "addMemberEmail": "כתובת אימייל",
+  "addMemberName": "שם (לא חובה)",
+  "addMemberSubmit": "הוספה",
+  "addMemberSubmitting": "מוסיף…",
+  "addMemberSuccess": "החבר נוסף בהצלחה",
+  "addMemberEmailExists": "כתובת האימייל כבר רשומה במערכת",
+  "addMemberInvalidEmail": "כתובת אימייל לא תקינה",
+  "addMemberFailed": "הוספת החבר נכשלה, נסה שוב"
 }

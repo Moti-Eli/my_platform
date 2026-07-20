@@ -10,5 +10,14 @@
   "roleToggle": "Change role",
   "makeAdmin": "Make admin",
   "makeMember": "Make member",
-  "roleChangeFailed": "Couldn't change the role. Please try again."
+  "roleChangeFailed": "Couldn't change the role. Please try again.",
+  "addMember": "Add member",
+  "addMemberEmail": "Email address",
+  "addMemberName": "Name (optional)",
+  "addMemberSubmit": "Add",
+  "addMemberSubmitting": "Adding…",
+  "addMemberSuccess": "Member added",
+  "addMemberEmailExists": "That email is already registered",
+  "addMemberInvalidEmail": "Invalid email address",
+  "addMemberFailed": "Couldn't add the member. Please try again."
 }

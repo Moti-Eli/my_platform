@@ -1,6 +1,7 @@
 /**
  * Staff — internal business logic (Standard §2 `logic.ts`). Reads the member list;
- * WRITES one thing — a member's role (Member↔Admin) on `membership_roles`.
+ * WRITES two things — a member's role (Member↔Admin) on `membership_roles`, and a
+ * NEW member added to the org (a fresh auth user joined as a plain member).
  *
  * Unlike inventory/tasks, staff has NO table of its own: it reads the EXISTING
  * platform tables (memberships / roles / users) through `@platform/auth`'s
@@ -13,21 +14,50 @@
  * and "the org's last admin can't be demoted" — this code does NOT re-check either;
  * it calls the RPC and lets the DB raise, then the data-layer maps it to a stable code.
  *
- * WHY THIS LOGIC TAKES `getRls`, NOT THE `CortexDb`
- * -------------------------------------------------
- * `getOrganizationMembers` needs a real Supabase client (it does multi-table joins
- * that the deliberately tiny `CortexDb` surface doesn't express), and `CortexDb`
- * cannot hand one over: `@platform/cortex-core` is framework-agnostic and must not
- * depend on `@supabase/*` (see the header of `packages/cortex-core/src/db.ts`). So
- * rather than leak a SupabaseClient type into the core, this factory takes the SAME
+ * The add-member write goes through `@platform/auth`'s `addMemberToOrg`, which takes
+ * BOTH clients: the per-user RLS client (`getRls` — runs the `members.manage` gate and
+ * the role-assignment write, which the DB re-decides against the real actor) and the
+ * `service` client (creates the auth user + profile + membership, which have no INSERT
+ * policy for `authenticated`). The org is ALWAYS `ctx.orgId`, never from the caller.
+ *
+ * WHY THIS LOGIC TAKES `getRls` (+ `service`), NOT THE `CortexDb`
+ * --------------------------------------------------------------
+ * `getOrganizationMembers`/`addMemberToOrg` need a real Supabase client (multi-table
+ * joins and admin writes the deliberately tiny `CortexDb` surface doesn't express),
+ * and `CortexDb` cannot hand one over: `@platform/cortex-core` is framework-agnostic
+ * and must not depend on `@supabase/*` (see the header of `packages/cortex-core/src/db.ts`).
+ * So rather than leak a SupabaseClient type into the core, this factory takes the SAME
  * per-user RLS-client factory the data-layer already builds (`getRls` in
- * `server-runtime.ts`). It is the RLS client, NEVER the service client — this is a
- * per-user, RLS-scoped read, and service_role would bypass the very policy that
- * makes the answer correct.
+ * `server-runtime.ts`) plus the `service` client. `getRls` is the RLS client for the
+ * read and the gated role write; `service` is used ONLY for the privileged user/
+ * profile/membership inserts inside `addMemberToOrg`.
  */
 import type { SupabaseClient } from "@platform/db";
-import { getOrganizationMembers } from "@platform/auth";
+import { getOrganizationMembers, addMemberToOrg } from "@platform/auth";
 import type { Ctx } from "@platform/cortex-core";
+
+/**
+ * The temp password for a newly-added member — same policy as the web add-member
+ * flow: a known dev password so the demo can log in at once, and a random,
+ * never-disclosed one in production.
+ *
+ * NB: the web blueprint (a `server-only` module) uses node:crypto's `randomBytes`.
+ * THIS module is client-bundled (runtime.ts registers staff on the client to LIST
+ * it), so a node:crypto import would break the client build. We use the Web Crypto
+ * global instead — available identically in Node 18+ and the browser — to mint the
+ * same 24-byte base64url secret. This path only ever RUNS server-side (add_member is
+ * server-only); the global just keeps the bundle clean.
+ */
+const DEV_TEMP_PASSWORD = "123456";
+function newUserPassword(): string {
+  if (process.env.NODE_ENV !== "production") return DEV_TEMP_PASSWORD;
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  // base64url: base64 with +/ → -_ and no padding.
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
 
 /** One org member as returned to the AI/views. `OrgMember.roles` is flattened to a
  * single `isAdmin` boolean — the staff list only needs the badge, not the roles. */
@@ -49,18 +79,27 @@ export interface SetMemberRoleInput {
   targetRole: "admin" | "member";
 }
 
+/** Add a NEW user to the caller's active org as a plain member. Org is ctx, not input. */
+export interface AddMemberInput {
+  email: string;
+  displayName: string;
+}
+
 export interface StaffLogic {
   listMembers(input: ListMembersInput, ctx: Ctx): Promise<Member[]>;
   setMemberRole(
     input: SetMemberRoleInput,
     ctx: Ctx,
   ): Promise<{ membershipId: string; isAdmin: boolean }>;
+  addMember(input: AddMemberInput, ctx: Ctx): Promise<{ userId: string }>;
 }
 
 export function createStaffLogic({
   getRls,
+  service,
 }: {
   getRls: () => Promise<SupabaseClient>;
+  service: SupabaseClient;
 }): StaffLogic {
   return {
     async listMembers(_input, ctx) {
@@ -98,6 +137,24 @@ export function createStaffLogic({
       });
       if (error) throw new Error(error.message);
       return { membershipId, isAdmin: targetRole === "admin" };
+    },
+
+    async addMember(input, ctx) {
+      // BOTH clients: the per-user RLS client (the actor — runs the members.manage
+      // gate and the role-assignment write the DB re-decides per-row) and the
+      // service client (creates the auth user/profile/membership). The org is
+      // ALWAYS ctx.orgId — never the caller's claim. On any seam error we throw its
+      // stable key so the action maps it (emailExists/notAllowed/... → IntentResult).
+      const password = newUserPassword();
+      const rls = await getRls();
+      const result = await addMemberToOrg(rls, service, {
+        email: input.email,
+        displayName: input.displayName,
+        organizationId: ctx.orgId,
+        password,
+      });
+      if (result.error) throw new Error(result.error);
+      return { userId: result.userId! };
     },
   };
 }

@@ -116,8 +116,10 @@ function build(): DataLayer {
     registerApp(tasksManifest, createTasksIntents(tasksLogic), createTasksListeners(tasksLogic));
   }
   // Staff reads through the RLS client directly (not the CortexDb), because it uses
-  // @platform/auth's multi-table getOrganizationMembers — see staff/logic.ts.
-  const staffLogic = createStaffLogic({ getRls });
+  // @platform/auth's multi-table getOrganizationMembers — see staff/logic.ts. It also
+  // takes the `service` client for the privileged add_member writes (user/profile/
+  // membership), while the role assignment inside addMemberToOrg runs on the RLS client.
+  const staffLogic = createStaffLogic({ getRls, service });
   if (!getApp(staffManifest.id)) {
     registerApp(staffManifest, createStaffIntents(staffLogic), staffListeners);
   }

@@ -17,6 +17,7 @@
  * demo seed that used to fill it is gone (rows live in Postgres now). Registration
  * does not need a real backend, so this stays a dependency-free client concern.
  */
+import type { SupabaseClient } from "@platform/db";
 import {
   createInMemoryDb,
   createDataLayer,
@@ -78,14 +79,20 @@ function build(): Runtime {
     // is where inventory writes run), so this listener is inert here.
     registerApp(tasksManifest, createTasksIntents(tasksLogic), createTasksListeners(tasksLogic));
   }
-  // Staff's read runs SERVER-SIDE ONLY (through runIntentAction → the server
+  // Staff's intents run SERVER-SIDE ONLY (through runIntentAction → the server
   // data-layer). This client runtime registers the tool so the catalog/chips can
-  // LIST it, but never invokes its intent — so it never needs a real RLS client.
-  // The stub throws if ever called, which client-side it is not.
+  // LIST it, but never invokes its intents — so it needs neither a real RLS client
+  // nor the service client. Both are throwing stubs: getRls throws if ever called;
+  // `service` is a never-called value cast to the client type (add_member is
+  // server-only), so accessing it client-side is a build/type impossibility we
+  // never reach.
   const staffLogic = createStaffLogic({
     getRls: () => {
       throw new Error("staff.list_members runs server-side only");
     },
+    service: (() => {
+      throw new Error("staff.add_member runs server-side only");
+    }) as unknown as SupabaseClient,
   });
   if (!getApp(staffManifest.id)) {
     registerApp(staffManifest, createStaffIntents(staffLogic), staffListeners);
