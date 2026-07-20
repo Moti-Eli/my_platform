@@ -403,6 +403,172 @@ function isDuplicateEmail(message: string | undefined): boolean {
  * Creates: organization + Admin role (is_admin) + Member role (+ baseline
  * permissions) + first admin (auth user + profile + membership + Admin role).
  */
+export interface SignUpInput {
+  email: string;
+  password: string;
+  displayName: string;
+  organizationName: string;
+}
+
+export interface SignUpResult {
+  /** Null on success; otherwise a short error key. */
+  error: string | null;
+  userId: string | null;
+  organizationId: string | null;
+}
+
+/**
+ * Self-service signup: create a brand-new organization and register its owner
+ * as the first admin. SERVER-SIDE ONLY.
+ *
+ * This is the public-registration counterpart to
+ * `createOrganizationWithFirstAdmin`, with one deliberate difference: there is
+ * NO acting user and NO authorization gate. A self-registering user is not a
+ * platform owner and there is nothing to check — this call is what *creates*
+ * their identity, so no identity exists to authorize yet. The only client is the
+ * `serviceClient` (service-role key, bypasses RLS). It is required because
+ * `organizations`/`memberships` have SELECT-only RLS for `authenticated` and no
+ * INSERT policy, so provisioning cannot run under a normal user session.
+ *
+ * Everything else mirrors `createOrganizationWithFirstAdmin`: org + Admin role
+ * (is_admin) + Member role (+ baseline permissions) + auth user + profile +
+ * membership + Admin role on that membership, with full rollback on any failure
+ * so a failed signup never leaves a half-provisioned tenant. The new user gets
+ * the org's Admin role — they own the org they just created.
+ */
+export async function signUpWithNewOrganization(
+  serviceClient: SupabaseClient,
+  input: SignUpInput
+): Promise<SignUpResult> {
+  const organizationName = input.organizationName.trim();
+  const email = input.email.trim();
+  const displayName = input.displayName.trim();
+
+  const fail = (error: string): SignUpResult => ({
+    error,
+    userId: null,
+    organizationId: null,
+  });
+
+  // --- Input validation ------------------------------------------------------
+  // No authorization gate: identity does not exist yet — this call creates it.
+  if (organizationName.length === 0) return fail("invalidOrgName");
+  if (!ORG_ADMIN_EMAIL_RE.test(email)) return fail("invalidEmail");
+  if (displayName.length === 0) return fail("invalidName");
+  if (input.password.length < 6) return fail("invalidPassword");
+
+  // --- Privileged provisioning (service role) --------------------------------
+  // Track what we created so we can roll back on any later failure.
+  let createdOrgId: string | null = null;
+  let createdAuthId: string | null = null;
+
+  const rollback = async (): Promise<void> => {
+    // Deleting the auth user cascades its profile/membership/role; deleting the
+    // org cascades its roles/memberships. Best-effort; ignore secondary errors.
+    if (createdAuthId) await serviceClient.auth.admin.deleteUser(createdAuthId);
+    if (createdOrgId) await serviceClient.from("organizations").delete().eq("id", createdOrgId);
+  };
+
+  // 1) Organization.
+  const orgRes = await serviceClient
+    .from("organizations")
+    .insert({ name: organizationName })
+    .select("id")
+    .single();
+  if (orgRes.error || !orgRes.data) return fail("createFailed");
+  createdOrgId = (orgRes.data as { id: string }).id;
+
+  // 2) Admin + Member roles.
+  const adminRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Admin", is_admin: true })
+    .select("id")
+    .single();
+  if (adminRoleRes.error || !adminRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const adminRoleId = (adminRoleRes.data as { id: string }).id;
+
+  const memberRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Member", is_admin: false })
+    .select("id")
+    .single();
+  if (memberRoleRes.error || !memberRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const memberRoleId = (memberRoleRes.data as { id: string }).id;
+
+  // 2b) Grant the Member role its baseline permissions (parity with the seed).
+  const permsRes = await serviceClient
+    .from("permissions")
+    .select("id, key")
+    .in("key", NEW_ORG_MEMBER_PERMISSIONS);
+  if (permsRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const rolePermRows = ((permsRes.data ?? []) as Array<{ id: string; key: string }>).map((p) => ({
+    role_id: memberRoleId,
+    permission_id: p.id,
+  }));
+  if (rolePermRows.length > 0) {
+    const rpRes = await serviceClient.from("role_permissions").insert(rolePermRows);
+    if (rpRes.error) {
+      await rollback();
+      return fail("createFailed");
+    }
+  }
+
+  // 3) Owner's auth user.
+  const created = await serviceClient.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+  });
+  if (created.error || !created.data.user) {
+    await rollback();
+    return fail(isDuplicateEmail(created.error?.message) ? "emailExists" : "createFailed");
+  }
+  createdAuthId = created.data.user.id;
+  const normalizedEmail = created.data.user.email ?? email.toLowerCase();
+
+  // 4) Profile row.
+  const profileRes = await serviceClient
+    .from("users")
+    .insert({ id: createdAuthId, email: normalizedEmail, display_name: displayName });
+  if (profileRes.error) {
+    await rollback();
+    return fail(isDuplicateEmail(profileRes.error.message) ? "emailExists" : "createFailed");
+  }
+
+  // 5) Membership in the new org.
+  const membershipRes = await serviceClient
+    .from("memberships")
+    .insert({ user_id: createdAuthId, organization_id: createdOrgId })
+    .select("id")
+    .single();
+  if (membershipRes.error || !membershipRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  // 6) Assign the Admin role to that membership (the signup user owns their org).
+  const mrRes = await serviceClient.from("membership_roles").insert({
+    membership_id: (membershipRes.data as { id: string }).id,
+    role_id: adminRoleId,
+    organization_id: createdOrgId,
+  });
+  if (mrRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  return { error: null, userId: createdAuthId, organizationId: createdOrgId };
+}
+
 export async function createOrganizationWithFirstAdmin(
   actingClient: SupabaseClient,
   serviceClient: SupabaseClient,
