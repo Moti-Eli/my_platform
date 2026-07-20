@@ -54,7 +54,7 @@ export async function installApp(appKey: string): Promise<void> {
 
   // ON CONFLICT DO NOTHING against app_instances_owner_org_definition_unique.
   const ins = await admin.from("app_instances").upsert(
-    { definition_id: definitionId, owner_type: "user", owner_id: userId, org_id: orgId },
+    { definition_id: definitionId, owner_id: userId, org_id: orgId },
     { onConflict: "owner_id,org_id,definition_id", ignoreDuplicates: true },
   );
   if (ins.error) throw new Error(`installApp (insert): ${ins.error.message}`);
