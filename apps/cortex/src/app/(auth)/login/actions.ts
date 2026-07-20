@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { signIn } from "@platform/auth";
+import { signIn, signUpWithNewOrganization } from "@platform/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createCortexAdminClient } from "@/lib/supabase/admin";
 import type { MessageKey } from "@/i18n";
 
 export interface LoginState {
@@ -66,5 +67,76 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
 
   // Land on Home. requireSession() there decides what the user actually sees —
   // including the no-organization state. The login action does not pre-judge it.
+  redirect("/");
+}
+
+export interface SignupState {
+  /** A `signup.*` i18n key, or null. NEVER a raw server message — same rule as login. */
+  error: MessageKey | null;
+}
+
+/**
+ * Map a `signUpWithNewOrganization` error key onto a translated `signup.*` key.
+ *
+ * The seam already validated (email regex, password ≥ 6, non-empty org/display
+ * name) and returns a short stable key; we never re-validate here, and we never
+ * render the raw key. Anything unrecognized collapses to the generic `failed`.
+ */
+function toSignupErrorKey(key: string): MessageKey {
+  switch (key) {
+    case "invalidEmail":
+      return "signup.invalidEmail";
+    case "invalidName":
+      return "signup.invalidName";
+    case "invalidOrgName":
+      return "signup.invalidOrgName";
+    case "invalidPassword":
+      return "signup.invalidPassword";
+    case "emailExists":
+      return "signup.emailExists";
+    default:
+      return "signup.failed";
+  }
+}
+
+/**
+ * Self-service signup: provision a new organization + its owner, then sign that
+ * owner in and land on Home. Provisioning needs the service-role client (the
+ * seam bypasses RLS to create the tenant); the sign-in that follows uses the
+ * normal RLS server client to set the session cookies, exactly as loginAction.
+ */
+export async function signupAction(_prev: SignupState, formData: FormData): Promise<SignupState> {
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const displayName = String(formData.get("displayName") ?? "");
+  const organizationName = String(formData.get("organizationName") ?? "");
+
+  // The admin client FAILS LOUD (throws) when the secret key is absent. Here we
+  // want the login surface to degrade, not stack-trace, so we catch and report
+  // notConfigured — mirroring loginAction's null-client handling.
+  let serviceClient;
+  try {
+    serviceClient = createCortexAdminClient();
+  } catch {
+    return { error: "signup.notConfigured" };
+  }
+
+  const { error } = await signUpWithNewOrganization(serviceClient, {
+    email,
+    password,
+    displayName,
+    organizationName,
+  });
+  if (error) return { error: toSignupErrorKey(error) };
+
+  // The user exists but admin.createUser establishes no session. Sign them in via
+  // the RLS server client to set the cookies — the same client+call loginAction
+  // uses. It should not fail (account just created with email_confirm:true).
+  const supabase = await createSupabaseServerClient();
+  if (!supabase) return { error: "signup.notConfigured" };
+  const signInRes = await signIn(supabase, email, password);
+  if (signInRes.error) return { error: "signup.failed" };
+
+  // requireSession() on Home finds the freshly-created membership and lands Home.
   redirect("/");
 }

@@ -40,6 +40,18 @@ const he = {
     notConfigured: "המערכת אינה מחוברת לשרת",
     failed: "הכניסה נכשלה, נסה שוב",
   },
+  // Self-service signup. Error keys ONLY for now (UI labels come later). Each maps
+  // 1:1 from a `signUpWithNewOrganization` error key in @platform/auth, plus
+  // `notConfigured` (admin client env missing) — same never-render-raw rule as login.
+  signup: {
+    invalidEmail: "כתובת אימייל לא תקינה",
+    invalidName: "יש להזין שם",
+    invalidOrgName: "יש להזין שם ארגון",
+    invalidPassword: "הסיסמה חייבת להכיל לפחות 6 תווים",
+    emailExists: "כתובת האימייל כבר רשומה",
+    notConfigured: "המערכת אינה מחוברת לשרת",
+    failed: "ההרשמה נכשלה, נסה שוב",
+  },
   session: {
     noOrgTitle: "אין לך ארגון",
     noOrgHint: "החשבון שלך אינו משויך לאף ארגון. פנה למנהל המערכת כדי שיצרף אותך.",
@@ -217,6 +229,15 @@ const en: Messages = {
     notPermitted: "This account is recognised but is not allowed to sign in",
     notConfigured: "The app is not connected to a server",
     failed: "Sign-in failed, please try again",
+  },
+  signup: {
+    invalidEmail: "Invalid email address",
+    invalidName: "Please enter a name",
+    invalidOrgName: "Please enter an organization name",
+    invalidPassword: "The password must be at least 6 characters",
+    emailExists: "That email is already registered",
+    notConfigured: "The app is not connected to a server",
+    failed: "Sign-up failed, please try again",
   },
   session: {
     noOrgTitle: "You have no organization",
