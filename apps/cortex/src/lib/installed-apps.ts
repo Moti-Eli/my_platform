@@ -4,71 +4,112 @@
  * Installed-apps state — the single source of truth for WHICH apps the user has
  * added to their shell (their `app_instances`, in Cortex terms).
  *
- * The public interface is intentionally tiny and storage-agnostic:
- *   listInstalled() / isInstalled(id) / install(id) / uninstall(id) / subscribe()
- * Screens use it (via {@link useInstalledApps}) and never touch the backend.
+ * BACKEND: `public.app_instances`, per-user-per-org, reached through the SERVER
+ * ACTIONS in `@/lib/installed-apps.actions`. Identity is never passed from here —
+ * each action derives it from `requireSession()` (the session cookie), so a
+ * react-query background refetch is re-authenticated exactly like the first fetch.
  *
- * TEMPORARY BACKEND: there is no auth yet, so this is persisted to localStorage,
- * isolated entirely behind the functions below. When Cortex auth + Supabase land,
- * swap the read/write helpers for `app_instances` queries — no screen changes.
+ * The read keeps its ORIGINAL SHAPE — `useInstalledApps(): string[]` in install
+ * order — so screens (Home, AppShell, Header, catalog) did not change. Writes moved
+ * to {@link useAppInstaller}, which applies an OPTIMISTIC cache update and then
+ * reconciles against the server (invalidate on success, invalidate to revert on
+ * failure). Mirrors the `useStaffMembers` pattern.
  *
- * Initial state: nothing installed.
+ * PINNED apps are a SEPARATE, still-local concern: pin order is a device
+ * preference, not org state, so it remains in localStorage behind the functions at
+ * the bottom of this file. Untouched by the server swap.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  listInstalledApps,
+  installApp,
+  uninstallApp,
+} from "@/lib/installed-apps.actions";
 
-const STORAGE_KEY = "cortex.installedApps";
+/** The single queryKey every installed-apps consumer shares. */
+export const INSTALLED_APPS_KEY = ["installed-apps"] as const;
+
+// ---- Installed apps (server-backed) -----------------------------------------
+
+/**
+ * Reactive view of the installed-app ids, in INSTALL order (earliest first).
+ * Returns `[]` while loading or on error, so callers never branch on undefined —
+ * the same `string[]` contract the localStorage version had.
+ */
+export function useInstalledApps(): string[] {
+  const query = useQuery({
+    queryKey: INSTALLED_APPS_KEY,
+    queryFn: listInstalledApps,
+  });
+  return query.data ?? [];
+}
+
+/**
+ * The two writes, both OPTIMISTIC: the shared cache flips immediately so the chips
+ * row / catalog badge respond on tap, then the server action runs. On success we
+ * invalidate to pick up the authoritative order; on failure we ALSO invalidate,
+ * which refetches and thereby reverts the optimistic edit. A raw error string is
+ * never surfaced — the list simply snaps back to the truth.
+ */
+export function useAppInstaller(): {
+  install: (appKey: string) => void;
+  uninstall: (appKey: string) => void;
+} {
+  const qc = useQueryClient();
+
+  const install = useCallback(
+    (appKey: string) => {
+      qc.setQueryData<string[]>(INSTALLED_APPS_KEY, (prev) =>
+        prev?.includes(appKey) ? prev : [...(prev ?? []), appKey],
+      );
+      void (async () => {
+        try {
+          await installApp(appKey);
+        } finally {
+          // Success: adopt the server's authoritative list. Failure: the refetch
+          // IS the revert.
+          void qc.invalidateQueries({ queryKey: INSTALLED_APPS_KEY });
+        }
+      })();
+    },
+    [qc],
+  );
+
+  const uninstall = useCallback(
+    (appKey: string) => {
+      qc.setQueryData<string[]>(INSTALLED_APPS_KEY, (prev) =>
+        (prev ?? []).filter((k) => k !== appKey),
+      );
+      void (async () => {
+        try {
+          await uninstallApp(appKey);
+        } finally {
+          void qc.invalidateQueries({ queryKey: INSTALLED_APPS_KEY });
+        }
+      })();
+    },
+    [qc],
+  );
+
+  return { install, uninstall };
+}
+
+// ---- Pinned apps (device-local; NOT part of the server swap) ----------------
+
 const PINNED_KEY = "cortex.pinnedApps";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
-
-// ---- TEMPORARY localStorage backend (swap for Supabase app_instances) -------
-
-function read(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    // The stored shape is (and always has been) a JSON string array whose ORDER
-    // is the install order. Be defensive about anything else (old/corrupt state):
-    // ignore non-arrays, keep only strings, and de-dupe while preserving the
-    // first-seen (install) order — never throw.
-    if (!Array.isArray(parsed)) return [];
-    const seen = new Set<string>();
-    const ids: string[] = [];
-    for (const value of parsed) {
-      if (typeof value === "string" && !seen.has(value)) {
-        seen.add(value);
-        ids.push(value);
-      }
-    }
-    return ids;
-  } catch {
-    return [];
-  }
-}
-
-function write(ids: string[]): void {
-  if (typeof window !== "undefined") {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-    } catch {
-      /* ignore quota/availability errors — state still lives in memory this session */
-    }
-  }
-  for (const listener of listeners) listener();
-}
-
-// ---- TEMPORARY localStorage backend: pinned ids (parallel to installed) ------
 
 function readPinned(): string[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(PINNED_KEY);
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    // Same shape as read(): a JSON string array whose ORDER is the pin order. Be
-    // defensive about anything else (old/corrupt state): ignore non-arrays, keep
-    // only strings, de-dupe preserving first-seen (pin) order — never throw.
+    // A JSON string array whose ORDER is the pin order. Be defensive about
+    // anything else (old/corrupt state): ignore non-arrays, keep only strings,
+    // de-dupe preserving first-seen (pin) order — never throw.
     if (!Array.isArray(parsed)) return [];
     const seen = new Set<string>();
     const ids: string[] = [];
@@ -95,36 +136,11 @@ function writePinned(ids: string[]): void {
   for (const listener of listeners) listener();
 }
 
-// ---- Public interface (storage-agnostic) ------------------------------------
-
-/** The ids of apps the user has installed, in INSTALL order (first installed
- * first, newly installed last). Consumers render in exactly this order. */
-export function listInstalled(): string[] {
-  return read();
-}
-
-/** Whether a given app id is installed. */
-export function isInstalled(id: string): boolean {
-  return read().includes(id);
-}
-
-/** Add an app to the user's shell (no-op if already installed). */
-export function install(id: string): void {
-  const ids = read();
-  if (ids.includes(id)) return;
-  write([...ids, id]);
-}
-
-/** Remove an app from the user's shell (no-op if not installed). An uninstalled
- * app can't be pinned, so it is dropped from the pinned store too. */
-export function uninstall(id: string): void {
-  const ids = read();
-  if (!ids.includes(id)) return;
-  write(ids.filter((existing) => existing !== id));
-  const pinned = readPinned();
-  if (pinned.includes(id)) {
-    writePinned(pinned.filter((existing) => existing !== id));
-  }
+/** Subscribe to pin changes. Returns an unsubscribe function. Internal: the only
+ * consumer is {@link usePinnedApps}. */
+function subscribe(listener: Listener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
 /** The ids of pinned apps, in PIN order (first pinned first, newly pinned last).
@@ -148,32 +164,11 @@ export function togglePin(id: string): void {
   }
 }
 
-/** Subscribe to install/uninstall changes. Returns an unsubscribe function. */
-export function subscribe(listener: Listener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-// ---- React binding ----------------------------------------------------------
-
 /**
- * Reactive view of the installed-app ids. Starts empty on the server and first
- * client paint (so hydration matches), then loads from the backend and stays in
- * sync with install()/uninstall() from anywhere.
- */
-export function useInstalledApps(): string[] {
-  const [ids, setIds] = useState<string[]>([]);
-  useEffect(() => {
-    setIds(listInstalled());
-    return subscribe(() => setIds(listInstalled()));
-  }, []);
-  return ids;
-}
-
-/**
- * Reactive view of the pinned-app ids. Same shape as {@link useInstalledApps}:
- * empty on the server and first client paint, then loads from the backend and
- * stays in sync with togglePin()/uninstall() from anywhere.
+ * Reactive view of the pinned-app ids. Empty on the server and first client paint
+ * (so hydration matches), then loads from localStorage and stays in sync with
+ * togglePin() from anywhere. A pin for an app that is no longer installed is inert
+ * — AppShell intersects this list with the installed one before rendering.
  */
 export function usePinnedApps(): string[] {
   const [ids, setIds] = useState<string[]>([]);

@@ -15,7 +15,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PinIcon, PlusIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
-import { isPinned, togglePin, uninstall } from "@/lib/installed-apps";
+import { isPinned, togglePin, useAppInstaller } from "@/lib/installed-apps";
 
 export interface ToolTab {
   id: string;
@@ -48,6 +48,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const { uninstall } = useAppInstaller();
 
   const [menu, setMenu] = useState<MenuAnchor | null>(null);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

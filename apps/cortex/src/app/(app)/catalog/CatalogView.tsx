@@ -14,7 +14,7 @@
 import type { AppManifest } from "@platform/cortex-core";
 import { useRouter } from "next/navigation";
 import { useRegisteredApps, appRoute } from "@/cortex/apps";
-import { install, uninstall, useInstalledApps } from "@/lib/installed-apps";
+import { useInstalledApps, useAppInstaller } from "@/lib/installed-apps";
 import { appIcon, appColorClasses } from "@/components/app-visuals";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
@@ -30,6 +30,7 @@ function CatalogCard({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const { install, uninstall } = useAppInstaller();
   const Icon = appIcon(manifest.icon);
   const available = manifest.status !== "unavailable";
   const label = t(manifest.name.key as MessageKey);
