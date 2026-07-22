@@ -23,6 +23,7 @@ import {
   DocumentIcon,
   WalletIcon,
   BookIcon,
+  IdCardIcon,
 } from "@/components/icons";
 
 type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
@@ -42,6 +43,7 @@ const ICONS: Record<string, IconComponent> = {
   document: DocumentIcon,
   wallet: WalletIcon,
   book: BookIcon,
+  idcard: IdCardIcon,
 };
 
 /** The icon component for a manifest `icon` id (falls back to a generic box). */
