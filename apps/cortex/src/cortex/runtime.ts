@@ -52,6 +52,10 @@ import { manifest as journalManifest } from "@/tools/journal/manifest";
 import { createJournalLogic } from "@/tools/journal/logic";
 import { createJournalIntents } from "@/tools/journal/intents";
 import { createJournalListeners } from "@/tools/journal/events";
+import { manifest as candidatesManifest } from "@/tools/candidates/manifest";
+import { createCandidatesLogic } from "@/tools/candidates/logic";
+import { createCandidatesIntents } from "@/tools/candidates/intents";
+import { createCandidatesListeners } from "@/tools/candidates/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -122,6 +126,16 @@ function build(): Runtime {
       journalManifest,
       createJournalIntents(journalLogic),
       createJournalListeners(journalLogic),
+    );
+  }
+  const candidatesLogic = createCandidatesLogic({ db, emit: eventBus.emit });
+  if (!getApp(candidatesManifest.id)) {
+    // Listeners close over candidatesLogic (see events.ts); candidates has none
+    // today, so this registers an empty listener set, same shape as the other tools.
+    registerApp(
+      candidatesManifest,
+      createCandidatesIntents(candidatesLogic),
+      createCandidatesListeners(candidatesLogic),
     );
   }
 

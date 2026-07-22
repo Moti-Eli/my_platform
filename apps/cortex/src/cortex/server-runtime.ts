@@ -34,6 +34,10 @@ import { manifest as journalManifest } from "@/tools/journal/manifest";
 import { createJournalLogic } from "@/tools/journal/logic";
 import { createJournalIntents } from "@/tools/journal/intents";
 import { createJournalListeners } from "@/tools/journal/events";
+import { manifest as candidatesManifest } from "@/tools/candidates/manifest";
+import { createCandidatesLogic } from "@/tools/candidates/logic";
+import { createCandidatesIntents } from "@/tools/candidates/intents";
+import { createCandidatesListeners } from "@/tools/candidates/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
@@ -141,6 +145,14 @@ function build(): DataLayer {
       journalManifest,
       createJournalIntents(journalLogic),
       createJournalListeners(journalLogic),
+    );
+  }
+  const candidatesLogic = createCandidatesLogic({ db, emit: eventBus.emit });
+  if (!getApp(candidatesManifest.id)) {
+    registerApp(
+      candidatesManifest,
+      createCandidatesIntents(candidatesLogic),
+      createCandidatesListeners(candidatesLogic),
     );
   }
   for (const stub of STUB_APPS) {
