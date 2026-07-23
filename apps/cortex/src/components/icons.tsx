@@ -365,3 +365,16 @@ export function BookIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** Share — three connected nodes; sending something outward. */
+export function ShareIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="6" cy="12" r="2.6" />
+      <circle cx="17" cy="5.5" r="2.6" />
+      <circle cx="17" cy="18.5" r="2.6" />
+      <path d="m8.4 10.8 6.2-4" />
+      <path d="m8.4 13.2 6.2 4" />
+    </svg>
+  );
+}
