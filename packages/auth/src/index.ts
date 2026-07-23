@@ -1160,3 +1160,174 @@ export async function createChildOrgWithMember(
 
   return { error: null, organizationId: createdOrgId, userId: createdAuthId };
 }
+
+export interface CreateOrganizationForCurrentUserInput {
+  organizationName: string;
+}
+
+export interface CreateOrganizationForCurrentUserResult {
+  /** Null on success; otherwise a short error key. */
+  error: string | null;
+  /** The new ROOT organization's id on success; null otherwise. */
+  organizationId: string | null;
+}
+
+/**
+ * Create a brand-new ROOT organization for the ALREADY-LOGGED-IN user and make
+ * them its first admin. SERVER-SIDE ONLY.
+ *
+ * WHY THE GATE IS ONLY "LOGGED IN": unlike createChildOrgWithMember, there is no
+ * parent org to authorize against — this is a ROOT org the user creates FOR
+ * THEMSELVES, so having a session IS the whole authorization. There is
+ * deliberately no `members.manage` (or any other) permission check: a user
+ * spinning up their own top-level org answers to no existing org, so there is
+ * nothing to check it against. The absence is intentional, not an oversight
+ * (see the explicit comment on the gate below).
+ *
+ * ROOT ORG — NO TREE INHERITANCE EITHER DIRECTION: the org is inserted with NO
+ * `parent_id`, so it hangs off nothing. auth_user_is_member_of_tree (ancestor
+ * walk) therefore never reaches it from anyone else and never reaches anyone
+ * else from it: no one inherits reads into this org, and its members inherit
+ * reads out of it to no one. It is its own isolated root.
+ *
+ * BOOTSTRAP EXEMPTION DEPENDENCY: the user's OWN Admin-role assignment in the
+ * brand-new org goes through the service client and relies on the bootstrap
+ * exemption in 20260717000003 — the escalation trigger waves through the first
+ * assignment in an org with ZERO membership_roles rows, because a just-created
+ * org has no admin yet who could authorize one. That door is one-shot per org
+ * BY CONSTRUCTION: the exempted insert itself gives the org its first
+ * membership_roles row, closing the exemption behind it.
+ *
+ * NO organizations RLS CHANGE IS NEEDED: the organizations SELECT policy is
+ * auth_user_is_member_of(id), so the new membership ALONE makes the org visible
+ * to the user (e.g. in the org switcher) — there is nothing to grant on the org
+ * itself beyond joining them to it.
+ *
+ * TWO CLIENTS (same split as the sibling provisioning functions):
+ * - `actingClient` carries the actor's JWT: used solely for the "logged in"
+ *   gate below.
+ * - `serviceClient` (secret/service-role key, bypasses RLS) does the
+ *   provisioning writes (org/roles/membership/membership_roles), which have no
+ *   INSERT policy for `authenticated`.
+ *
+ * Atomic-ish with rollback: on any failure we delete the org, which cascades its
+ * roles/memberships — so a failure never leaves a half-provisioned tenant. NO
+ * auth user is created here (the user already exists), so the rollback is
+ * ORG-ONLY, unlike the sibling functions that also delete a created auth user.
+ */
+export async function createOrganizationForCurrentUser(
+  actingClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+  input: CreateOrganizationForCurrentUserInput
+): Promise<CreateOrganizationForCurrentUserResult> {
+  const organizationName = input.organizationName.trim();
+
+  const fail = (error: string): CreateOrganizationForCurrentUserResult => ({
+    error,
+    organizationId: null,
+  });
+
+  // --- Input validation ------------------------------------------------------
+  if (organizationName.length === 0) return fail("invalidOrgName");
+
+  // --- Authorization (acting client, RLS-scoped) — the security boundary -----
+  // THE GATE IS ONLY "LOGGED IN", BY DESIGN. This is a ROOT org the user creates
+  // for themselves: there is no parent org, so there is no members.manage (or
+  // any other) permission to check against. The missing permission check is
+  // DELIBERATE, not forgotten — being authenticated is the whole authorization.
+  const actingUser = await getCurrentUser(actingClient);
+  if (!actingUser) return fail("notAllowed");
+
+  // --- Privileged provisioning (service role) --------------------------------
+  // Track what we created so we can roll back on any later failure.
+  let createdOrgId: string | null = null;
+
+  const rollback = async (): Promise<void> => {
+    // ORG-ONLY: no auth user is created here (the user already exists), so unlike
+    // the sibling functions there is nothing to delete but the org. Deleting the
+    // org cascades its roles/memberships. Best-effort; ignore secondary errors.
+    if (createdOrgId) await serviceClient.from("organizations").delete().eq("id", createdOrgId);
+  };
+
+  // 1) The ROOT organization — NO parent_id, so it hangs off nothing.
+  const orgRes = await serviceClient
+    .from("organizations")
+    .insert({ name: organizationName })
+    .select("id")
+    .single();
+  if (orgRes.error || !orgRes.data) return fail("createFailed");
+  createdOrgId = (orgRes.data as { id: string }).id;
+
+  // 2) Admin + Member roles.
+  const adminRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Admin", is_admin: true })
+    .select("id")
+    .single();
+  if (adminRoleRes.error || !adminRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const adminRoleId = (adminRoleRes.data as { id: string }).id;
+
+  const memberRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Member", is_admin: false })
+    .select("id")
+    .single();
+  if (memberRoleRes.error || !memberRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const memberRoleId = (memberRoleRes.data as { id: string }).id;
+
+  // 2b) Grant the Member role its baseline permissions (parity with the seed).
+  const permsRes = await serviceClient
+    .from("permissions")
+    .select("id, key")
+    .in("key", NEW_ORG_MEMBER_PERMISSIONS);
+  if (permsRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const rolePermRows = ((permsRes.data ?? []) as Array<{ id: string; key: string }>).map((p) => ({
+    role_id: memberRoleId,
+    permission_id: p.id,
+  }));
+  if (rolePermRows.length > 0) {
+    const rpRes = await serviceClient.from("role_permissions").insert(rolePermRows);
+    if (rpRes.error) {
+      await rollback();
+      return fail("createFailed");
+    }
+  }
+
+  // 3) The acting user's membership in their new org.
+  const membershipRes = await serviceClient
+    .from("memberships")
+    .insert({ user_id: actingUser.id, organization_id: createdOrgId })
+    .select("id")
+    .single();
+  if (membershipRes.error || !membershipRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  // 4) Assign the acting user the Admin role. This service-client insert relies
+  //    on the BOOTSTRAP EXEMPTION in 20260717000003: the escalation trigger
+  //    waves through the first assignment in an org with ZERO membership_roles
+  //    rows (a just-created org has no admin yet who could authorize one).
+  //    One-shot per org BY CONSTRUCTION — this very row closes the exemption
+  //    behind it.
+  const mrRes = await serviceClient.from("membership_roles").insert({
+    membership_id: (membershipRes.data as { id: string }).id,
+    role_id: adminRoleId,
+    organization_id: createdOrgId,
+  });
+  if (mrRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  return { error: null, organizationId: createdOrgId };
+}
