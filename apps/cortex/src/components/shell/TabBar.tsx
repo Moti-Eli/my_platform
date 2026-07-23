@@ -7,10 +7,11 @@
  *   1. Home (right-most)   2. Catalog   3. AI hero (center)
  *   4. Comms               5. Profile (left-most)
  *
- * The four corner slots are ICON-ONLY route links (active state via the current
- * path) — no visible text; the accessible name is the Link's `aria-label`. The
- * center AI hero is a button that TOGGLES the AI sheet (it is not a route) —
- * tapping it while the sheet is open closes it, like the profile tab.
+ * The four corner slots are route links (active state via the current path)
+ * showing a visible caption label alongside the icon; the Link's `aria-label`
+ * matches the visible text. The center AI hero is a button that TOGGLES the AI
+ * sheet (it is not a route) — tapping it while the sheet is open closes it,
+ * like the profile tab.
  *
  * The bar sits at `z-50`, above every overlay (AI sheet, urgency inbox), so it is
  * always visible and tappable — the sheet opens above it, never over it.
@@ -41,11 +42,12 @@ function TabLink({
       onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-11 flex-1 flex-col items-center justify-center py-xs touch-manipulation interactive motion-safe:active:scale-[0.97] ${
+      className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-2xs touch-manipulation interactive motion-safe:active:scale-[0.97] ${
         active ? "text-accent" : "text-muted"
       }`}
     >
       <span>{icon}</span>
+      <span className="type-caption">{label}</span>
     </Link>
   );
 }
@@ -90,7 +92,7 @@ export function TabBar({
       // full height at every scroll position. The bottom padding keeps clear of
       // the system nav bar (env safe-area) on top of the shell tracking the real
       // visible viewport height (see AppShell), which handles Chrome's URL bar.
-      className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-2xs rounded-t-xl border-t border-hairline bg-card px-sm pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-xs"
+      className="relative z-50 mt-auto flex shrink-0 items-end justify-between gap-2xs rounded-t-xl border-t border-hairline bg-card px-sm pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2xs"
     >
       <TabLink
         href="/"
@@ -113,7 +115,7 @@ export function TabBar({
           aria-label={t("tabs.ai")}
           aria-pressed={aiOpen}
           onClick={onToggleAi}
-          className={`-mt-6 flex h-14 w-14 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation interactive motion-safe:active:scale-[0.97] ${
+          className={`-mt-5 flex h-12 w-12 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation interactive motion-safe:active:scale-[0.97] ${
             aiOpen ? "bg-inverse text-inverse-ink" : "bg-accent text-on-fill"
           }`}
         >
