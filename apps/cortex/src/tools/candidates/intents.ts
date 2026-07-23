@@ -35,6 +35,17 @@ const candidate = z.object({
   tags: z.array(z.string()),
   urgent: z.boolean(),
   rejectReason: z.string(),
+  // Card fields (20260723000002). These MUST be declared here: zod strips
+  // undeclared keys on parse, so omitting them would silently drop them from
+  // every query_list result.
+  hasCertificate: z.boolean(),
+  phone: z.string(),
+  city: z.string(),
+  email: z.string(),
+  impression: z.string(),
+  availability: z.string(),
+  hasCar: z.boolean(),
+  salaryExpectation: z.string(),
 });
 
 export function createCandidatesIntents(logic: CandidatesLogic) {
@@ -56,6 +67,14 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
         role: z.string().optional(),
         summary: z.string().optional(),
         tags: z.array(z.string()).optional(),
+        hasCertificate: z.boolean().optional(),
+        phone: z.string().optional(),
+        city: z.string().optional(),
+        email: z.string().optional(),
+        impression: z.string().optional(),
+        availability: z.string().optional(),
+        hasCar: z.boolean().optional(),
+        salaryExpectation: z.string().optional(),
       }),
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.createCandidate(input, ctx),
@@ -63,7 +82,8 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
 
     defineIntent({
       name: "candidates.update_candidate",
-      description: "Edit a candidate's name, role, summary, tags and/or urgent flag",
+      description:
+        "Edit a candidate's fields: name, role, summary, tags, urgent flag, contact details (phone/city/email), impression, availability, certificate/car flags, salary expectation",
       input: z.object({
         id: z.string(),
         name: z.string().optional(),
@@ -71,6 +91,14 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
         summary: z.string().optional(),
         tags: z.array(z.string()).optional(),
         urgent: z.boolean().optional(),
+        hasCertificate: z.boolean().optional(),
+        phone: z.string().optional(),
+        city: z.string().optional(),
+        email: z.string().optional(),
+        impression: z.string().optional(),
+        availability: z.string().optional(),
+        hasCar: z.boolean().optional(),
+        salaryExpectation: z.string().optional(),
       }),
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.updateCandidate(input, ctx),

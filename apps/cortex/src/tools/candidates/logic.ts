@@ -33,6 +33,15 @@ export interface Candidate {
   tags: string[];
   urgent: boolean;
   rejectReason: string;
+  // Card fields (20260723000002) — same conventions: text '' when unset, booleans strict.
+  hasCertificate: boolean;
+  phone: string;
+  city: string;
+  email: string;
+  impression: string;
+  availability: string;
+  hasCar: boolean;
+  salaryExpectation: string;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -42,6 +51,14 @@ export interface CreateCandidateInput {
   role?: string;
   summary?: string;
   tags?: string[];
+  hasCertificate?: boolean;
+  phone?: string;
+  city?: string;
+  email?: string;
+  impression?: string;
+  availability?: string;
+  hasCar?: boolean;
+  salaryExpectation?: string;
 }
 export interface UpdateCandidateInput {
   id: string;
@@ -50,6 +67,14 @@ export interface UpdateCandidateInput {
   summary?: string;
   tags?: string[];
   urgent?: boolean;
+  hasCertificate?: boolean;
+  phone?: string;
+  city?: string;
+  email?: string;
+  impression?: string;
+  availability?: string;
+  hasCar?: boolean;
+  salaryExpectation?: string;
 }
 export interface SetStageInput {
   id: string;
@@ -89,6 +114,14 @@ function toCandidate(row: DbRow): Candidate {
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
     urgent: row.urgent === true,
     rejectReason: row.reject_reason == null ? "" : String(row.reject_reason),
+    hasCertificate: row.has_certificate === true,
+    phone: row.phone == null ? "" : String(row.phone),
+    city: row.city == null ? "" : String(row.city),
+    email: row.email == null ? "" : String(row.email),
+    impression: row.impression == null ? "" : String(row.impression),
+    availability: row.availability == null ? "" : String(row.availability),
+    hasCar: row.has_car === true,
+    salaryExpectation: row.salary_expectation == null ? "" : String(row.salary_expectation),
   };
 }
 
@@ -132,6 +165,15 @@ export function createCandidatesLogic({
         role: input.role ?? "",
         summary: input.summary ?? "",
         tags: input.tags ?? [],
+        // card columns (20260723000002) — camelCase input → snake_case columns
+        has_certificate: input.hasCertificate ?? false,
+        phone: input.phone ?? "",
+        city: input.city ?? "",
+        email: input.email ?? "",
+        impression: input.impression ?? "",
+        availability: input.availability ?? "",
+        has_car: input.hasCar ?? false,
+        salary_expectation: input.salaryExpectation ?? "",
         created_at: now,
         updated_at: now,
       });
@@ -152,6 +194,15 @@ export function createCandidatesLogic({
       if (input.summary !== undefined) patch.summary = input.summary;
       if (input.tags !== undefined) patch.tags = input.tags;
       if (input.urgent !== undefined) patch.urgent = input.urgent;
+      if (input.hasCertificate !== undefined) patch.has_certificate = input.hasCertificate;
+      if (input.phone !== undefined) patch.phone = input.phone;
+      if (input.city !== undefined) patch.city = input.city;
+      if (input.email !== undefined) patch.email = input.email;
+      if (input.impression !== undefined) patch.impression = input.impression;
+      if (input.availability !== undefined) patch.availability = input.availability;
+      if (input.hasCar !== undefined) patch.has_car = input.hasCar;
+      if (input.salaryExpectation !== undefined)
+        patch.salary_expectation = input.salaryExpectation;
       await db.update(CANDIDATES_TABLE, { id: input.id }, patch);
       return { id: input.id };
     },

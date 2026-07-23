@@ -5,21 +5,23 @@
  * cloned from Notes' full screen; the LAYOUT is stage TABS, and its restrained
  * treatment is the visual baseline for the other tools.
  *
- * TOP BAR — one row: a minimal back chevron (start side; points RIGHT in RTL),
- * three numbered stage tabs in the center (contact / interview / intake — the
- * `archived` stage stays real in the DB/intents but gets NO tab here), and an
- * icon-only add button (end side). Only the ACTIVE tab's candidates render;
- * an empty stage shows the empty state.
+ * TOP BAR — one row, one family of five: back chevron · three numbered stage
+ * tabs (contact / interview / intake — `archived` stays real in the DB/intents
+ * but gets NO tab) · icon-only add. Only the ACTIVE tab's candidates render.
  *
- * TONE: quiet. The accent is used sparingly — a subtle `bg-app-blue/10` +
- * `text-app-blue` for the active tab and primary submits; every other surface
- * sits on the neutral roles (bg-card / text-ink / text-muted / hairline). No
- * solid accent fills.
+ * ROWS are compact: name · role · certificate check · phone · city · first
+ * summary line. Tapping a row opens the CANDIDATE CARD — a READ-ONLY overlay
+ * (view mode; edit mode mounts in the same shell later) reusing
+ * `CandidateFormOverlay`. The card's footer reuses the EXISTING set_stage flow
+ * (`moveStage` + its per-id guard) for Archive / Advance — no duplicated write
+ * logic. The old inline row-editor was REMOVED with the row tap reassigned to
+ * the card; editing returns as the card's edit mode (`candidates.update_candidate`
+ * stays live — the urgent star uses it today).
  *
- * ADD: an OVERLAY (scrim + sheet, closes on scrim tap and Escape) hosting the
- * same add form — same fields, validation, double-submit guard and optimistic
- * write as before. The overlay shell (`CandidateFormOverlay`) is generic on
- * purpose: an edit mode can mount in it later without reshaping this screen.
+ * TONE: quiet. The accent is used sparingly — subtle `bg-app-blue/10` +
+ * `text-app-blue` tints for the active tab, primary submits and the certificate
+ * mark; every other surface sits on the neutral roles (bg-card / text-ink /
+ * text-muted / hairline). No solid accent fills.
  *
  * WRITES (unchanged): the read is the SHARED react-query cache
  * (`useCandidatesList`, queryKey ["candidates","list"]) — the same entry the
@@ -27,8 +29,8 @@
  * (no refetch), OPTIMISTICALLY with snapshot-revert on failure. Writes flow
  * runIntentAction -> the server data-layer -> the RLS client, gated ROW BY ROW
  * by `private.auth_user_can_write`; failures surface honestly, never faked and
- * never swallowed. Per-id in-flight guards: edit / star / stage / delete each
- * hold their own lock.
+ * never swallowed. Per-id in-flight guards: star / stage / delete each hold
+ * their own lock.
  *
  * Built from design-system utilities + i18n only.
  */
@@ -38,7 +40,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { ChevronIcon, CloseIcon, InfoIcon, PlusIcon, SparkIcon } from "@/components/icons";
+import { CheckIcon, ChevronIcon, CloseIcon, InfoIcon, PlusIcon, SparkIcon } from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 
@@ -66,7 +68,7 @@ const NEXT_STAGE: Partial<Record<CandidateStage, CandidateStage>> = {
 };
 
 /** Parse the comma-separated tags input into a clean string[] — trimmed, empties
- * dropped. The inverse of the `join(", ")` the edit form seeds with. */
+ * dropped. */
 function parseTags(raw: string): string[] {
   return raw
     .split(",")
@@ -94,8 +96,9 @@ export function FullScreen(_props: ToolViewProps) {
   // Which stage tab is active. Only its candidates render.
   const [activeStage, setActiveStage] = useState<VisibleStage>("contact");
   const [adding, setAdding] = useState(false);
-  // Which candidate is being edited inline (null = none). One row edits at a time.
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // Which candidate's CARD is open (null = none). Resolved against the live cache
+  // each render, so a star toggle from the card is reflected immediately.
+  const [viewingId, setViewingId] = useState<string | null>(null);
   // Which row has the inline archive form open (null = none).
   const [archivingId, setArchivingId] = useState<string | null>(null);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
@@ -119,13 +122,8 @@ export function FullScreen(_props: ToolViewProps) {
     };
   }, []);
 
-  // In-flight EDITS, keyed by candidate id. A second save for a row whose write is
-  // still running is ignored, so a double-tap can't double-apply. PER-ROW, not a
-  // global lock. The ref is the synchronous source of truth for the guard.
-  const savingRef = useRef<Set<string>>(new Set());
-
   // In-flight STAR toggles and STAGE moves — SEPARATE per-id guards, same shape,
-  // so an edit, a star and a stage move never share a lock.
+  // so a star and a stage move never share a lock.
   const starringRef = useRef<Set<string>>(new Set());
   const stagingRef = useRef<Set<string>>(new Set());
 
@@ -149,52 +147,6 @@ export function FullScreen(_props: ToolViewProps) {
     [queryClient],
   );
 
-  const saveCandidate = useCallback(
-    async (
-      id: string,
-      next: { name: string; role: string; summary: string; tags: string[]; urgent: boolean },
-    ) => {
-      // 0. GUARD double-submit: ignore a save for a row whose write is still in
-      //    flight. The ref check is synchronous, so it catches a second tap in the
-      //    micro-window before the disabled button re-renders.
-      if (savingRef.current.has(id)) return;
-
-      // Snapshot the row BEFORE editing, so a failure can restore it exactly.
-      const prevList = queryClient.getQueryData<Candidate[]>(CANDIDATES_LIST_KEY) ?? [];
-      const prev = prevList.find((it) => it.id === id) ?? null;
-
-      savingRef.current = new Set(savingRef.current).add(id);
-
-      // 1. OPTIMISTIC: write the new fields straight into the SHARED cache,
-      //    before awaiting, so the edit has instant feedback AND the dashboard card
-      //    (reading the same cache) moves in lockstep.
-      setWriteError(null);
-      patchCandidate(id, (it) => ({ ...it, ...next }));
-
-      try {
-        const res = await runIntentAction("candidates.update_candidate", { id, ...next });
-
-        if (res.ok) {
-          // 2. Success: close the inline editor. Nothing to reconcile — the cache
-          //    already holds exactly what we submitted, which is authoritative.
-          if (mounted.current) setEditingId((cur) => (cur === id ? null : cur));
-        } else {
-          // 3. REVERT to the snapshot and surface the real error; leave the editor
-          //    open so the edit isn't lost. The cache is written only on these
-          //    chosen paths, so a failure leaves it consistent — never corrupted.
-          if (prev) patchCandidate(id, () => prev);
-          if (mounted.current) setWriteError(res.code);
-        }
-      } finally {
-        // Clear the in-flight mark whether the write succeeded, failed, or threw.
-        const cleared = new Set(savingRef.current);
-        cleared.delete(id);
-        savingRef.current = cleared;
-      }
-    },
-    [patchCandidate, queryClient],
-  );
-
   const toggleUrgent = useCallback(
     async (id: string, nextUrgent: boolean) => {
       // 0. GUARD: one star write per row at a time (its own lock — see above).
@@ -215,7 +167,7 @@ export function FullScreen(_props: ToolViewProps) {
           urgent: nextUrgent,
         });
         if (!res.ok) {
-          // REVERT + surface, exactly like saveCandidate.
+          // REVERT + surface.
           if (prev) patchCandidate(id, () => prev);
           if (mounted.current) setWriteError(res.code);
         }
@@ -274,8 +226,8 @@ export function FullScreen(_props: ToolViewProps) {
 
   const removeCandidate = useCallback(
     async (id: string) => {
-      // 0. GUARD double-delete (mirrors saveCandidate's in-flight guard): ignore a
-      //    delete for a row whose delete is already running.
+      // 0. GUARD double-delete: ignore a delete for a row whose delete is already
+      //    running.
       if (deletingRef.current.has(id)) return;
 
       // Snapshot the row AND its index from the cache BEFORE removing, so a failure
@@ -323,6 +275,9 @@ export function FullScreen(_props: ToolViewProps) {
 
   // Only the active tab's candidates render.
   const items = candidates.filter((it) => it.stage === activeStage);
+  // The card's candidate, resolved from the LIVE cache (not a snapshot) so
+  // writes made from the card render immediately.
+  const viewing = viewingId ? (candidates.find((it) => it.id === viewingId) ?? null) : null;
 
   return (
     <>
@@ -430,6 +385,29 @@ export function FullScreen(_props: ToolViewProps) {
         </CandidateFormOverlay>
       ) : null}
 
+      {/* THE CANDIDATE CARD — read-only view mode in the SAME overlay shell the
+          add form uses. Stage actions reuse the existing moveStage handler (and
+          its per-id guard); the card closes optimistically with the write — on
+          failure the row reverts and the screen-level alert reports it. */}
+      {viewing ? (
+        <CandidateFormOverlay title={t("candidates.cardTitle")} onClose={() => setViewingId(null)}>
+          <CandidateCard
+            candidate={viewing}
+            nextStage={NEXT_STAGE[viewing.stage]}
+            onToggleUrgent={() => void toggleUrgent(viewing.id, !viewing.urgent)}
+            onAdvance={(next) => {
+              void moveStage(viewing.id, next);
+              setViewingId(null);
+            }}
+            onArchive={(reason) => {
+              const write = moveStage(viewing.id, "archived", reason);
+              setViewingId(null);
+              return write;
+            }}
+          />
+        </CandidateFormOverlay>
+      ) : null}
+
       {loading ? (
         // Skeleton on the very first load only (cache empty); arriving from the
         // card the cache is warm and this never shows.
@@ -454,19 +432,14 @@ export function FullScreen(_props: ToolViewProps) {
             const rowDeleting = deleting.has(candidate.id);
             const confirming = confirmId === candidate.id;
             const nextStage = NEXT_STAGE[candidate.stage];
-
-            // Editing: the whole row becomes an inline edit form.
-            if (editingId === candidate.id) {
-              return (
-                <li key={candidate.id} className="py-sm">
-                  <EditCandidateForm
-                    candidate={candidate}
-                    onSave={(next) => saveCandidate(candidate.id, next)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                </li>
-              );
-            }
+            // The compact contact line: phone · city (only the present parts).
+            const contactLine = [candidate.phone, candidate.city]
+              .filter((part) => part !== "")
+              .join(" · ");
+            // First line of the summary only — the row is compact; the card has
+            // the rest. (No stage number here: the row only ever renders inside
+            // its own stage tab, so it would be redundant.)
+            const summaryLine = candidate.summary.split("\n")[0] ?? "";
 
             return (
               <li key={candidate.id} className="flex flex-col gap-xs py-sm">
@@ -487,31 +460,40 @@ export function FullScreen(_props: ToolViewProps) {
                     <SparkIcon width={16} height={16} />
                   </button>
 
+                  {/* The row body OPENS THE CARD (read-only view). */}
                   <button
                     type="button"
-                    aria-label={t("candidates.editCandidate")}
+                    aria-label={t("candidates.openCard")}
                     onClick={() => {
                       setConfirmId(null);
                       setArchivingId(null);
-                      setEditingId(candidate.id);
+                      setViewingId(candidate.id);
                     }}
                     disabled={rowDeleting}
                     className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
                   >
-                    <span className="w-full truncate type-heading text-ink">
-                      {candidate.name}
+                    <span className="flex w-full min-w-0 items-center gap-2xs">
+                      <span className="truncate type-heading text-ink">{candidate.name}</span>
                       {candidate.role ? (
-                        <span className="type-label text-muted"> · {candidate.role}</span>
+                        <span className="shrink-0 type-label text-muted">
+                          · {candidate.role}
+                        </span>
+                      ) : null}
+                      {candidate.hasCertificate ? (
+                        <span
+                          aria-label={t("candidates.hasCertificate")}
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
+                        >
+                          <CheckIcon width={12} height={12} />
+                        </span>
                       ) : null}
                     </span>
-                    {candidate.summary ? (
-                      <span className="w-full truncate type-label text-muted">
-                        {candidate.summary}
-                      </span>
+                    {contactLine !== "" ? (
+                      <span className="w-full truncate type-label text-muted">{contactLine}</span>
                     ) : null}
-                    {candidate.tags.length > 0 ? (
+                    {summaryLine !== "" ? (
                       <span className="w-full truncate type-caption text-muted">
-                        {candidate.tags.join(" · ")}
+                        {summaryLine}
                       </span>
                     ) : null}
                   </button>
@@ -599,8 +581,8 @@ const primaryButtonClass =
  * The form overlay — scrim + sheet (bottom on phones, centered on wider), closed
  * by scrim tap and Escape. Follows the shell's dialog recipe (UrgencyInbox):
  * `bg-scrim` backdrop, `ds-backdrop`/`ds-panel`, `shadow-lifted` sheet. GENERIC
- * over its children ON PURPOSE (Standard: one overlay, many modes) — an edit
- * mode mounts in this same shell later; only the add form lives here today.
+ * over its children ON PURPOSE (Standard: one overlay, many modes) — it hosts
+ * the add form AND the candidate card today, edit mode next.
  */
 function CandidateFormOverlay({
   title,
@@ -657,6 +639,160 @@ function CandidateFormOverlay({
   );
 }
 
+/** One read-only card field: caption label over the value, an em-dash (muted)
+ * when empty — every field always renders, so the card shape is stable. */
+function CardField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2xs">
+      <span className="type-caption text-muted">{label}</span>
+      {value !== "" ? (
+        <span className="break-words type-body text-ink">{value}</span>
+      ) : (
+        <span aria-hidden="true" className="type-body text-muted">
+          —
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The candidate card — READ-ONLY view mode. No inputs; edit mode is a later
+ * step (see the slot in the header). Stage actions delegate to the parent's
+ * moveStage (the ONE set_stage flow with its per-id guard) — never their own
+ * writes.
+ */
+function CandidateCard({
+  candidate,
+  nextStage,
+  onToggleUrgent,
+  onAdvance,
+  onArchive,
+}: {
+  candidate: Candidate;
+  nextStage: CandidateStage | undefined;
+  onToggleUrgent: () => void;
+  onAdvance: (next: CandidateStage) => void;
+  onArchive: (reason?: string) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  // Whether the archive-reason form is open above the footer.
+  const [showArchive, setShowArchive] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-sm">
+      {/* Header: name · role · urgent star · certificate check. */}
+      <div className="flex items-center gap-sm rounded-lg bg-card p-md">
+        <div className="flex min-w-0 flex-1 flex-col gap-2xs">
+          <span className="truncate type-heading text-ink">{candidate.name}</span>
+          {candidate.role !== "" ? (
+            <span className="truncate type-label text-muted">{candidate.role}</span>
+          ) : (
+            <span aria-hidden="true" className="type-label text-muted">
+              —
+            </span>
+          )}
+        </div>
+
+        {/* The star stays LIVE in view mode — it's the same optimistic one-field
+            toggle the row has, on the same per-id guard. */}
+        <button
+          type="button"
+          aria-label={t("candidates.urgent")}
+          aria-pressed={candidate.urgent}
+          onClick={onToggleUrgent}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
+            candidate.urgent ? "bg-app-amber/15 text-app-amber" : "bg-hairline text-muted"
+          }`}
+        >
+          <SparkIcon width={16} height={16} />
+        </button>
+
+        {/* Certificate mark — display only (stable shape: tinted when held,
+            neutral when not). */}
+        <span
+          aria-label={t("candidates.hasCertificate")}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+            candidate.hasCertificate ? "bg-app-blue/10 text-app-blue" : "bg-hairline text-muted"
+          }`}
+        >
+          <CheckIcon width={16} height={16} />
+        </span>
+
+        {/* EDIT-TOGGLE SLOT — the edit-mode toggle (next prompt) mounts HERE, as
+            one more h-9 w-9 circle in this header row. Do not fill it early. */}
+      </div>
+
+      {/* Contact. */}
+      <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
+        <h3 className="type-caption text-muted">{t("candidates.sectionContact")}</h3>
+        <div className="grid grid-cols-2 gap-sm">
+          <CardField label={t("candidates.phoneLabel")} value={candidate.phone} />
+          <CardField label={t("candidates.emailLabel")} value={candidate.email} />
+          <CardField label={t("candidates.cityLabel")} value={candidate.city} />
+        </div>
+      </section>
+
+      {/* Details. */}
+      <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
+        <h3 className="type-caption text-muted">{t("candidates.sectionDetails")}</h3>
+        <div className="grid grid-cols-2 gap-sm">
+          <CardField label={t("candidates.availabilityLabel")} value={candidate.availability} />
+          <CardField
+            label={t("candidates.hasCar")}
+            value={t(candidate.hasCar ? "candidates.yes" : "candidates.no")}
+          />
+          <CardField label={t("candidates.salaryLabel")} value={candidate.salaryExpectation} />
+        </div>
+      </section>
+
+      {/* Impression (free text) + summary. */}
+      <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
+        <h3 className="type-caption text-muted">{t("candidates.sectionImpression")}</h3>
+        <div className="flex flex-col gap-sm">
+          <CardField label={t("candidates.impressionLabel")} value={candidate.impression} />
+          <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
+        </div>
+      </section>
+
+      {/* Footer — pinned (sticky against the overlay sheet's scroll): stage
+          actions through the EXISTING flow + the documents placeholder. */}
+      <div className="sticky bottom-0 flex flex-col gap-sm bg-screen pt-2xs">
+        {showArchive ? (
+          <ArchiveForm onArchive={onArchive} onCancel={() => setShowArchive(false)} />
+        ) : null}
+        <div className="flex items-center gap-sm">
+          <button
+            type="button"
+            onClick={() => setShowArchive((v) => !v)}
+            className="rounded-md bg-hairline px-md py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
+          >
+            {t("candidates.archive")}
+          </button>
+          <button
+            type="button"
+            disabled={nextStage === undefined}
+            onClick={() => {
+              if (nextStage !== undefined) onAdvance(nextStage);
+            }}
+            className={`flex-1 px-md ${primaryButtonClass} disabled:opacity-50`}
+          >
+            {t("candidates.advance")}
+          </button>
+          {/* Placeholder — no behavior yet, honestly disabled. */}
+          <button
+            type="button"
+            disabled
+            className="rounded-md border border-hairline bg-card px-md py-sm type-label text-muted opacity-50"
+          >
+            {t("candidates.addDocuments")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddCandidateForm({
   onCreated,
   onError,
@@ -667,8 +803,16 @@ function AddCandidateForm({
   const { t } = useI18n();
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [email, setEmail] = useState("");
+  const [availability, setAvailability] = useState("");
+  const [salaryExpectation, setSalaryExpectation] = useState("");
   const [summary, setSummary] = useState("");
+  const [impression, setImpression] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
+  const [hasCertificate, setHasCertificate] = useState(false);
+  const [hasCar, setHasCar] = useState(false);
   // Whether the required name is blank-on-submit. Drives the marking + message;
   // cleared as soon as the user edits it.
   const [invalid, setInvalid] = useState<{ name: boolean }>({ name: false });
@@ -705,7 +849,13 @@ function AddCandidateForm({
 
     // The rest are optional; empties are a real "unset" (stored as '' / {}).
     const nextRole = role.trim();
+    const nextPhone = phone.trim();
+    const nextCity = city.trim();
+    const nextEmail = email.trim();
+    const nextAvailability = availability.trim();
+    const nextSalary = salaryExpectation.trim();
     const nextSummary = summary.trim();
+    const nextImpression = impression.trim();
     const nextTags = parseTags(tagsRaw);
 
     // Lock only AFTER validation passes, so a failed validation leaves the button
@@ -713,12 +863,21 @@ function AddCandidateForm({
     setSubmitting(true);
     try {
       // No ctx argument — the server builds it from the session. stage is NOT
-      // sent: the DB defaults it to 'contact'.
+      // sent: the DB defaults it to 'contact'. Empty strings are sent as
+      // undefined (the DB default '' is the same value); booleans go as-is.
       const res = await runIntentAction("candidates.create_candidate", {
         name: nextName,
         role: nextRole === "" ? undefined : nextRole,
         summary: nextSummary === "" ? undefined : nextSummary,
         tags: nextTags.length === 0 ? undefined : nextTags,
+        phone: nextPhone === "" ? undefined : nextPhone,
+        city: nextCity === "" ? undefined : nextCity,
+        email: nextEmail === "" ? undefined : nextEmail,
+        impression: nextImpression === "" ? undefined : nextImpression,
+        availability: nextAvailability === "" ? undefined : nextAvailability,
+        salaryExpectation: nextSalary === "" ? undefined : nextSalary,
+        hasCertificate,
+        hasCar,
       });
       if (!mounted.current) return;
 
@@ -736,6 +895,14 @@ function AddCandidateForm({
           tags: nextTags,
           urgent: false,
           rejectReason: "",
+          hasCertificate,
+          phone: nextPhone,
+          city: nextCity,
+          email: nextEmail,
+          impression: nextImpression,
+          availability: nextAvailability,
+          hasCar,
+          salaryExpectation: nextSalary,
         });
       } else {
         onError(res.code);
@@ -745,6 +912,24 @@ function AddCandidateForm({
     }
   }
 
+  // One recipe per text field keeps the form scannable.
+  const textField = (
+    label: string,
+    value: string,
+    setValue: (v: string) => void,
+    placeholder: string,
+  ) => (
+    <label className="flex flex-col gap-2xs type-label text-muted">
+      {label}
+      <input
+        className={inputClass}
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => setValue(e.target.value)}
+      />
+    </label>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-lg bg-card p-md">
       <label className="flex flex-col gap-2xs type-label text-muted">
@@ -771,15 +956,22 @@ function AddCandidateForm({
           </span>
         ) : null}
       </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.roleLabel")}
-        <input
-          className={inputClass}
-          value={role}
-          placeholder={t("candidates.rolePlaceholder")}
-          onChange={(e) => setRole(e.target.value)}
-        />
-      </label>
+      {textField(t("candidates.roleLabel"), role, setRole, t("candidates.rolePlaceholder"))}
+      {textField(t("candidates.phoneLabel"), phone, setPhone, t("candidates.phonePlaceholder"))}
+      {textField(t("candidates.cityLabel"), city, setCity, t("candidates.cityPlaceholder"))}
+      {textField(t("candidates.emailLabel"), email, setEmail, t("candidates.emailPlaceholder"))}
+      {textField(
+        t("candidates.availabilityLabel"),
+        availability,
+        setAvailability,
+        t("candidates.availabilityPlaceholder"),
+      )}
+      {textField(
+        t("candidates.salaryLabel"),
+        salaryExpectation,
+        setSalaryExpectation,
+        t("candidates.salaryPlaceholder"),
+      )}
       <label className="flex flex-col gap-2xs type-label text-muted">
         {t("candidates.summaryLabel")}
         <textarea
@@ -791,158 +983,39 @@ function AddCandidateForm({
         />
       </label>
       <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.tagsLabel")}
-        <input
-          className={inputClass}
-          value={tagsRaw}
-          placeholder={t("candidates.tagsPlaceholder")}
-          onChange={(e) => setTagsRaw(e.target.value)}
+        {t("candidates.impressionLabel")}
+        <textarea
+          className={`${inputClass} min-h-24 resize-y`}
+          value={impression}
+          placeholder={t("candidates.impressionPlaceholder")}
+          rows={3}
+          onChange={(e) => setImpression(e.target.value)}
         />
       </label>
+      {textField(t("candidates.tagsLabel"), tagsRaw, setTagsRaw, t("candidates.tagsPlaceholder"))}
+      <div className="flex items-center gap-md">
+        <label className="flex items-center gap-xs type-label text-muted">
+          <input
+            type="checkbox"
+            checked={hasCertificate}
+            onChange={(e) => setHasCertificate(e.target.checked)}
+            className="h-4 w-4"
+          />
+          {t("candidates.hasCertificate")}
+        </label>
+        <label className="flex items-center gap-xs type-label text-muted">
+          <input
+            type="checkbox"
+            checked={hasCar}
+            onChange={(e) => setHasCar(e.target.checked)}
+            className="h-4 w-4"
+          />
+          {t("candidates.hasCar")}
+        </label>
+      </div>
       <button type="submit" disabled={submitting} className={primaryButtonClass}>
         {t("candidates.add")}
       </button>
-    </form>
-  );
-}
-
-function EditCandidateForm({
-  candidate,
-  onSave,
-  onCancel,
-}: {
-  candidate: Candidate;
-  onSave: (next: {
-    name: string;
-    role: string;
-    summary: string;
-    tags: string[];
-    urgent: boolean;
-  }) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState(candidate.name);
-  const [role, setRole] = useState(candidate.role);
-  const [summary, setSummary] = useState(candidate.summary);
-  // Tags edit as the same comma-separated text the add form takes; seeded from
-  // the row and parsed back on submit.
-  const [tagsRaw, setTagsRaw] = useState(candidate.tags.join(", "));
-  const [urgent, setUrgent] = useState(candidate.urgent);
-  const [invalid, setInvalid] = useState<{ name: boolean }>({ name: false });
-  // True while a save is in flight. Disables submit and makes a second submit a
-  // no-op (the parent's saveCandidate also guards per-id — belt-and-suspenders).
-  const [submitting, setSubmitting] = useState(false);
-
-  // Guard: setSubmitting resolves after the await; the parent closes this editor
-  // on success (unmounting us), so gate the post-await setState.
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (submitting) return;
-
-    const nextName = name.trim();
-    const nextInvalid = { name: nextName === "" };
-    setInvalid(nextInvalid);
-    if (nextInvalid.name) return;
-
-    setSubmitting(true);
-    try {
-      await onSave({
-        name: nextName,
-        role: role.trim(),
-        summary: summary.trim(),
-        tags: parseTags(tagsRaw),
-        urgent,
-      });
-    } finally {
-      if (mounted.current) setSubmitting(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-lg bg-card p-md">
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        <span>
-          {t("candidates.candidateName")}{" "}
-          <span aria-hidden="true" className="text-danger">
-            *
-          </span>
-        </span>
-        <input
-          className={invalid.name ? `${inputClass} ${invalidRing}` : inputClass}
-          value={name}
-          placeholder={t("candidates.namePlaceholder")}
-          onChange={(e) => {
-            setName(e.target.value);
-            if (invalid.name) setInvalid((v) => ({ ...v, name: false }));
-          }}
-          aria-required="true"
-          aria-invalid={invalid.name}
-        />
-        {invalid.name ? (
-          <span role="alert" className="type-caption text-danger">
-            {t("candidates.fieldRequired")}
-          </span>
-        ) : null}
-      </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.roleLabel")}
-        <input
-          className={inputClass}
-          value={role}
-          placeholder={t("candidates.rolePlaceholder")}
-          onChange={(e) => setRole(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.summaryLabel")}
-        <textarea
-          className={`${inputClass} min-h-24 resize-y`}
-          value={summary}
-          placeholder={t("candidates.summaryPlaceholder")}
-          rows={3}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.tagsLabel")}
-        <input
-          className={inputClass}
-          value={tagsRaw}
-          placeholder={t("candidates.tagsPlaceholder")}
-          onChange={(e) => setTagsRaw(e.target.value)}
-        />
-      </label>
-      <label className="flex items-center gap-xs type-label text-muted">
-        <input
-          type="checkbox"
-          checked={urgent}
-          onChange={(e) => setUrgent(e.target.checked)}
-          className="h-4 w-4"
-        />
-        {t("candidates.urgent")}
-      </label>
-      <div className="flex items-center gap-sm">
-        <button type="submit" disabled={submitting} className={`flex-1 ${primaryButtonClass}`}>
-          {t("candidates.save")}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting}
-          className="rounded-md bg-hairline px-md py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
-        >
-          {t("candidates.cancel")}
-        </button>
-      </div>
     </form>
   );
 }
