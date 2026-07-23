@@ -205,6 +205,16 @@ const he = {
     documents: "מסמכים",
     recentActivity: "פעילות אחרונה",
     aiActivity: "מה ה-AI עשה",
+    // Create a new organization (next to the org switcher). Error keys map 1:1 from
+    // createOrganizationForCurrentUser in @platform/auth; same never-render-raw rule.
+    createOrgTitle: "צור ארגון חדש",
+    createOrgPlaceholder: "שם הארגון החדש",
+    createOrgSubmit: "צור ארגון",
+    createOrgSubmitting: "יוצר…",
+    createOrgInvalidName: "יש להזין שם ארגון",
+    createOrgNotAllowed: "אינך מורשה ליצור ארגון",
+    createOrgFailed: "יצירת הארגון נכשלה, נסה שוב",
+    createOrgNotConfigured: "המערכת אינה מחוברת לשרת",
   },
   settings: {
     title: "הגדרות",
@@ -413,6 +423,16 @@ const en: Messages = {
     documents: "Documents",
     recentActivity: "Recent activity",
     aiActivity: "What the AI did",
+    // Create a new organization (next to the org switcher). Error keys map 1:1 from
+    // createOrganizationForCurrentUser in @platform/auth; same never-render-raw rule.
+    createOrgTitle: "Create a new organization",
+    createOrgPlaceholder: "New organization name",
+    createOrgSubmit: "Create organization",
+    createOrgSubmitting: "Creating…",
+    createOrgInvalidName: "Please enter an organization name",
+    createOrgNotAllowed: "You're not allowed to create an organization",
+    createOrgFailed: "Creating the organization failed, please try again",
+    createOrgNotConfigured: "The app is not connected to a server",
   },
   settings: {
     title: "Settings",

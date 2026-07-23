@@ -17,6 +17,7 @@ import { Screen } from "@/components/profile/Screen";
 import { CheckIcon } from "@/components/icons";
 import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
 import { useI18n } from "@/i18n";
+import { CreateOrganization } from "./CreateOrganization";
 
 interface OrgRow {
   id: string;
@@ -44,6 +45,7 @@ export function OrganizationsScreen({
 
   return (
     <Screen center={<h1 className="truncate type-title text-ink">{t("profile.organizations")}</h1>}>
+      <div className="flex flex-col gap-md">
       <div className="flex flex-col gap-xs rounded-lg bg-card p-xs">
         {orgs.map((org) => {
           const role = org.isAdmin ? t("profile.roleAdmin") : t("profile.roleMember");
@@ -75,6 +77,12 @@ export function OrganizationsScreen({
             </button>
           );
         })}
+      </div>
+
+        {/* Create a new org — sits next to the switcher, deliberately minimal. */}
+        <div className="rounded-lg bg-card p-md">
+          <CreateOrganization />
+        </div>
       </div>
     </Screen>
   );
