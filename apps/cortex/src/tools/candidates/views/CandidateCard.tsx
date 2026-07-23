@@ -247,14 +247,19 @@ interface CardDraft {
  * the overlay unmounts the card, so an unsaved draft is discarded with no
  * confirm — by design. Saves go through the parent's saveCandidate (the ONE
  * update_candidate flow with its per-id guard) — the card never owns a write.
- * Stage moves and archiving live in the overlay HEADER (FullScreen), not here.
+ * Stage moves and archiving live in the overlay HEADER (FullScreen), not here;
+ * `onEditingChange` lifts the ONE "is editing" bit up so that header can
+ * disable those controls while a draft is open (the draft itself never leaves
+ * this component).
  */
 export function CandidateCard({
   candidate,
   onSave,
+  onEditingChange,
 }: {
   candidate: Candidate;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
+  onEditingChange: (editing: boolean) => void;
 }) {
   const { t } = useI18n();
   // EDIT MODE: a non-null draft IS edit mode. Seeded from the candidate when
@@ -278,6 +283,15 @@ export function CandidateCard({
       mounted.current = false;
     };
   }, []);
+
+  // Lift the ONE "is editing" signal to the parent: FullScreen disables the
+  // overlay header's stage/archive controls while a draft is open, because a
+  // stage move mid-edit closes the overlay and would silently discard the
+  // draft. An effect (not calls sprinkled into enterEdit/handleSave) so every
+  // transition — enter, save success — reports exactly once.
+  useEffect(() => {
+    onEditingChange(editing);
+  }, [editing, onEditingChange]);
 
   function enterEdit() {
     setSaveError(null);

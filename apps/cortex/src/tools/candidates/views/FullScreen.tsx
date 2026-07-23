@@ -94,6 +94,12 @@ export function FullScreen(_props: ToolViewProps) {
   // the card) because its toggle is the overlay HEADER's archive control; reset
   // whenever a card opens or closes so it never leaks across candidates.
   const [cardArchiveOpen, setCardArchiveOpen] = useState(false);
+  // Whether the open card is in EDIT mode — lifted from the card via
+  // onEditingChange (the draft itself stays in the card). While true, the
+  // header's stage + archive controls are DISABLED (muted, not removed): a
+  // stage move mid-edit closes the overlay and would silently discard the
+  // draft. The close X stays enabled — discarding via X is by-design.
+  const [cardEditing, setCardEditing] = useState(false);
   // Whether the archive drawer (below the list) is open. Local UI state only.
   const [archiveOpen, setArchiveOpen] = useState(false);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
@@ -280,11 +286,12 @@ export function FullScreen(_props: ToolViewProps) {
   // writes made from the card render immediately.
   const viewing = viewingId ? (candidates.find((it) => it.id === viewingId) ?? null) : null;
   // The ONE close path for the card overlay — every dismissal (X, scrim,
-  // Escape, a stage move) goes through here so the archive form never stays
-  // open across candidates.
+  // Escape, a stage move) goes through here so the archive form and the edit
+  // flag never stay set across candidates.
   const closeCard = () => {
     setViewingId(null);
     setCardArchiveOpen(false);
+    setCardEditing(false);
   };
 
   return (
@@ -415,8 +422,14 @@ export function FullScreen(_props: ToolViewProps) {
                   Tapping ANY segment moves the candidate there through the ONE
                   existing moveStage/set_stage flow (its per-id guard included);
                   tapping the current stage is a no-op. On an archived candidate
-                  no segment is active. */}
-              <div className="flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs">
+                  no segment is active. DISABLED (muted, layout unchanged) while
+                  the card is in edit mode — a stage move closes the overlay and
+                  would silently discard the draft. */}
+              <div
+                className={`flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs ${
+                  cardEditing ? "opacity-50" : ""
+                }`}
+              >
                 {VISIBLE_STAGES.map((stage) => {
                   const active = viewing.stage === stage;
                   return (
@@ -424,6 +437,7 @@ export function FullScreen(_props: ToolViewProps) {
                       key={stage}
                       type="button"
                       aria-pressed={active}
+                      disabled={cardEditing}
                       onClick={() => {
                         if (!active) {
                           void moveStage(viewing.id, stage);
@@ -447,17 +461,19 @@ export function FullScreen(_props: ToolViewProps) {
               {/* ARCHIVE / RESTORE — icon-only; title + aria-label carry the
                   name for hover and screen readers. Archive toggles the reason
                   form below the header; restore is the same set_stage flow the
-                  footer used (→ contact). */}
+                  footer used (→ contact). Disabled while editing, same reason
+                  as the stage control. */}
               {viewing.stage === "archived" ? (
                 <button
                   type="button"
                   title={t("candidates.restore")}
                   aria-label={t("candidates.restore")}
+                  disabled={cardEditing}
                   onClick={() => {
                     void moveStage(viewing.id, "contact");
                     closeCard();
                   }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
                 >
                   <BoxIcon width={16} height={16} />
                 </button>
@@ -467,8 +483,9 @@ export function FullScreen(_props: ToolViewProps) {
                   title={t("candidates.archive")}
                   aria-label={t("candidates.archive")}
                   aria-expanded={cardArchiveOpen}
+                  disabled={cardEditing}
                   onClick={() => setCardArchiveOpen((v) => !v)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
                 >
                   <BoxIcon width={16} height={16} />
                 </button>
@@ -486,7 +503,11 @@ export function FullScreen(_props: ToolViewProps) {
               onCancel={() => setCardArchiveOpen(false)}
             />
           ) : null}
-          <CandidateCard candidate={viewing} onSave={(patch) => saveCandidate(viewing.id, patch)} />
+          <CandidateCard
+            candidate={viewing}
+            onSave={(patch) => saveCandidate(viewing.id, patch)}
+            onEditingChange={setCardEditing}
+          />
         </CandidateFormOverlay>
       ) : null}
 
