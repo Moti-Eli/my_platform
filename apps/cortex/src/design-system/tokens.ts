@@ -246,7 +246,10 @@ export const themes = {
     screen: "#DDD8CF",
     card: "#ECE8E0",
     ink: "#2B2620",
-    muted: "#665E54",
+    // Darkened from #665E54: `text-muted` is normal-size text, so the 4.5:1
+    // floor pins it on BOTH surfaces (screen 4.49 → 4.85, card 5.22 → 5.63);
+    // same hue and saturation, only lightness lowered.
+    muted: "#615950",
     hairline: "#CFC9BE",
 
     accent: "#574AD6",
@@ -280,7 +283,10 @@ export const themes = {
     screen: "#F7F6FB",
     card: "#FFFFFF",
     ink: "#221E31",
-    muted: "#7A7690",
+    // Darkened from #7A7690: `text-muted` is normal-size text, so the 4.5:1
+    // floor pins it on BOTH surfaces (screen 4.05 → 4.82, card 4.36 → 5.18);
+    // same hue and saturation, only lightness lowered.
+    muted: "#6E6A83",
     hairline: "#ECEAF4",
 
     accent: "#5B4CE0",
