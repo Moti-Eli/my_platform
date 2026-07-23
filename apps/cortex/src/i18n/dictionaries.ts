@@ -66,6 +66,13 @@ const he = {
     noOrgHint: "החשבון שלך אינו משויך לאף ארגון. פנה למנהל המערכת כדי שיצרף אותך.",
     signOut: "יציאה",
   },
+  // The (app) route-group error boundary. Calm and non-alarming by design —
+  // never a crash dump; the technical error goes to the console only.
+  error: {
+    title: "משהו לא הסתדר",
+    hint: "אירעה תקלה זמנית. אפשר פשוט לנסות שוב.",
+    retry: "נסה שוב",
+  },
   common: {
     close: "סגירה",
     search: "חיפוש",
@@ -263,6 +270,11 @@ const en: Messages = {
     noOrgHint:
       "Your account isn't attached to any organization. Ask an administrator to add you to one.",
     signOut: "Sign out",
+  },
+  error: {
+    title: "Something didn't go as planned",
+    hint: "A temporary hiccup. Just try again.",
+    retry: "Try again",
   },
   common: {
     close: "Close",
