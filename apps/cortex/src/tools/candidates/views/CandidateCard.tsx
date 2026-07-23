@@ -2,8 +2,16 @@
 
 /**
  * The candidate card + the tool's shared form primitives (Standard §2 views/).
- * Extracted from FullScreen.tsx as a PURE refactor — rendered output and write
- * paths are identical.
+ *
+ * ART DIRECTION — a professional BUSINESS CARD, not a form: ONE continuous
+ * bg-card surface (no boxes inside boxes), sections separated by generous
+ * vertical space and a single hairline rule only where a break is genuinely
+ * needed. The identity block (monogram avatar + name) is the moment; a status
+ * strip states each boolean attribute EXPLICITLY (check when true, X when
+ * false — never hidden-when-false); fields are VALUE-dominant (caption label
+ * above, body value below); phone/email are live tel:/mailto: actions; the
+ * impression is prose. In edit mode the save affordance is the one loud
+ * element on the card.
  *
  * OWNERSHIP: this file owns NO data. FullScreen keeps the candidates list, the
  * react-query cache writes and every per-id in-flight guard; the card receives
@@ -18,7 +26,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { IntentResult } from "@/cortex/actions";
 import { useI18n } from "@/i18n";
-import { CheckIcon, ComposeIcon, InfoIcon, StarIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  CloseIcon,
+  ComposeIcon,
+  InfoIcon,
+  MailIcon,
+  PhoneIcon,
+  StarIcon,
+} from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
@@ -71,6 +87,17 @@ export function TextField({
   );
 }
 
+/** The monogram initials: first letters of the first two words of the name —
+ * works for Hebrew exactly as for Latin (first characters, no casing games). */
+function initialsOf(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join("");
+}
+
 /** A read-only card value: the text, or an em-dash (muted) when empty — every
  * field always renders, so the card shape is stable. */
 function CardValue({ value }: { value: string }) {
@@ -83,15 +110,66 @@ function CardValue({ value }: { value: string }) {
   );
 }
 
-/** One read-only card field: caption label over a {@link CardValue}. Fields the
- * SECTION HEADER already names render a bare CardValue instead — never the same
- * string twice. */
+/** One read-only card field, VALUE-dominant: small caption label above, the
+ * body-sized value below — the label is metadata, the value is the content. */
 function CardField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-2xs">
       <span className="type-caption text-muted">{label}</span>
       <CardValue value={value} />
     </div>
+  );
+}
+
+/** A contact field whose value is an ACTION (tel:/mailto:) — text-app-blue with
+ * a small glyph, clearly distinguishable from inert text. Empty stays the plain
+ * muted em-dash, no link. */
+function ContactField({
+  label,
+  value,
+  href,
+  icon,
+}: {
+  label: string;
+  value: string;
+  href: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-2xs">
+      <span className="type-caption text-muted">{label}</span>
+      {value !== "" ? (
+        <a
+          href={href}
+          className="inline-flex items-center gap-2xs break-all type-body text-app-blue interactive motion-safe:active:scale-[0.99]"
+        >
+          {icon}
+          {value}
+        </a>
+      ) : (
+        <span aria-hidden="true" className="type-body text-muted">
+          —
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** One status chip: the attribute name plus an EXPLICIT mark — check when true,
+ * X when false. Never hidden-when-false; the sr-only yes/no carries the state
+ * for assistive tech (the icon alone is visual). */
+function StatusChip({ label, on }: { label: string; on: boolean }) {
+  const { t } = useI18n();
+  return (
+    <span
+      className={`inline-flex items-center gap-2xs rounded-pill px-xs py-2xs type-caption ${
+        on ? "bg-success/10 text-success" : "bg-hairline text-muted"
+      }`}
+    >
+      {label}
+      {on ? <CheckIcon width={12} height={12} /> : <CloseIcon width={12} height={12} />}
+      <span className="sr-only">{t(on ? "candidates.yes" : "candidates.no")}</span>
+    </span>
   );
 }
 
@@ -114,10 +192,10 @@ interface CardDraft {
 
 /**
  * The candidate card — VIEW mode (read-only) with an EDIT mode behind the
- * header toggle: one control, two states (ComposeIcon → edit; CheckIcon →
- * save). The draft lives locally and is seeded on entering edit; closing the
- * overlay unmounts the card, so an unsaved draft is discarded with no confirm
- * — by design. Saves go through the parent's saveCandidate (the ONE
+ * header toggle: one control, two states (ComposeIcon → edit; the loud filled
+ * save → save). The draft lives locally and is seeded on entering edit; closing
+ * the overlay unmounts the card, so an unsaved draft is discarded with no
+ * confirm — by design. Saves go through the parent's saveCandidate (the ONE
  * update_candidate flow with its per-id guard); stage actions delegate to the
  * parent's moveStage — the card never owns a write.
  */
@@ -225,287 +303,306 @@ export function CandidateCard({
 
   return (
     <div className="flex flex-col gap-sm">
-      {/* Header: name · role · urgent star · certificate check · edit/save. */}
-      <div className="flex items-center gap-sm rounded-lg bg-card p-md">
-        <div className="flex min-w-0 flex-1 flex-col gap-2xs">
-          <span className="truncate type-heading text-ink">{candidate.name}</span>
-          {candidate.role !== "" ? (
-            <span className="truncate type-label text-muted">{candidate.role}</span>
-          ) : (
-            <span aria-hidden="true" className="type-label text-muted">
-              —
-            </span>
-          )}
+      {/* THE ONE CONTINUOUS SURFACE — everything card lives on this. */}
+      <div className="rounded-lg bg-card">
+        {/* 1 · IDENTITY — the business-card moment. Room to breathe. */}
+        <div className="flex items-center gap-md p-lg">
+          <span
+            aria-hidden="true"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-app-blue/10 type-title text-app-blue"
+          >
+            {initialsOf(candidate.name)}
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-2xs">
+            <span className="truncate type-title text-ink">{candidate.name}</span>
+            {candidate.role !== "" ? (
+              <span className="truncate type-body text-muted">{candidate.role}</span>
+            ) : (
+              <span aria-hidden="true" className="type-body text-muted">
+                —
+              </span>
+            )}
+          </div>
+
+          {/* The star stays LIVE in BOTH modes — it's the same optimistic
+              one-field toggle the row has, on the same per-id guard. */}
+          <button
+            type="button"
+            aria-label={t("candidates.urgent")}
+            aria-pressed={candidate.urgent}
+            onClick={onToggleUrgent}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
+              candidate.urgent ? "bg-app-amber/15 text-app-amber" : "bg-hairline text-muted"
+            }`}
+          >
+            <StarIcon width={16} height={16} />
+          </button>
+
+          {/* THE EDIT/SAVE TOGGLE — one control, two states. Quiet in view
+              mode; in edit mode it is the ONE loud element on the card: solid
+              success fill, icon + label, gently pulsing until pressed (still,
+              and disabled, while the save runs). */}
+          <button
+            type="button"
+            aria-label={editing ? t("candidates.save") : t("candidates.editCandidate")}
+            onClick={editing ? () => void handleSave() : enterEdit}
+            disabled={submitting}
+            className={
+              editing
+                ? `flex h-9 shrink-0 items-center gap-2xs rounded-pill bg-success px-sm type-label text-on-fill interactive disabled:opacity-50 motion-safe:active:scale-[0.97] ${
+                    submitting ? "" : "motion-safe:animate-pulse"
+                  }`
+                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+            }
+          >
+            {editing ? (
+              <>
+                <CheckIcon width={16} height={16} />
+                {t("candidates.save")}
+              </>
+            ) : (
+              <ComposeIcon width={16} height={16} />
+            )}
+          </button>
         </div>
 
-        {/* The star stays LIVE in BOTH modes — it's the same optimistic
-            one-field toggle the row has, on the same per-id guard. */}
-        <button
-          type="button"
-          aria-label={t("candidates.urgent")}
-          aria-pressed={candidate.urgent}
-          onClick={onToggleUrgent}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-            candidate.urgent ? "bg-app-amber/15 text-app-amber" : "bg-hairline text-muted"
-          }`}
-        >
-          <StarIcon width={16} height={16} />
-        </button>
+        {/* 2 · STATUS STRIP — every boolean stated explicitly, true or false. */}
+        <div className="flex flex-wrap items-center gap-2xs px-lg pb-lg">
+          <StatusChip label={t("candidates.hasCertificate")} on={candidate.hasCertificate} />
+          <StatusChip label={t("candidates.hasCar")} on={candidate.hasCar} />
+        </div>
 
-        {/* Certificate mark — display only (stable shape: tinted when held,
-            neutral when not). Editable via the checkbox in edit mode. */}
-        <span
-          aria-label={t("candidates.hasCertificate")}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-            candidate.hasCertificate ? "bg-app-blue/10 text-app-blue" : "bg-hairline text-muted"
-          }`}
-        >
-          <CheckIcon width={16} height={16} />
-        </span>
-
-        {/* THE EDIT/SAVE TOGGLE (fills the former EDIT-TOGGLE SLOT) — a single
-            control, two states: ComposeIcon enters edit; CheckIcon saves and
-            returns to view on success. */}
-        <button
-          type="button"
-          aria-label={editing ? t("candidates.save") : t("candidates.editCandidate")}
-          onClick={editing ? () => void handleSave() : enterEdit}
-          disabled={submitting}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-            editing ? "bg-app-blue/10 text-app-blue" : "bg-hairline text-muted"
-          }`}
-        >
-          {editing ? (
-            <CheckIcon width={16} height={16} />
-          ) : (
-            <ComposeIcon width={16} height={16} />
-          )}
-        </button>
-      </div>
-
-      {/* A failed save, surfaced inside the card (see saveError above). */}
-      {editing && saveError ? (
-        <p
-          role="alert"
-          className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
-        >
-          <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
-          <span>
-            {t(saveError === "failed" ? "candidates.errorFailed" : "candidates.errorDenied")}
-          </span>
-        </p>
-      ) : null}
-
-      {editing && draft !== null ? (
-        /* EDIT MODE — every field an input, same recipes as the add form. The
-           form's onSubmit covers Enter; the header CheckIcon is the button. */
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSave();
-          }}
-          className="flex flex-col gap-sm rounded-lg bg-card p-md"
-        >
-          <label className="flex flex-col gap-2xs type-label text-muted">
-            <span>
-              {t("candidates.candidateName")}{" "}
-              <span aria-hidden="true" className="text-danger">
-                *
+        {/* A failed save, surfaced inside the card (see saveError above). */}
+        {editing && saveError ? (
+          <div className="px-lg pb-sm">
+            <p
+              role="alert"
+              className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
+            >
+              <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
+              <span>
+                {t(saveError === "failed" ? "candidates.errorFailed" : "candidates.errorDenied")}
               </span>
-            </span>
-            <input
-              className={invalidName ? `${inputClass} ${invalidRing}` : inputClass}
-              value={draft.name}
-              placeholder={t("candidates.namePlaceholder")}
-              onChange={(e) => {
-                patchDraft({ name: e.target.value });
-                if (invalidName) setInvalidName(false);
-              }}
-              aria-required="true"
-              aria-invalid={invalidName}
-            />
-            {invalidName ? (
-              <span role="alert" className="type-caption text-danger">
-                {t("candidates.fieldRequired")}
-              </span>
-            ) : null}
-          </label>
-          <TextField
-            label={t("candidates.roleLabel")}
-            value={draft.role}
-            placeholder={t("candidates.rolePlaceholder")}
-            onChange={(v) => patchDraft({ role: v })}
-          />
-          <TextField
-            label={t("candidates.phoneLabel")}
-            value={draft.phone}
-            placeholder={t("candidates.phonePlaceholder")}
-            onChange={(v) => patchDraft({ phone: v })}
-          />
-          <TextField
-            label={t("candidates.emailLabel")}
-            value={draft.email}
-            placeholder={t("candidates.emailPlaceholder")}
-            onChange={(v) => patchDraft({ email: v })}
-          />
-          <TextField
-            label={t("candidates.cityLabel")}
-            value={draft.city}
-            placeholder={t("candidates.cityPlaceholder")}
-            onChange={(v) => patchDraft({ city: v })}
-          />
-          <TextField
-            label={t("candidates.availabilityLabel")}
-            value={draft.availability}
-            placeholder={t("candidates.availabilityPlaceholder")}
-            onChange={(v) => patchDraft({ availability: v })}
-          />
-          <TextField
-            label={t("candidates.salaryLabel")}
-            value={draft.salaryExpectation}
-            placeholder={t("candidates.salaryPlaceholder")}
-            onChange={(v) => patchDraft({ salaryExpectation: v })}
-          />
-          <TextField
-            label={t("candidates.summaryLabel")}
-            value={draft.summary}
-            placeholder={t("candidates.summaryPlaceholder")}
-            onChange={(v) => patchDraft({ summary: v })}
-          />
-          <label className="flex flex-col gap-2xs type-label text-muted">
-            {t("candidates.impressionLabel")}
-            <textarea
-              className={`${inputClass} min-h-24 resize-y`}
-              value={draft.impression}
-              placeholder={t("candidates.impressionPlaceholder")}
-              rows={3}
-              onChange={(e) => patchDraft({ impression: e.target.value })}
-            />
-          </label>
-          <TextField
-            label={t("candidates.tagsLabel")}
-            value={draft.tagsRaw}
-            placeholder={t("candidates.tagsPlaceholder")}
-            onChange={(v) => patchDraft({ tagsRaw: v })}
-          />
-          <div className="flex items-center gap-md">
-            <label className="flex items-center gap-xs type-label text-muted">
-              <input
-                type="checkbox"
-                checked={draft.hasCertificate}
-                onChange={(e) => patchDraft({ hasCertificate: e.target.checked })}
-                className="h-4 w-4"
-              />
-              {t("candidates.hasCertificate")}
-            </label>
-            <label className="flex items-center gap-xs type-label text-muted">
-              <input
-                type="checkbox"
-                checked={draft.hasCar}
-                onChange={(e) => patchDraft({ hasCar: e.target.checked })}
-                className="h-4 w-4"
-              />
-              {t("candidates.hasCar")}
-            </label>
+            </p>
           </div>
-        </form>
-      ) : (
-        /* VIEW MODE — the read-only sections. */
-        <>
-          {/* Contact. */}
-          <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
-            <h3 className="type-caption text-muted">{t("candidates.sectionContact")}</h3>
-            <div className="grid grid-cols-2 gap-sm">
-              <CardField label={t("candidates.phoneLabel")} value={candidate.phone} />
-              <CardField label={t("candidates.emailLabel")} value={candidate.email} />
-              <CardField label={t("candidates.cityLabel")} value={candidate.city} />
-            </div>
-          </section>
+        ) : null}
 
-          {/* Details. */}
-          <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
-            <h3 className="type-caption text-muted">{t("candidates.sectionDetails")}</h3>
-            <div className="grid grid-cols-2 gap-sm">
+        {editing && draft !== null ? (
+          /* EDIT MODE — every field an input, same recipes as the add form, on
+             the same continuous surface (no box-in-box). The form's onSubmit
+             covers Enter; the header save control is the button. */
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleSave();
+            }}
+            className="flex flex-col gap-sm border-t border-hairline p-lg"
+          >
+            <label className="flex flex-col gap-2xs type-label text-muted">
+              <span>
+                {t("candidates.candidateName")}{" "}
+                <span aria-hidden="true" className="text-danger">
+                  *
+                </span>
+              </span>
+              <input
+                className={invalidName ? `${inputClass} ${invalidRing}` : inputClass}
+                value={draft.name}
+                placeholder={t("candidates.namePlaceholder")}
+                onChange={(e) => {
+                  patchDraft({ name: e.target.value });
+                  if (invalidName) setInvalidName(false);
+                }}
+                aria-required="true"
+                aria-invalid={invalidName}
+              />
+              {invalidName ? (
+                <span role="alert" className="type-caption text-danger">
+                  {t("candidates.fieldRequired")}
+                </span>
+              ) : null}
+            </label>
+            <TextField
+              label={t("candidates.roleLabel")}
+              value={draft.role}
+              placeholder={t("candidates.rolePlaceholder")}
+              onChange={(v) => patchDraft({ role: v })}
+            />
+            <TextField
+              label={t("candidates.phoneLabel")}
+              value={draft.phone}
+              placeholder={t("candidates.phonePlaceholder")}
+              onChange={(v) => patchDraft({ phone: v })}
+            />
+            <TextField
+              label={t("candidates.emailLabel")}
+              value={draft.email}
+              placeholder={t("candidates.emailPlaceholder")}
+              onChange={(v) => patchDraft({ email: v })}
+            />
+            <TextField
+              label={t("candidates.cityLabel")}
+              value={draft.city}
+              placeholder={t("candidates.cityPlaceholder")}
+              onChange={(v) => patchDraft({ city: v })}
+            />
+            <TextField
+              label={t("candidates.availabilityLabel")}
+              value={draft.availability}
+              placeholder={t("candidates.availabilityPlaceholder")}
+              onChange={(v) => patchDraft({ availability: v })}
+            />
+            <TextField
+              label={t("candidates.salaryLabel")}
+              value={draft.salaryExpectation}
+              placeholder={t("candidates.salaryPlaceholder")}
+              onChange={(v) => patchDraft({ salaryExpectation: v })}
+            />
+            <TextField
+              label={t("candidates.summaryLabel")}
+              value={draft.summary}
+              placeholder={t("candidates.summaryPlaceholder")}
+              onChange={(v) => patchDraft({ summary: v })}
+            />
+            <label className="flex flex-col gap-2xs type-label text-muted">
+              {t("candidates.impressionLabel")}
+              <textarea
+                className={`${inputClass} min-h-24 resize-y`}
+                value={draft.impression}
+                placeholder={t("candidates.impressionPlaceholder")}
+                rows={3}
+                onChange={(e) => patchDraft({ impression: e.target.value })}
+              />
+            </label>
+            <TextField
+              label={t("candidates.tagsLabel")}
+              value={draft.tagsRaw}
+              placeholder={t("candidates.tagsPlaceholder")}
+              onChange={(v) => patchDraft({ tagsRaw: v })}
+            />
+            <div className="flex items-center gap-md">
+              <label className="flex items-center gap-xs type-label text-muted">
+                <input
+                  type="checkbox"
+                  checked={draft.hasCertificate}
+                  onChange={(e) => patchDraft({ hasCertificate: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                {t("candidates.hasCertificate")}
+              </label>
+              <label className="flex items-center gap-xs type-label text-muted">
+                <input
+                  type="checkbox"
+                  checked={draft.hasCar}
+                  onChange={(e) => patchDraft({ hasCar: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                {t("candidates.hasCar")}
+              </label>
+            </div>
+          </form>
+        ) : (
+          /* VIEW MODE — value-dominant fields, then the impression as prose.
+             Two hairline rules total: one before each genuine break. */
+          <>
+            {/* 3/4 · FIELDS — two columns when the sheet is wide enough. */}
+            <div className="grid grid-cols-1 gap-md border-t border-hairline p-lg sm:grid-cols-2">
+              <ContactField
+                label={t("candidates.phoneLabel")}
+                value={candidate.phone}
+                href={`tel:${candidate.phone}`}
+                icon={<PhoneIcon width={14} height={14} className="shrink-0" />}
+              />
+              <ContactField
+                label={t("candidates.emailLabel")}
+                value={candidate.email}
+                href={`mailto:${candidate.email}`}
+                icon={<MailIcon width={14} height={14} className="shrink-0" />}
+              />
+              <CardField label={t("candidates.cityLabel")} value={candidate.city} />
               <CardField
                 label={t("candidates.availabilityLabel")}
                 value={candidate.availability}
               />
-              <CardField
-                label={t("candidates.hasCar")}
-                value={t(candidate.hasCar ? "candidates.yes" : "candidates.no")}
-              />
               <CardField label={t("candidates.salaryLabel")} value={candidate.salaryExpectation} />
+              {/* Tags — chips (dedupe-free display of what's stored). */}
+              <div className="flex min-w-0 flex-col gap-2xs sm:col-span-2">
+                <span className="type-caption text-muted">{t("candidates.tagsLabel")}</span>
+                {candidate.tags.length > 0 ? (
+                  <div className="flex flex-wrap gap-2xs">
+                    {candidate.tags.map((tag, i) => (
+                      <span
+                        key={`${tag}-${i}`}
+                        className="rounded-pill bg-hairline px-xs py-2xs type-caption text-muted"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span aria-hidden="true" className="type-body text-muted">
+                    —
+                  </span>
+                )}
+              </div>
             </div>
-            {/* Tags — chips (dedupe-free display of what's stored). */}
-            <div className="flex min-w-0 flex-col gap-2xs">
-              <span className="type-caption text-muted">{t("candidates.tagsLabel")}</span>
-              {candidate.tags.length > 0 ? (
-                <div className="flex flex-wrap gap-2xs">
-                  {candidate.tags.map((tag, i) => (
-                    <span
-                      key={`${tag}-${i}`}
-                      className="rounded-pill bg-hairline px-xs py-2xs type-caption text-muted"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+
+            {/* 5 · IMPRESSION — prose, not a form field; summary keeps its own
+                label beneath it. */}
+            <div className="flex flex-col gap-sm border-t border-hairline p-lg">
+              <span className="type-caption text-muted">{t("candidates.sectionImpression")}</span>
+              {candidate.impression !== "" ? (
+                <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+                  {candidate.impression}
+                </p>
               ) : (
                 <span aria-hidden="true" className="type-body text-muted">
                   —
                 </span>
               )}
-            </div>
-          </section>
-
-          {/* Impression (free text) + summary. The section header IS the impression
-              label, so the impression value renders bare (no duplicated string);
-              summary keeps its own label. */}
-          <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
-            <h3 className="type-caption text-muted">{t("candidates.sectionImpression")}</h3>
-            <div className="flex flex-col gap-sm">
-              <CardValue value={candidate.impression} />
               <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
             </div>
-          </section>
+          </>
+        )}
+      </div>
 
-          {/* Footer — pinned (sticky against the overlay sheet's scroll): stage
-              actions through the EXISTING flow + the documents placeholder.
-              HIDDEN in edit mode — one clear action there: save. */}
-          <div className="sticky bottom-0 flex flex-col gap-sm bg-screen pt-2xs">
-            {showArchive ? (
-              <ArchiveForm onArchive={onArchive} onCancel={() => setShowArchive(false)} />
-            ) : null}
-            <div className="flex items-center gap-sm">
-              <button
-                type="button"
-                onClick={() => setShowArchive((v) => !v)}
-                className="rounded-md bg-hairline px-md py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
-              >
-                {t("candidates.archive")}
-              </button>
-              <button
-                type="button"
-                disabled={nextStage === undefined}
-                onClick={() => {
-                  if (nextStage !== undefined) onAdvance(nextStage);
-                }}
-                className={`flex-1 px-md ${primaryButtonClass} disabled:opacity-50`}
-              >
-                {t("candidates.advance")}
-              </button>
-              {/* Placeholder — no behavior yet, honestly disabled. */}
-              <button
-                type="button"
-                disabled
-                className="rounded-md border border-hairline bg-card px-md py-sm type-label text-muted opacity-50"
-              >
-                {t("candidates.addDocuments")}
-              </button>
-            </div>
+      {!editing ? (
+        /* Footer — pinned (sticky against the overlay sheet's scroll): stage
+            actions through the EXISTING flow + the documents placeholder.
+            HIDDEN in edit mode — one clear action there: save. */
+        <div className="sticky bottom-0 flex flex-col gap-sm bg-screen pt-2xs">
+          {showArchive ? (
+            <ArchiveForm onArchive={onArchive} onCancel={() => setShowArchive(false)} />
+          ) : null}
+          <div className="flex items-center gap-sm">
+            <button
+              type="button"
+              onClick={() => setShowArchive((v) => !v)}
+              className="rounded-md bg-hairline px-md py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
+            >
+              {t("candidates.archive")}
+            </button>
+            <button
+              type="button"
+              disabled={nextStage === undefined}
+              onClick={() => {
+                if (nextStage !== undefined) onAdvance(nextStage);
+              }}
+              className={`flex-1 px-md ${primaryButtonClass} disabled:opacity-50`}
+            >
+              {t("candidates.advance")}
+            </button>
+            {/* Placeholder — no behavior yet, honestly disabled. */}
+            <button
+              type="button"
+              disabled
+              className="rounded-md border border-hairline bg-card px-md py-sm type-label text-muted opacity-50"
+            >
+              {t("candidates.addDocuments")}
+            </button>
           </div>
-        </>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }
