@@ -40,7 +40,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { CheckIcon, ChevronIcon, CloseIcon, InfoIcon, PlusIcon, SparkIcon } from "@/components/icons";
+import { CheckIcon, ChevronIcon, CloseIcon, InfoIcon, PlusIcon, StarIcon } from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 
@@ -457,7 +457,7 @@ export function FullScreen(_props: ToolViewProps) {
                         : "bg-hairline text-muted"
                     }`}
                   >
-                    <SparkIcon width={16} height={16} />
+                    <StarIcon width={16} height={16} />
                   </button>
 
                   {/* The row body OPENS THE CARD (read-only view). */}
@@ -639,19 +639,26 @@ function CandidateFormOverlay({
   );
 }
 
-/** One read-only card field: caption label over the value, an em-dash (muted)
- * when empty — every field always renders, so the card shape is stable. */
+/** A read-only card value: the text, or an em-dash (muted) when empty — every
+ * field always renders, so the card shape is stable. */
+function CardValue({ value }: { value: string }) {
+  return value !== "" ? (
+    <span className="break-words type-body text-ink">{value}</span>
+  ) : (
+    <span aria-hidden="true" className="type-body text-muted">
+      —
+    </span>
+  );
+}
+
+/** One read-only card field: caption label over a {@link CardValue}. Fields the
+ * SECTION HEADER already names render a bare CardValue instead — never the same
+ * string twice. */
 function CardField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex min-w-0 flex-col gap-2xs">
       <span className="type-caption text-muted">{label}</span>
-      {value !== "" ? (
-        <span className="break-words type-body text-ink">{value}</span>
-      ) : (
-        <span aria-hidden="true" className="type-body text-muted">
-          —
-        </span>
-      )}
+      <CardValue value={value} />
     </div>
   );
 }
@@ -705,7 +712,7 @@ function CandidateCard({
             candidate.urgent ? "bg-app-amber/15 text-app-amber" : "bg-hairline text-muted"
           }`}
         >
-          <SparkIcon width={16} height={16} />
+          <StarIcon width={16} height={16} />
         </button>
 
         {/* Certificate mark — display only (stable shape: tinted when held,
@@ -746,11 +753,13 @@ function CandidateCard({
         </div>
       </section>
 
-      {/* Impression (free text) + summary. */}
+      {/* Impression (free text) + summary. The section header IS the impression
+          label, so the impression value renders bare (no duplicated string);
+          summary keeps its own label. */}
       <section className="flex flex-col gap-sm rounded-lg bg-card p-md">
         <h3 className="type-caption text-muted">{t("candidates.sectionImpression")}</h3>
         <div className="flex flex-col gap-sm">
-          <CardField label={t("candidates.impressionLabel")} value={candidate.impression} />
+          <CardValue value={candidate.impression} />
           <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
         </div>
       </section>

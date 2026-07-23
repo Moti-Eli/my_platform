@@ -67,6 +67,16 @@ export function SparkIcon(props: IconProps) {
   );
 }
 
+/** A five-point star outline — flags/favourites (NOT the AI mark; that is
+ * {@link SparkIcon}). */
+export function StarIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5 14.12 9.09 20.08 9.37 15.42 13.11 17 18.88 12 15.6 7 18.88 8.58 13.11 3.92 9.37 9.88 9.09 12 3.5Z" />
+    </svg>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
