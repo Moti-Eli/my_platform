@@ -8,9 +8,12 @@
  *   visibility='org'        — member reads; PARENT-org member reads (down);
  *                             CHILD-org member does NOT (no upward leak);
  *                             non-member does NOT; anon does NOT.
- *   visibility='private'    — the owner reads; another member of the SAME org does
- *                             NOT (an ADMIN, to show it is not a permission
- *                             question); a parent-org member does NOT.
+ *   visibility='private'    — the owner reads; another member of the SAME org who
+ *                             holds NO admin role does NOT (role-holding is the
+ *                             deciding factor, not mere org membership; a real
+ *                             admin-role holder DOES read — see
+ *                             verify-admin-private-read.ts [4]/[5]); a parent-org
+ *                             member does NOT.
  *   visibility='restricted' — with NO grant, NOBODY reads, INCLUDING THE OWNER.
  *                             Deliberate: restricted means grants only, and the
  *                             tool auto-grants the owner at creation
@@ -270,7 +273,7 @@ async function main(): Promise<void> {
     const uHqAdmin = await makeUser(admin, EMAILS.hqAdmin);
     const uB = await makeUser(admin, EMAILS.b);
     const uC = await makeUser(admin, EMAILS.c);
-    const uCAdmin = await makeUser(admin, EMAILS.cAdmin);
+    const uCRoleless = await makeUser(admin, EMAILS.cAdmin);
     const uOther = await makeUser(admin, EMAILS.other);
     const uLeakRole = await makeUser(admin, EMAILS.leakRole);
     const uLeakGroup = await makeUser(admin, EMAILS.leakGroup);
@@ -279,7 +282,7 @@ async function main(): Promise<void> {
     await addMembership(admin, uHqAdmin, hq);
     await addMembership(admin, uB, branchB);
     const mC = await addMembership(admin, uC, branchC);
-    await addMembership(admin, uCAdmin, branchC);
+    await addMembership(admin, uCRoleless, branchC);
     await addMembership(admin, uOther, otherOrg);
 
     // Roles. "Regional Manager" is an HQ role — the one the leak scenario uses.
@@ -316,9 +319,14 @@ async function main(): Promise<void> {
     console.log("\n[2] visibility='private' — the owner only, membership still required");
     const privItemC = await makeItem(admin, branchC, uC, "private item in C", "private");
     check("the OWNER reads their private item", await canRead(pg, uC, privItemC));
+    // uCRoleless is a member of branch C but holds NO role, so this proves that
+    // role-holding — not org membership — is what gates a private read. NOT in
+    // tension with the admin escape (20260723000003): a real admin-role holder
+    // DOES read private rows in their org tree; that is covered by
+    // verify-admin-private-read.ts sections [4] and [5].
     check(
-      "an ADMIN of the same org does NOT read it (private is not a permission question)",
-      !(await canRead(pg, uCAdmin, privItemC))
+      "a role-less member of the same org does NOT read it (role-holding gates it, not membership)",
+      !(await canRead(pg, uCRoleless, privItemC))
     );
     check("an HQ (parent-org) member does NOT read it", !(await canRead(pg, uHq, privItemC)));
 
@@ -336,8 +344,8 @@ async function main(): Promise<void> {
     // --- [4] restricted + user grant -------------------------------------------
     console.log("\n[4] restricted + a USER grant");
     const restrUser = await makeItem(admin, branchC, uC, "restricted user grant", "restricted");
-    await grant(admin, { table_name: T, record_id: restrUser, org_id: branchC, subject_user_id: uCAdmin, access: "read", granted_by: uC });
-    check("the granted user reads it", await canRead(pg, uCAdmin, restrUser));
+    await grant(admin, { table_name: T, record_id: restrUser, org_id: branchC, subject_user_id: uCRoleless, access: "read", granted_by: uC });
+    check("the granted user reads it", await canRead(pg, uCRoleless, restrUser));
     check("an ungranted member of the same org does NOT", !(await canRead(pg, uC, restrUser)));
 
     // --- [5] restricted + role grant — HOLDING, not org membership --------------
@@ -346,10 +354,10 @@ async function main(): Promise<void> {
     await grant(admin, { table_name: T, record_id: restrRole, org_id: branchC, subject_role_id: roleCLead, access: "read", granted_by: uC });
     check("a user who HOLDS the granted role reads it", await canRead(pg, uC, restrRole));
 
-    // uCAdmin is a member of branch C (the role's org) but does not hold C Lead.
+    // uCRoleless is a member of branch C (the role's org) but does not hold C Lead.
     check(
       "a MEMBER of the role's org who does NOT hold the role does NOT read it",
-      !(await canRead(pg, uCAdmin, restrRole)),
+      !(await canRead(pg, uCRoleless, restrRole)),
       "the auth_user_can_access_role trap: that helper would have let them in"
     );
 
@@ -365,7 +373,7 @@ async function main(): Promise<void> {
     const restrGroup = await makeItem(admin, branchC, uC, "restricted group grant", "restricted");
     await grant(admin, { table_name: T, record_id: restrGroup, org_id: branchC, subject_group_id: groupC, access: "read", granted_by: uC });
     check("a user IN the granted group reads it", await canRead(pg, uC, restrGroup));
-    check("a member of the group's org NOT in the group does NOT", !(await canRead(pg, uCAdmin, restrGroup)));
+    check("a member of the group's org NOT in the group does NOT", !(await canRead(pg, uCRoleless, restrGroup)));
 
     // --- [8] The blocking AND still blocks -------------------------------------
     console.log("\n[8] A grant does NOT bypass membership (the blocking AND)");
@@ -391,17 +399,17 @@ async function main(): Promise<void> {
     console.log("\n[9] A grant matches only its own (table_name, record_id)");
     const restrOtherRecord = await makeItem(admin, branchC, uC, "restricted other record", "restricted");
     const restrWrongTable = await makeItem(admin, branchC, uC, "restricted wrong table", "restricted");
-    // uCAdmin already holds a grant on `restrUser` (section [4]) and is a member of
-    // branch C, so the AND is satisfied — only the record_id differs here.
+    // uCRoleless already holds a grant on `restrUser` (section [4]) and is a member
+    // of branch C, so the AND is satisfied — only the record_id differs here.
     check(
       "a grant for a DIFFERENT record_id does not read this one",
-      !(await canRead(pg, uCAdmin, restrOtherRecord))
+      !(await canRead(pg, uCRoleless, restrOtherRecord))
     );
     // Same record_id, different table_name.
-    await grant(admin, { table_name: "app_instances", record_id: restrWrongTable, org_id: branchC, subject_user_id: uCAdmin, access: "read", granted_by: uC });
+    await grant(admin, { table_name: "app_instances", record_id: restrWrongTable, org_id: branchC, subject_user_id: uCRoleless, access: "read", granted_by: uC });
     check(
       "a grant with the same record_id but a different table_name does not read it",
-      !(await canRead(pg, uCAdmin, restrWrongTable))
+      !(await canRead(pg, uCRoleless, restrWrongTable))
     );
 
     // --- [10] THE LEAK (role) --------------------------------------------------
