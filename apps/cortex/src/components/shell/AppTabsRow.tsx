@@ -96,11 +96,16 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
     menu.bottom + MENU_GAP + MENU_EST_HEIGHT > window.innerHeight;
 
   return (
-    <div
-      role="tablist"
-      aria-label={t("home.appTabsLabel")}
-      className="no-scrollbar flex gap-xs overflow-x-auto pb-xs"
-    >
+    // The OUTER container carries the standard hairline rule that separates the
+    // shell chrome from every tool's content, on every screen. It sits here (not
+    // on the scrolling strip inside) so it spans the full row width and never
+    // scrolls with the chips. Tools must NOT add their own rule.
+    <div className="border-b border-hairline">
+      <div
+        role="tablist"
+        aria-label={t("home.appTabsLabel")}
+        className="no-scrollbar flex gap-xs overflow-x-auto pb-xs"
+      >
       {/* "הכל" — Home / the glance view. Not removable. */}
       <Link
         href="/"
@@ -242,6 +247,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
           </div>
         </>
       ) : null}
+      </div>
     </div>
   );
 }

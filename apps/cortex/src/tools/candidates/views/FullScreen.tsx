@@ -331,71 +331,65 @@ export function FullScreen(_props: ToolViewProps) {
 
   return (
     <>
-      {/* TOP BAR — one row, one family of five: back (start = right in RTL) ·
-          three stage tabs · add (end). The two end CIRCLES are the prominent
-          pair (bg-card + hairline border + lifted shadow); the tabs are quiet
-          rounded RECTANGLES at the same h-10, so all five share one line. On
-          narrow screens the tab GROUP scrolls sideways (w-max inside an
-          overflow-x wrapper — mx-auto centers it while it fits); the circles
-          stay pinned at the ends. */}
+      {/* TOP BAR — one row: a light back chevron (start = right in RTL), ONE
+          segmented stage control spanning the middle (hairline track, the
+          active segment raised by sitting lighter on it — no borders, no
+          shadow), and a light add icon (end). Deliberately no taller than the
+          app tabs row above it. On narrow screens the segments SHRINK and
+          truncate their labels — the control never scrolls or breaks. */}
       <div className="flex items-center gap-xs">
         <button
           type="button"
           onClick={() => router.back()}
           aria-label={t("candidates.back")}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-card text-ink shadow-lifted interactive motion-safe:active:scale-[0.97]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
         >
           {/* Points RIGHT in RTL (the flip), LEFT in LTR — always "back". */}
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
 
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <div
-            role="tablist"
-            aria-label={t("candidates.name")}
-            className="mx-auto flex w-max items-center gap-2xs"
-          >
-            {VISIBLE_STAGES.map((stage, i) => {
-              const active = activeStage === stage;
-              // The per-stage count, from the already-loaded shared list. Always
-              // shown, 0 included — the bar is the pipeline summary.
-              const count = candidates.filter((it) => it.stage === stage).length;
-              return (
-                <button
-                  key={stage}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setActiveStage(stage)}
-                  className={`flex h-10 shrink-0 items-center gap-2xs rounded-lg border px-sm type-label interactive motion-safe:active:scale-[0.97] ${
-                    active
-                      ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
-                      : "border-hairline bg-card text-muted"
+        <div
+          role="tablist"
+          aria-label={t("candidates.name")}
+          className="flex h-9 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs"
+        >
+          {VISIBLE_STAGES.map((stage) => {
+            const active = activeStage === stage;
+            // The per-stage count, from the already-loaded shared list. Always
+            // shown, 0 included — the bar is the pipeline summary.
+            const count = candidates.filter((it) => it.stage === stage).length;
+            return (
+              <button
+                key={stage}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveStage(stage)}
+                className={`flex h-full min-w-0 flex-1 items-center justify-center gap-2xs rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
+                  active ? "bg-card text-app-blue" : "text-muted"
+                }`}
+              >
+                <span className={`min-w-0 truncate type-label ${active ? "font-semibold" : ""}`}>
+                  {t(STAGE_LABEL_KEY[stage])}
+                </span>
+                {/* The count stays SECONDARY to the label in both states. */}
+                <span
+                  className={`shrink-0 type-caption ${
+                    active ? "text-app-blue opacity-60" : "text-muted"
                   }`}
                 >
-                  {/* One centerline for all three: the row is items-center, and
-                      the number sits INSIDE a fixed circle instead of on its own
-                      text baseline. */}
-                  <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full type-caption ${
-                      active ? "bg-app-blue/20" : "bg-hairline"
-                    }`}
-                  >
-                    {i + 1}
-                  </span>
-                  <span>{t(STAGE_LABEL_KEY[stage])}</span>
-                  <span className="type-caption text-muted">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <button
           type="button"
           onClick={() => setAdding(true)}
           aria-label={t("candidates.addCandidate")}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-card text-ink shadow-lifted interactive motion-safe:active:scale-[0.97]"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
         >
           <PlusIcon width={20} height={20} />
         </button>
