@@ -8,6 +8,9 @@
  * TOP BAR — one row, one family of five: back chevron · three numbered stage
  * tabs (contact / interview / intake — `archived` stays real in the DB/intents
  * but gets NO tab) · icon-only add. Only the ACTIVE tab's candidates render.
+ * The ADD flow has no separate form: the plus opens the SAME candidate card
+ * overlay with a BLANK candidate already in edit mode; saving it goes through
+ * create_candidate and the card flips to view mode on the new row.
  *
  * ROWS are compact CARDS (bg-card, hairline border, spaced apart — separate
  * objects, no dividers): monogram · name · role · status marks · phone · city ·
@@ -34,7 +37,7 @@
  *
  * Built from design-system utilities + i18n only.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
@@ -55,13 +58,8 @@ import {
   ArchiveForm,
   CandidateCard,
   STAGE_LABEL_KEY,
-  TextField,
   VISIBLE_STAGES,
   initialsOf,
-  inputClass,
-  invalidRing,
-  parseTags,
-  primaryButtonClass,
   type CandidatePatch,
   type VisibleStage,
   type WriteErrorCode,
@@ -69,6 +67,29 @@ import {
 
 /** Muted placeholder block (same skeleton token recipe as the dashboard card). */
 const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
+
+/** The blank candidate the plus flow opens the card with — every field at its
+ * DB default (stage 'contact', where creation lands). `id: ""` is the UNSAVED
+ * marker: it never reaches the cache or a write — saving a blank card goes
+ * through create_candidate, which returns the real id. */
+const BLANK_CANDIDATE: Candidate = {
+  id: "",
+  name: "",
+  role: "",
+  stage: "contact",
+  summary: "",
+  tags: [],
+  urgent: false,
+  rejectReason: "",
+  hasCertificate: false,
+  phone: "",
+  city: "",
+  email: "",
+  impression: "",
+  availability: "",
+  hasCar: false,
+  salaryExpectation: "",
+};
 
 // userId/orgId arrive as props (the page called requireSession()) but are NOT
 // sent to the action — the server derives identity from the session cookie. They
@@ -86,10 +107,19 @@ export function FullScreen(_props: ToolViewProps) {
   const { candidates, isLoading: loading, isError: loadError } = useCandidatesList();
   // Which stage tab is active. Only its candidates render.
   const [activeStage, setActiveStage] = useState<VisibleStage>("contact");
-  const [adding, setAdding] = useState(false);
   // Which candidate's CARD is open (null = none). Resolved against the live cache
   // each render, so a write made from the card is reflected immediately.
   const [viewingId, setViewingId] = useState<string | null>(null);
+  // TRUE while the card overlay shows an UNSAVED candidate (the plus flow):
+  // the card gets BLANK_CANDIDATE + startInEdit, and a save routes to
+  // create_candidate instead of update_candidate. Mutually exclusive with
+  // viewingId — a successful create swaps this off and sets viewingId to the
+  // new row, so the SAME card instance flips to view mode without closing.
+  const [creating, setCreating] = useState(false);
+  // Mirror of `creating` for post-await decisions: closing the overlay while
+  // the create is in flight must NOT reopen it when the write lands (the row
+  // still joins the cache — it exists — the overlay just stays closed).
+  const creatingOpenRef = useRef(false);
   // Whether the card overlay's ARCHIVE-REASON form is open. Lives HERE (not in
   // the card) because its toggle is the overlay HEADER's archive control; reset
   // whenever a card opens or closes so it never leaks across candidates.
@@ -127,6 +157,8 @@ export function FullScreen(_props: ToolViewProps) {
   // shape, so a stage move and a save never share a lock.
   const stagingRef = useRef<Set<string>>(new Set());
   const savingRef = useRef<Set<string>>(new Set());
+  // In-flight guard for the ONE create write (there is no id to key on yet).
+  const createRunningRef = useRef(false);
 
   // In-flight DELETES, keyed by candidate id — a SEPARATE guard from the sets
   // above, mirrored into state so rows can disable while their delete runs.
@@ -183,6 +215,75 @@ export function FullScreen(_props: ToolViewProps) {
       }
     },
     [patchCandidate, queryClient],
+  );
+
+  // The blank card's save — routes to the EXISTING create_candidate intent
+  // (the same call + optimistic append the old add form made), then swaps the
+  // overlay from the blank to the real row so the card flips to view mode
+  // WITHOUT closing. Returns the failure code (null = success) so the card can
+  // stay in edit mode with the draft intact on failure.
+  const createCandidate = useCallback(
+    async (patch: CandidatePatch): Promise<WriteErrorCode | null> => {
+      // 0. GUARD: one create at a time. Unreachable in practice (the card
+      //    disables its save control while submitting) — belt-and-suspenders.
+      if (createRunningRef.current) return null;
+      createRunningRef.current = true;
+      try {
+        // No ctx argument — the server builds it from the session. stage is NOT
+        // sent: the DB defaults it to 'contact'. Empty strings are sent as
+        // undefined (the DB default '' is the same value); booleans go as-is.
+        const res = await runIntentAction("candidates.create_candidate", {
+          name: patch.name,
+          role: patch.role === "" ? undefined : patch.role,
+          summary: patch.summary === "" ? undefined : patch.summary,
+          tags: patch.tags.length === 0 ? undefined : patch.tags,
+          phone: patch.phone === "" ? undefined : patch.phone,
+          city: patch.city === "" ? undefined : patch.city,
+          email: patch.email === "" ? undefined : patch.email,
+          impression: patch.impression === "" ? undefined : patch.impression,
+          availability: patch.availability === "" ? undefined : patch.availability,
+          salaryExpectation: patch.salaryExpectation === "" ? undefined : patch.salaryExpectation,
+          hasCertificate: patch.hasCertificate,
+          hasCar: patch.hasCar,
+        });
+        if (!res.ok) return res.code;
+
+        // create_candidate returns { id }; the rest of the row is exactly what
+        // we submitted plus the DB defaults, so append it straight into the
+        // SHARED cache — no refetch, and the dashboard card sees it immediately.
+        // NOT gated on `mounted` — the row exists; the cache must say so.
+        const { id } = res.data as { id: string };
+        const candidate: Candidate = {
+          ...patch,
+          id,
+          stage: "contact",
+          urgent: false,
+          rejectReason: "",
+        };
+        queryClient.setQueryData<Candidate[]>(CANDIDATES_LIST_KEY, (prev) => [
+          ...(prev ?? []),
+          candidate,
+        ]);
+
+        if (mounted.current) {
+          setWriteError(null);
+          // New rows land in 'contact'; show them behind the overlay.
+          setActiveStage("contact");
+          // Swap blank → real row ONLY if the overlay is still open on the
+          // blank (closing mid-create must not reopen it). The card then flips
+          // itself to view mode on the new candidate.
+          if (creatingOpenRef.current) {
+            creatingOpenRef.current = false;
+            setCreating(false);
+            setViewingId(id);
+          }
+        }
+        return null;
+      } finally {
+        createRunningRef.current = false;
+      }
+    },
+    [queryClient],
   );
 
   const moveStage = useCallback(
@@ -285,14 +386,39 @@ export function FullScreen(_props: ToolViewProps) {
   // The card's candidate, resolved from the LIVE cache (not a snapshot) so
   // writes made from the card render immediately.
   const viewing = viewingId ? (candidates.find((it) => it.id === viewingId) ?? null) : null;
+  // What the card overlay shows: an existing candidate, the blank one (plus
+  // flow), or nothing (overlay closed).
+  const cardCandidate = viewing ?? (creating ? BLANK_CANDIDATE : null);
+  // The header's stage + archive controls lock while the draft is open OR the
+  // candidate is unsaved (nothing to move or archive yet) — same muted look.
+  const headerLocked = cardEditing || creating;
   // The ONE close path for the card overlay — every dismissal (X, scrim,
-  // Escape, a stage move) goes through here so the archive form and the edit
-  // flag never stay set across candidates.
+  // Escape, a stage move) goes through here so the archive form, the edit flag
+  // and the unsaved-blank state never leak across candidates. Closing an
+  // unsaved card creates nothing (the draft dies with the card's unmount).
   const closeCard = () => {
     setViewingId(null);
+    setCreating(false);
+    creatingOpenRef.current = false;
     setCardArchiveOpen(false);
     setCardEditing(false);
   };
+  // Open the card on a BLANK candidate, straight into edit mode (the plus).
+  const openCreate = () => {
+    setConfirmId(null);
+    setViewingId(null);
+    setCardArchiveOpen(false);
+    creatingOpenRef.current = true;
+    setCreating(true);
+  };
+  // The card's "is editing" signal. Entering edit also closes the
+  // archive-reason form — the same coupling the card's enterEdit enforced
+  // before this state was lifted here (an open reason form above a form being
+  // edited is two competing intents).
+  const handleCardEditingChange = useCallback((editing: boolean) => {
+    setCardEditing(editing);
+    if (editing) setCardArchiveOpen(false);
+  }, []);
 
   return (
     <>
@@ -352,7 +478,7 @@ export function FullScreen(_props: ToolViewProps) {
 
         <button
           type="button"
-          onClick={() => setAdding(true)}
+          onClick={openCreate}
           aria-label={t("candidates.addCandidate")}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
         >
@@ -372,88 +498,79 @@ export function FullScreen(_props: ToolViewProps) {
         </p>
       ) : null}
 
-      {adding ? (
-        <CandidateFormOverlay title={t("candidates.addCandidate")} onClose={() => setAdding(false)}>
-          <AddCandidateForm
-            onCreated={(candidate) => {
-              // create_candidate returns { id }; the rest of the row is exactly what
-              // we submitted (plus the DB's defaults: stage 'contact', not urgent, no
-              // reject reason), so append it straight into the SHARED cache — no
-              // refetch, and the dashboard card sees the new candidate immediately.
-              queryClient.setQueryData<Candidate[]>(CANDIDATES_LIST_KEY, (prev) => [
-                ...(prev ?? []),
-                candidate,
-              ]);
-              setAdding(false);
-              setWriteError(null);
-              // New rows land in 'contact'; show them.
-              setActiveStage("contact");
-            }}
-            onError={(code) => setWriteError(code)}
-          />
-        </CandidateFormOverlay>
-      ) : null}
-
-      {/* THE CANDIDATE CARD — view + edit modes in the SAME overlay shell the
-          add form uses (see CandidateCard.tsx), with a CUSTOM header replacing
-          the title row: close X · the segmented stage control · the icon-only
-          archive/restore control. No visible title — the card's identity block
-          already shows the name; `title` stays as the dialog's aria-label.
-          Stage actions reuse the existing moveStage handler (and its per-id
-          guard); the card closes optimistically with the write — on failure the
-          row reverts and the screen-level alert reports it. */}
-      {viewing ? (
+      {/* THE CANDIDATE CARD — one overlay, three uses: view, edit, and CREATE
+          (the plus flow: BLANK_CANDIDATE + startInEdit; a save routes to
+          create_candidate and the card flips to view on the new row without
+          closing). The header replaces the title row: close X · the segmented
+          stage control · the icon-only archive/restore control. No visible
+          title — the card's identity row already shows the name; `title` stays
+          as the dialog's aria-label. Stage actions reuse the existing
+          moveStage handler (and its per-id guard); the card closes
+          optimistically with the write — on failure the row reverts and the
+          screen-level alert reports it. */}
+      {cardCandidate ? (
         <CandidateFormOverlay
-          title={t("candidates.cardTitle")}
+          title={creating ? t("candidates.addCandidate") : t("candidates.cardTitle")}
           onClose={closeCard}
           header={
             <div className="flex items-center gap-xs">
+              {/* Bare glyph — no disc; the rounded-full only shapes the faint
+                  hover/press tint. */}
               <button
                 type="button"
                 aria-label={t("candidates.cancel")}
                 onClick={closeCard}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
               >
                 <CloseIcon width={18} height={18} />
               </button>
 
-              {/* STAGE CONTROL — the footer's segmented recipe, moved up here
-                  (h-8, hairline track, active = bg-card text-app-blue).
-                  Tapping ANY segment moves the candidate there through the ONE
-                  existing moveStage/set_stage flow (its per-id guard included);
-                  tapping the current stage is a no-op. On an archived candidate
-                  no segment is active. DISABLED (muted, layout unchanged) while
-                  the card is in edit mode — a stage move closes the overlay and
-                  would silently discard the draft. */}
+              {/* STAGE CONTROL — a PIPELINE, not a track: three independent
+                  pills joined by short hairline connectors, so the stages read
+                  as one sequence (no bubble-inside-a-bubble). Tapping ANY pill
+                  moves the candidate there through the ONE existing
+                  moveStage/set_stage flow (its per-id guard included); tapping
+                  the current stage is a no-op. On an archived candidate no
+                  pill is active. DISABLED (the whole group muted uniformly,
+                  layout unchanged) while the card is in edit mode — a stage
+                  move closes the overlay and would silently discard the draft
+                  — and for an UNSAVED candidate (nothing to move yet). */}
               <div
-                className={`flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs ${
-                  cardEditing ? "opacity-50" : ""
+                className={`flex h-8 min-w-0 flex-1 items-center justify-center gap-xs ${
+                  headerLocked ? "opacity-50" : ""
                 }`}
               >
-                {VISIBLE_STAGES.map((stage) => {
-                  const active = viewing.stage === stage;
+                {VISIBLE_STAGES.map((stage, i) => {
+                  const active = cardCandidate.stage === stage;
                   return (
-                    <button
-                      key={stage}
-                      type="button"
-                      aria-pressed={active}
-                      disabled={cardEditing}
-                      onClick={() => {
-                        if (!active) {
-                          void moveStage(viewing.id, stage);
-                          closeCard();
-                        }
-                      }}
-                      className={`flex h-full min-w-0 flex-1 items-center justify-center rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
-                        active ? "bg-card text-app-blue" : "text-muted"
-                      }`}
-                    >
-                      <span
-                        className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
+                    <Fragment key={stage}>
+                      {/* Decorative connector between pills — the "pipe". */}
+                      {i > 0 ? (
+                        <span aria-hidden="true" className="h-px max-w-6 flex-1 bg-hairline" />
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        disabled={headerLocked}
+                        onClick={() => {
+                          if (!active) {
+                            void moveStage(cardCandidate.id, stage);
+                            closeCard();
+                          }
+                        }}
+                        className={`flex h-7 min-w-0 shrink items-center justify-center rounded-pill border px-sm interactive motion-safe:active:scale-[0.97] ${
+                          active
+                            ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
+                            : "border-hairline text-muted"
+                        }`}
                       >
-                        {t(STAGE_LABEL_KEY[stage])}
-                      </span>
-                    </button>
+                        <span
+                          className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
+                        >
+                          {t(STAGE_LABEL_KEY[stage])}
+                        </span>
+                      </button>
+                    </Fragment>
                   );
                 })}
               </div>
@@ -461,16 +578,16 @@ export function FullScreen(_props: ToolViewProps) {
               {/* ARCHIVE / RESTORE — icon-only; title + aria-label carry the
                   name for hover and screen readers. Archive toggles the reason
                   form below the header; restore is the same set_stage flow the
-                  footer used (→ contact). Disabled while editing, same reason
-                  as the stage control. */}
-              {viewing.stage === "archived" ? (
+                  footer used (→ contact). Disabled while editing and for an
+                  unsaved candidate, same reason as the stage control. */}
+              {cardCandidate.stage === "archived" ? (
                 <button
                   type="button"
                   title={t("candidates.restore")}
                   aria-label={t("candidates.restore")}
-                  disabled={cardEditing}
+                  disabled={headerLocked}
                   onClick={() => {
-                    void moveStage(viewing.id, "contact");
+                    void moveStage(cardCandidate.id, "contact");
                     closeCard();
                   }}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
@@ -483,7 +600,7 @@ export function FullScreen(_props: ToolViewProps) {
                   title={t("candidates.archive")}
                   aria-label={t("candidates.archive")}
                   aria-expanded={cardArchiveOpen}
-                  disabled={cardEditing}
+                  disabled={headerLocked}
                   onClick={() => setCardArchiveOpen((v) => !v)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
                 >
@@ -496,7 +613,7 @@ export function FullScreen(_props: ToolViewProps) {
           {cardArchiveOpen ? (
             <ArchiveForm
               onArchive={(reason) => {
-                const write = moveStage(viewing.id, "archived", reason);
+                const write = moveStage(cardCandidate.id, "archived", reason);
                 closeCard();
                 return write;
               }}
@@ -504,9 +621,12 @@ export function FullScreen(_props: ToolViewProps) {
             />
           ) : null}
           <CandidateCard
-            candidate={viewing}
-            onSave={(patch) => saveCandidate(viewing.id, patch)}
-            onEditingChange={setCardEditing}
+            candidate={cardCandidate}
+            startInEdit={creating}
+            onSave={(patch) =>
+              creating ? createCandidate(patch) : saveCandidate(cardCandidate.id, patch)
+            }
+            onEditingChange={handleCardEditingChange}
           />
         </CandidateFormOverlay>
       ) : null}
@@ -791,14 +911,14 @@ export function FullScreen(_props: ToolViewProps) {
 }
 
 /**
- * The form overlay — scrim + sheet (bottom on phones, centered on wider), closed
+ * The card overlay — scrim + sheet (bottom on phones, centered on wider), closed
  * by scrim tap and Escape. Follows the shell's dialog recipe (UrgencyInbox):
  * `bg-scrim` backdrop, `ds-backdrop`/`ds-panel`, `shadow-lifted` sheet. GENERIC
  * over its children ON PURPOSE (Standard: one overlay, many modes) — it hosts
- * the add form AND the candidate card. An optional `header` REPLACES the
- * default title-and-X row (the candidate card supplies its stage/archive
- * header this way); when absent the add form's title row renders unchanged.
- * `title` always names the dialog for assistive tech, header or not.
+ * the candidate card in ALL its uses (view, edit, blank-card create). `header`
+ * is the caller's top row (close X · stage control · archive) — REQUIRED since
+ * the old default title row's only consumer, the add form, is gone. `title`
+ * names the dialog for assistive tech; nothing renders it visibly.
  */
 function CandidateFormOverlay({
   title,
@@ -808,7 +928,7 @@ function CandidateFormOverlay({
 }: {
   title: string;
   onClose: () => void;
-  header?: React.ReactNode;
+  header: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -839,19 +959,7 @@ function CandidateFormOverlay({
 
       <div className="ds-panel relative z-10 w-full max-w-[480px] px-sm pb-sm">
         <div className="flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted">
-          {header ?? (
-            <div className="flex items-center justify-between">
-              <h2 className="type-heading text-ink">{title}</h2>
-              <button
-                type="button"
-                aria-label={t("candidates.cancel")}
-                onClick={onClose}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
-              >
-                <CloseIcon width={18} height={18} />
-              </button>
-            </div>
-          )}
+          {header}
           {children}
         </div>
       </div>
@@ -859,220 +967,3 @@ function CandidateFormOverlay({
   );
 }
 
-function AddCandidateForm({
-  onCreated,
-  onError,
-}: {
-  onCreated: (candidate: Candidate) => void;
-  onError: (code: WriteErrorCode) => void;
-}) {
-  const { t } = useI18n();
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
-  const [email, setEmail] = useState("");
-  const [availability, setAvailability] = useState("");
-  const [salaryExpectation, setSalaryExpectation] = useState("");
-  const [summary, setSummary] = useState("");
-  const [impression, setImpression] = useState("");
-  const [tagsRaw, setTagsRaw] = useState("");
-  const [hasCertificate, setHasCertificate] = useState(false);
-  const [hasCar, setHasCar] = useState(false);
-  // Whether the required name is blank-on-submit. Drives the marking + message;
-  // cleared as soon as the user edits it.
-  const [invalid, setInvalid] = useState<{ name: boolean }>({ name: false });
-  // True while an add is in flight. Disables the submit button and makes a second
-  // submit a no-op, so a double-tap can't write a duplicate row.
-  const [submitting, setSubmitting] = useState(false);
-
-  // Guard: onCreated/onError setState in the PARENT after the await. If we unmount
-  // mid-submit (e.g. the overlay is dismissed), this stops us from touching the
-  // parent's state.
-  const mounted = useRef(true);
-  useEffect(() => {
-    // Re-arm on every (re)mount (StrictMode runs mount → cleanup → mount) so the
-    // guard isn't left permanently disarmed.
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // A second submit while one is already in flight is a no-op (belt-and-suspenders
-    // with the disabled button — this also covers Enter-key resubmits).
-    if (submitting) return;
-
-    const nextName = name.trim();
-
-    // Required-field validation is VISIBLE now — a blank name marks itself and
-    // says what is missing, instead of the submit silently doing nothing.
-    const nextInvalid = { name: nextName === "" };
-    setInvalid(nextInvalid);
-    if (nextInvalid.name) return;
-
-    // The rest are optional; empties are a real "unset" (stored as '' / {}).
-    const nextRole = role.trim();
-    const nextPhone = phone.trim();
-    const nextCity = city.trim();
-    const nextEmail = email.trim();
-    const nextAvailability = availability.trim();
-    const nextSalary = salaryExpectation.trim();
-    const nextSummary = summary.trim();
-    const nextImpression = impression.trim();
-    const nextTags = parseTags(tagsRaw);
-
-    // Lock only AFTER validation passes, so a failed validation leaves the button
-    // usable. Released in `finally`, whatever the outcome.
-    setSubmitting(true);
-    try {
-      // No ctx argument — the server builds it from the session. stage is NOT
-      // sent: the DB defaults it to 'contact'. Empty strings are sent as
-      // undefined (the DB default '' is the same value); booleans go as-is.
-      const res = await runIntentAction("candidates.create_candidate", {
-        name: nextName,
-        role: nextRole === "" ? undefined : nextRole,
-        summary: nextSummary === "" ? undefined : nextSummary,
-        tags: nextTags.length === 0 ? undefined : nextTags,
-        phone: nextPhone === "" ? undefined : nextPhone,
-        city: nextCity === "" ? undefined : nextCity,
-        email: nextEmail === "" ? undefined : nextEmail,
-        impression: nextImpression === "" ? undefined : nextImpression,
-        availability: nextAvailability === "" ? undefined : nextAvailability,
-        salaryExpectation: nextSalary === "" ? undefined : nextSalary,
-        hasCertificate,
-        hasCar,
-      });
-      if (!mounted.current) return;
-
-      if (res.ok) {
-        // create_candidate returns only { id }; the rest of the Candidate is the
-        // values we just submitted plus the DB defaults, so we can hand a complete
-        // row up to append.
-        const { id } = res.data as { id: string };
-        onCreated({
-          id,
-          name: nextName,
-          role: nextRole,
-          stage: "contact",
-          summary: nextSummary,
-          tags: nextTags,
-          urgent: false,
-          rejectReason: "",
-          hasCertificate,
-          phone: nextPhone,
-          city: nextCity,
-          email: nextEmail,
-          impression: nextImpression,
-          availability: nextAvailability,
-          hasCar,
-          salaryExpectation: nextSalary,
-        });
-      } else {
-        onError(res.code);
-      }
-    } finally {
-      if (mounted.current) setSubmitting(false);
-    }
-  }
-
-  // One recipe per text field keeps the form scannable (delegates to the
-  // SHARED TextField — the same recipe the card's edit mode uses).
-  const textField = (
-    label: string,
-    value: string,
-    setValue: (v: string) => void,
-    placeholder: string,
-  ) => <TextField label={label} value={value} placeholder={placeholder} onChange={setValue} />;
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-lg bg-card p-md">
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        <span>
-          {t("candidates.candidateName")}{" "}
-          <span aria-hidden="true" className="text-danger">
-            *
-          </span>
-        </span>
-        <input
-          className={invalid.name ? `${inputClass} ${invalidRing}` : inputClass}
-          value={name}
-          placeholder={t("candidates.namePlaceholder")}
-          onChange={(e) => {
-            setName(e.target.value);
-            if (invalid.name) setInvalid((v) => ({ ...v, name: false }));
-          }}
-          aria-required="true"
-          aria-invalid={invalid.name}
-        />
-        {invalid.name ? (
-          <span role="alert" className="type-caption text-danger">
-            {t("candidates.fieldRequired")}
-          </span>
-        ) : null}
-      </label>
-      {textField(t("candidates.roleLabel"), role, setRole, t("candidates.rolePlaceholder"))}
-      {textField(t("candidates.phoneLabel"), phone, setPhone, t("candidates.phonePlaceholder"))}
-      {textField(t("candidates.cityLabel"), city, setCity, t("candidates.cityPlaceholder"))}
-      {textField(t("candidates.emailLabel"), email, setEmail, t("candidates.emailPlaceholder"))}
-      {textField(
-        t("candidates.availabilityLabel"),
-        availability,
-        setAvailability,
-        t("candidates.availabilityPlaceholder"),
-      )}
-      {textField(
-        t("candidates.salaryLabel"),
-        salaryExpectation,
-        setSalaryExpectation,
-        t("candidates.salaryPlaceholder"),
-      )}
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.summaryLabel")}
-        <textarea
-          className={`${inputClass} min-h-24 resize-y`}
-          value={summary}
-          placeholder={t("candidates.summaryPlaceholder")}
-          rows={3}
-          onChange={(e) => setSummary(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("candidates.impressionLabel")}
-        <textarea
-          className={`${inputClass} min-h-24 resize-y`}
-          value={impression}
-          placeholder={t("candidates.impressionPlaceholder")}
-          rows={3}
-          onChange={(e) => setImpression(e.target.value)}
-        />
-      </label>
-      {textField(t("candidates.tagsLabel"), tagsRaw, setTagsRaw, t("candidates.tagsPlaceholder"))}
-      <div className="flex items-center gap-md">
-        <label className="flex items-center gap-xs type-label text-muted">
-          <input
-            type="checkbox"
-            checked={hasCertificate}
-            onChange={(e) => setHasCertificate(e.target.checked)}
-            className="h-4 w-4"
-          />
-          {t("candidates.hasCertificate")}
-        </label>
-        <label className="flex items-center gap-xs type-label text-muted">
-          <input
-            type="checkbox"
-            checked={hasCar}
-            onChange={(e) => setHasCar(e.target.checked)}
-            className="h-4 w-4"
-          />
-          {t("candidates.hasCar")}
-        </label>
-      </div>
-      <button type="submit" disabled={submitting} className={primaryButtonClass}>
-        {t("candidates.add")}
-      </button>
-    </form>
-  );
-}

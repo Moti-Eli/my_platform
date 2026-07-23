@@ -16,7 +16,6 @@
   "rolePlaceholder": "לדוגמה: אחראי משמרת",
   "summaryPlaceholder": "כמה מילים על המועמד…",
   "tagsPlaceholder": "תגיות מופרדות בפסיק",
-  "add": "הוסף",
   "save": "שמירה",
   "cancel": "ביטול",
   "emptyTitle": "אין מועמדים עדיין",
@@ -55,6 +54,7 @@
   "yes": "כן",
   "no": "לא",
   "restore": "שחזור",
+  "share": "שיתוף",
   "uploadCv": "העלאת קורות חיים",
   "uploadDoc": "העלאת מסמך נוסף"
 }

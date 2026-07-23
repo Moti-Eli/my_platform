@@ -3,17 +3,24 @@
 /**
  * The candidate card + the tool's shared form primitives (Standard §2 views/).
  *
- * ART DIRECTION — a professional BUSINESS CARD in STAGE SECTIONS: the identity
- * block (monogram avatar + name) is the moment, on its own surface; below it
- * sit THREE SIBLING SECTIONS of the SAME visual weight — one per pipeline
- * stage (details / acceptance / intake): same surface, same padding, same
- * radius, so they read as three equal blocks, not one real block and two
- * stubs. The section matching the candidate's CURRENT stage carries a quiet
- * app-blue/30 border (archived marks none). A status strip states each boolean
- * attribute EXPLICITLY (check when true, X when false — never
- * hidden-when-false); fields are VALUE-dominant (caption label above, body
- * value below); phone/email are live tel:/mailto: actions; the impression is
- * prose. In edit mode the save affordance is the one loud element on the card.
+ * ART DIRECTION — a professional BUSINESS CARD in STAGE SECTIONS: a MINIMAL
+ * identity row (monogram · name · edit + share) sitting bare on the sheet — no
+ * surface, no role line, no status chips; those live in the details section,
+ * stated once. Below it sit THREE SIBLING SECTIONS of the SAME visual weight —
+ * one per pipeline stage (details / acceptance / intake): same surface, same
+ * padding, same radius, so they read as three equal blocks, not one real block
+ * and two stubs. The section matching the candidate's CURRENT stage carries a
+ * quiet app-blue/30 border (archived marks none). Booleans are stated
+ * EXPLICITLY (check when true, X when false — never hidden-when-false); fields
+ * are VALUE-dominant (caption label above, body value below); phone/email are
+ * live tel:/mailto: actions; the impression is prose. In edit mode the save
+ * affordance is the one loud element on the card.
+ *
+ * THE CARD'S EDIT MODE IS THE ONE CANDIDATE FORM: the plus flow opens this
+ * same card with a BLANK candidate and `startInEdit` — there is no separate
+ * add form. What a save DOES is the parent's decision via `onSave`
+ * (create_candidate for a blank card, update_candidate for an existing one);
+ * the card only edits and validates.
  *
  * STAGE + ARCHIVE CONTROLS ARE NOT HERE: they moved to the overlay HEADER
  * (FullScreen), which reuses the SAME moveStage flow the card's footer used to
@@ -26,8 +33,7 @@
  * (the edit draft). Nothing here touches CANDIDATES_LIST_KEY.
  *
  * IMPORT DIRECTION is one-way: FullScreen imports from THIS file (the card,
- * ArchiveForm, TextField, parseTags, the style constants and the shared types)
- * — never the reverse.
+ * ArchiveForm, the stage constants and the shared types) — never the reverse.
  */
 import { useEffect, useRef, useState } from "react";
 import type { IntentResult } from "@/cortex/actions";
@@ -40,6 +46,7 @@ import {
   MailIcon,
   PaperclipIcon,
   PhoneIcon,
+  ShareIcon,
 } from "@/components/icons";
 import type { Candidate } from "../logic";
 
@@ -70,23 +77,23 @@ export type CandidatePatch = Omit<Candidate, "id" | "stage" | "urgent" | "reject
 
 /** Parse the comma-separated tags input into a clean string[] — trimmed, empties
  * dropped. */
-export function parseTags(raw: string): string[] {
+function parseTags(raw: string): string[] {
   return raw
     .split(",")
     .map((tag) => tag.trim())
     .filter((tag) => tag !== "");
 }
 
-export const inputClass =
+const inputClass =
   "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
-export const invalidRing = "ring-1 ring-danger";
+const invalidRing = "ring-1 ring-danger";
 /** The quiet primary action — a subtle accent tint, never a solid fill. */
-export const primaryButtonClass =
+const primaryButtonClass =
   "rounded-md bg-app-blue/10 py-sm type-label text-app-blue interactive motion-safe:active:scale-[0.97]";
 
-/** ONE text-field recipe, shared by the add form and the card's edit mode, so
- * the two can never drift apart visually. */
-export function TextField({
+/** ONE text-field recipe for the card's edit mode — the single candidate form
+ * now that the separate add form is gone. */
+function TextField({
   label,
   value,
   placeholder,
@@ -240,31 +247,59 @@ interface CardDraft {
   hasCar: boolean;
 }
 
+/** Seed an edit draft from a candidate — used both by the edit toggle and by
+ * `startInEdit` (the blank-card create flow), so the two can never drift. */
+function draftOf(candidate: Candidate): CardDraft {
+  return {
+    name: candidate.name,
+    role: candidate.role,
+    phone: candidate.phone,
+    city: candidate.city,
+    email: candidate.email,
+    availability: candidate.availability,
+    salaryExpectation: candidate.salaryExpectation,
+    summary: candidate.summary,
+    impression: candidate.impression,
+    // The same round-trip the old inline editor used: chips -> "a, b" -> parseTags.
+    tagsRaw: candidate.tags.join(", "),
+    hasCertificate: candidate.hasCertificate,
+    hasCar: candidate.hasCar,
+  };
+}
+
 /**
  * The candidate card — VIEW mode (read-only) with an EDIT mode behind the
  * header toggle: one control, two states (ComposeIcon → edit; the loud filled
- * save → save). The draft lives locally and is seeded on entering edit; closing
- * the overlay unmounts the card, so an unsaved draft is discarded with no
- * confirm — by design. Saves go through the parent's saveCandidate (the ONE
- * update_candidate flow with its per-id guard) — the card never owns a write.
- * Stage moves and archiving live in the overlay HEADER (FullScreen), not here;
+ * save → save). The draft lives locally and is seeded on entering edit — or at
+ * MOUNT when `startInEdit` is set (the plus flow: a blank candidate, straight
+ * into the form); closing the overlay unmounts the card, so an unsaved draft
+ * is discarded with no confirm — by design. Saves go through the parent's
+ * `onSave` (update_candidate for an existing candidate, create_candidate for a
+ * blank one — the parent decides; the card never owns a write). Stage moves
+ * and archiving live in the overlay HEADER (FullScreen), not here;
  * `onEditingChange` lifts the ONE "is editing" bit up so that header can
  * disable those controls while a draft is open (the draft itself never leaves
  * this component).
  */
 export function CandidateCard({
   candidate,
+  startInEdit = false,
   onSave,
   onEditingChange,
 }: {
   candidate: Candidate;
+  startInEdit?: boolean;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
   onEditingChange: (editing: boolean) => void;
 }) {
   const { t } = useI18n();
   // EDIT MODE: a non-null draft IS edit mode. Seeded from the candidate when
-  // the toggle enters edit; nulled on save success or discarded on unmount.
-  const [draft, setDraft] = useState<CardDraft | null>(null);
+  // the toggle enters edit (or at mount, for the blank-card create flow);
+  // nulled on save success or discarded on unmount. Lazy initializer: read once
+  // at mount — a later `startInEdit` change never re-seeds a live draft.
+  const [draft, setDraft] = useState<CardDraft | null>(() =>
+    startInEdit ? draftOf(candidate) : null,
+  );
   const editing = draft !== null;
   // Blank-name-on-save marking (the same visible validation the add form has).
   const [invalidName, setInvalidName] = useState(false);
@@ -296,21 +331,7 @@ export function CandidateCard({
   function enterEdit() {
     setSaveError(null);
     setInvalidName(false);
-    setDraft({
-      name: candidate.name,
-      role: candidate.role,
-      phone: candidate.phone,
-      city: candidate.city,
-      email: candidate.email,
-      availability: candidate.availability,
-      salaryExpectation: candidate.salaryExpectation,
-      summary: candidate.summary,
-      impression: candidate.impression,
-      // The same round-trip the old inline editor used: chips -> "a, b" -> parseTags.
-      tagsRaw: candidate.tags.join(", "),
-      hasCertificate: candidate.hasCertificate,
-      hasCar: candidate.hasCar,
-    });
+    setDraft(draftOf(candidate));
   }
 
   const patchDraft = (patch: Partial<CardDraft>) =>
@@ -356,60 +377,61 @@ export function CandidateCard({
 
   return (
     <div className="flex flex-col gap-sm">
-      {/* 1 · IDENTITY — its own surface, the business-card moment. */}
-      <div className="rounded-lg bg-card">
-        {/* Room to breathe. */}
-        <div className="flex items-center gap-md p-lg">
-          <span
-            aria-hidden="true"
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-app-blue/10 type-title text-app-blue"
-          >
-            {initialsOf(candidate.name)}
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col gap-2xs">
-            <span className="truncate type-title text-ink">{candidate.name}</span>
-            {candidate.role !== "" ? (
-              <span className="truncate type-body text-muted">{candidate.role}</span>
-            ) : (
-              <span aria-hidden="true" className="type-body text-muted">
-                —
-              </span>
-            )}
-          </div>
+      {/* 1 · IDENTITY — a BARE row directly on the sheet: no surface, no box.
+          Monogram · name · edit + share, one thin line. Role and the status
+          booleans are NOT repeated here — they are fields in the details
+          section; stating them twice is what made the old header heavy. */}
+      <div className="flex items-center gap-sm">
+        {/* Monogram — a future profile photo replaces the initials with an
+            <img> inside this same overflow-hidden wrapper. */}
+        <span
+          aria-hidden="true"
+          className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-app-blue/10 type-label text-app-blue"
+        >
+          {initialsOf(candidate.name)}
+        </span>
+        <span className="min-w-0 flex-1 truncate type-title text-ink">{candidate.name}</span>
 
-          {/* THE EDIT/SAVE TOGGLE — one control, two states. Quiet in view
-              mode; in edit mode it is the ONE loud element on the card: solid
-              success fill, icon + label, gently pulsing until pressed (still,
-              and disabled, while the save runs). */}
-          <button
-            type="button"
-            aria-label={editing ? t("candidates.save") : t("candidates.editCandidate")}
-            onClick={editing ? () => void handleSave() : enterEdit}
-            disabled={submitting}
-            className={
-              editing
-                ? `flex h-9 shrink-0 items-center gap-2xs rounded-pill bg-success px-sm type-label text-on-fill interactive disabled:opacity-50 motion-safe:active:scale-[0.97] ${
-                    submitting ? "" : "motion-safe:animate-pulse"
-                  }`
-                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-            }
-          >
-            {editing ? (
-              <>
-                <CheckIcon width={16} height={16} />
-                {t("candidates.save")}
-              </>
-            ) : (
-              <ComposeIcon width={16} height={16} />
-            )}
-          </button>
-        </div>
+        {/* THE EDIT/SAVE TOGGLE — one control, two states. A BARE glyph in
+            view mode (no disc; rounded-full only shapes the faint hover/press
+            tint); in edit mode it is the ONE loud element on the card: solid
+            success fill, icon + label, gently pulsing until pressed (still,
+            and disabled, while the save runs). */}
+        <button
+          type="button"
+          aria-label={editing ? t("candidates.save") : t("candidates.editCandidate")}
+          onClick={editing ? () => void handleSave() : enterEdit}
+          disabled={submitting}
+          className={
+            editing
+              ? `flex h-9 shrink-0 items-center gap-2xs rounded-pill bg-success px-sm type-label text-on-fill interactive disabled:opacity-50 motion-safe:active:scale-[0.97] ${
+                  submitting ? "" : "motion-safe:animate-pulse"
+                }`
+              : "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+          }
+        >
+          {editing ? (
+            <>
+              <CheckIcon width={16} height={16} />
+              {t("candidates.save")}
+            </>
+          ) : (
+            <ComposeIcon width={16} height={16} />
+          )}
+        </button>
 
-        {/* 2 · STATUS STRIP — every boolean stated explicitly, true or false. */}
-        <div className="flex flex-wrap items-center gap-2xs px-lg pb-lg">
-          <StatusChip label={t("candidates.hasCertificate")} on={candidate.hasCertificate} />
-          <StatusChip label={t("candidates.hasCar")} on={candidate.hasCar} />
-        </div>
+        {/* SHARE — honest disabled placeholder until sharing exists; a bare
+            muted glyph (no disc), title + aria-label carry the name for hover
+            and screen readers. */}
+        <button
+          type="button"
+          disabled
+          title={t("candidates.share")}
+          aria-label={t("candidates.share")}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted opacity-50"
+        >
+          <ShareIcon width={16} height={16} />
+        </button>
       </div>
 
       {/* 3 · DETAILS SECTION — the first of the three equal stage sections;
@@ -570,8 +592,10 @@ export function CandidateCard({
           /* VIEW MODE — value-dominant fields, then the impression as prose
              behind the section's ONE hairline rule (its one genuine break). */
           <>
-            {/* FIELDS — two columns when the sheet is wide enough. */}
+            {/* FIELDS — two columns when the sheet is wide enough. Role leads:
+                it moved here from the old identity header (stated once). */}
             <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
+              <CardField label={t("candidates.roleLabel")} value={candidate.role} />
               <ContactField
                 label={t("candidates.phoneLabel")}
                 value={candidate.phone}
@@ -590,6 +614,12 @@ export function CandidateCard({
                 value={candidate.availability}
               />
               <CardField label={t("candidates.salaryLabel")} value={candidate.salaryExpectation} />
+              {/* STATUS — the booleans, stated explicitly either way (moved
+                  here from the old identity header; said ONCE, in details). */}
+              <div className="flex flex-wrap items-center gap-2xs sm:col-span-2">
+                <StatusChip label={t("candidates.hasCertificate")} on={candidate.hasCertificate} />
+                <StatusChip label={t("candidates.hasCar")} on={candidate.hasCar} />
+              </div>
               {/* Tags — chips (dedupe-free display of what's stored). */}
               <div className="flex min-w-0 flex-col gap-2xs sm:col-span-2">
                 <span className="type-caption text-muted">{t("candidates.tagsLabel")}</span>
