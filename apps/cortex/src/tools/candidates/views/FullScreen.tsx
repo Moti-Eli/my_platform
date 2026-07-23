@@ -9,11 +9,13 @@
  * tabs (contact / interview / intake — `archived` stays real in the DB/intents
  * but gets NO tab) · icon-only add. Only the ACTIVE tab's candidates render.
  *
- * ROWS are compact: name · role · certificate check · phone · city · first
- * summary line. Tapping a row opens the CANDIDATE CARD (see CandidateCard.tsx
- * — extracted as a pure refactor) in the same overlay shell the add form uses.
- * The card's footer reuses the EXISTING set_stage flow (`moveStage` + its
- * per-id guard) for Archive / Advance — no duplicated write logic.
+ * ROWS are compact CARDS (bg-card, hairline border, spaced apart — separate
+ * objects, no dividers): name · role · certificate check · phone · city ·
+ * first summary line, plus the urgent star and the two-tap delete. Tapping a
+ * row opens the CANDIDATE CARD (see CandidateCard.tsx) in the same overlay
+ * shell the add form uses. STAGE ACTIONS (advance/archive) live ONLY inside
+ * the candidate card now — the card's footer reuses the EXISTING set_stage
+ * flow (`moveStage` + its per-id guard); no duplicated write logic.
  *
  * TONE: quiet. The accent is used sparingly — subtle `bg-app-blue/10` +
  * `text-app-blue` tints for the active tab, primary submits and the certificate
@@ -41,7 +43,6 @@ import { CheckIcon, ChevronIcon, CloseIcon, InfoIcon, PlusIcon, StarIcon } from 
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import {
-  ArchiveForm,
   CandidateCard,
   TextField,
   inputClass,
@@ -95,8 +96,6 @@ export function FullScreen(_props: ToolViewProps) {
   // Which candidate's CARD is open (null = none). Resolved against the live cache
   // each render, so a star toggle from the card is reflected immediately.
   const [viewingId, setViewingId] = useState<string | null>(null);
-  // Which row has the inline archive form open (null = none).
-  const [archivingId, setArchivingId] = useState<string | null>(null);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
   // "unavailable" (the DB refused — you may not) vs "failed" (something broke).
   // Never a silent no-op, and never a pretend-success.
@@ -240,11 +239,9 @@ export function FullScreen(_props: ToolViewProps) {
           stage,
           ...(stage === "archived" ? { rejectReason } : {}),
         });
-        if (res.ok) {
-          // 2. Success: close the archive form if it was this row's.
-          if (mounted.current) setArchivingId((cur) => (cur === id ? null : cur));
-        } else {
-          // 3. REVERT + surface; leave the archive form open so the reason isn't lost.
+        // 2. On success: nothing to reconcile — the optimistic move stands.
+        if (!res.ok) {
+          // 3. REVERT + surface.
           if (prev) patchCandidate(id, () => prev);
           if (mounted.current) setWriteError(res.code);
         }
@@ -439,10 +436,13 @@ export function FullScreen(_props: ToolViewProps) {
 
       {loading ? (
         // Skeleton on the very first load only (cache empty); arriving from the
-        // card the cache is warm and this never shows.
-        <ul className="flex flex-col divide-y divide-hairline" aria-hidden="true">
+        // card the cache is warm and this never shows. Same card shape as rows.
+        <ul className="flex flex-col gap-sm" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
-            <li key={i} className="flex items-center justify-between py-sm">
+            <li
+              key={i}
+              className="flex items-center justify-between rounded-lg border border-hairline bg-card p-md"
+            >
               <span className={`h-4 w-36 ${SKELETON}`} />
               <span className={`h-4 w-16 ${SKELETON}`} />
             </li>
@@ -456,12 +456,12 @@ export function FullScreen(_props: ToolViewProps) {
           <p className="max-w-[24ch] type-label text-muted">{t("candidates.emptyHint")}</p>
         </div>
       ) : (
-        <ul className="flex flex-col divide-y divide-hairline">
+        <ul className="flex flex-col gap-sm">
           {items.map((candidate) => {
             const rowDeleting = deleting.has(candidate.id);
             const confirming = confirmId === candidate.id;
-            const nextStage = NEXT_STAGE[candidate.stage];
-            // The compact contact line: phone · city (only the present parts).
+            // The compact contact line: phone · city (only the present parts —
+            // an empty field omits its separator, never a stray dot).
             const contactLine = [candidate.phone, candidate.city]
               .filter((part) => part !== "")
               .join(" · ");
@@ -471,125 +471,94 @@ export function FullScreen(_props: ToolViewProps) {
             const summaryLine = candidate.summary.split("\n")[0] ?? "";
 
             return (
-              <li key={candidate.id} className="flex flex-col gap-xs py-sm">
-                <div className="flex items-center gap-sm">
-                  {/* Urgent star — an optimistic one-field toggle. */}
-                  <button
-                    type="button"
-                    aria-label={t("candidates.urgent")}
-                    aria-pressed={candidate.urgent}
-                    onClick={() => void toggleUrgent(candidate.id, !candidate.urgent)}
-                    disabled={rowDeleting}
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-                      candidate.urgent
-                        ? "bg-app-amber/15 text-app-amber"
-                        : "bg-hairline text-muted"
-                    }`}
-                  >
-                    <StarIcon width={16} height={16} />
-                  </button>
-
-                  {/* The row body OPENS THE CARD (read-only view). */}
-                  <button
-                    type="button"
-                    aria-label={t("candidates.openCard")}
-                    onClick={() => {
-                      setConfirmId(null);
-                      setArchivingId(null);
-                      setViewingId(candidate.id);
-                    }}
-                    disabled={rowDeleting}
-                    className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
-                  >
-                    <span className="flex w-full min-w-0 items-center gap-2xs">
-                      <span className="truncate type-heading text-ink">{candidate.name}</span>
-                      {candidate.role ? (
-                        <span className="shrink-0 type-label text-muted">
-                          · {candidate.role}
-                        </span>
-                      ) : null}
-                      {candidate.hasCertificate ? (
-                        <span
-                          aria-label={t("candidates.hasCertificate")}
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
-                        >
-                          <CheckIcon width={12} height={12} />
-                        </span>
-                      ) : null}
+              // Each row is its OWN CARD — a separate object, spaced from its
+              // neighbours (the list's gap), no dividers. Stage actions are NOT
+              // here: advance/archive live inside the candidate card only.
+              <li
+                key={candidate.id}
+                className="flex items-center gap-sm rounded-lg border border-hairline bg-card p-md"
+              >
+                {/* The row body OPENS THE CARD. Identity first and dominant. */}
+                <button
+                  type="button"
+                  aria-label={t("candidates.openCard")}
+                  onClick={() => {
+                    setConfirmId(null);
+                    setViewingId(candidate.id);
+                  }}
+                  disabled={rowDeleting}
+                  className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
+                >
+                  <span className="flex w-full min-w-0 items-center gap-2xs">
+                    <span className="truncate type-label font-semibold text-ink">
+                      {candidate.name}
                     </span>
-                    {contactLine !== "" ? (
-                      <span className="w-full truncate type-label text-muted">{contactLine}</span>
+                    {candidate.role !== "" ? (
+                      <span className="shrink-0 type-label text-muted">· {candidate.role}</span>
                     ) : null}
-                    {summaryLine !== "" ? (
-                      <span className="w-full truncate type-caption text-muted">
-                        {summaryLine}
+                    {candidate.hasCertificate ? (
+                      <span
+                        aria-label={t("candidates.hasCertificate")}
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
+                      >
+                        <CheckIcon width={12} height={12} />
                       </span>
                     ) : null}
-                  </button>
-
-                  {/* Stage control: advance to the next stage (when one exists)
-                      and archive — both on neutral surfaces; the accent belongs
-                      to the active tab, not to every action. */}
-                  {nextStage ? (
-                    <button
-                      type="button"
-                      aria-label={t("candidates.advance")}
-                      onClick={() => void moveStage(candidate.id, nextStage)}
-                      disabled={rowDeleting}
-                      className="shrink-0 rounded-pill bg-hairline px-sm py-2xs type-caption text-ink interactive motion-safe:active:scale-[0.97]"
-                    >
-                      {t(STAGE_LABEL_KEY[nextStage])}
-                    </button>
+                  </span>
+                  {contactLine !== "" ? (
+                    <span className="w-full truncate type-caption text-muted">{contactLine}</span>
                   ) : null}
+                  {summaryLine !== "" ? (
+                    <span className="w-full truncate type-caption text-muted opacity-60">
+                      {summaryLine}
+                    </span>
+                  ) : null}
+                </button>
+
+                {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
+                    first tap arms "Delete?", a second tap commits. Tapping another
+                    row's trash moves the confirm there. */}
+                {confirming ? (
                   <button
                     type="button"
-                    aria-label={t("candidates.archive")}
+                    aria-label={t("candidates.confirmDelete")}
                     onClick={() => {
                       setConfirmId(null);
-                      setArchivingId((cur) => (cur === candidate.id ? null : candidate.id));
+                      void removeCandidate(candidate.id);
                     }}
                     disabled={rowDeleting}
-                    className="shrink-0 rounded-pill bg-hairline px-sm py-2xs type-caption text-muted interactive motion-safe:active:scale-[0.97]"
+                    className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
                   >
-                    {t("candidates.archive")}
+                    {t("candidates.confirmDelete")}
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={t("candidates.delete")}
+                    onClick={() => setConfirmId(candidate.id)}
+                    disabled={rowDeleting}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                  >
+                    <CloseIcon width={16} height={16} />
+                  </button>
+                )}
 
-                  {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
-                      first tap arms "Delete?", a second tap commits. Tapping another
-                      row's trash moves the confirm there. */}
-                  {confirming ? (
-                    <button
-                      type="button"
-                      aria-label={t("candidates.confirmDelete")}
-                      onClick={() => {
-                        setConfirmId(null);
-                        void removeCandidate(candidate.id);
-                      }}
-                      disabled={rowDeleting}
-                      className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
-                    >
-                      {t("candidates.confirmDelete")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      aria-label={t("candidates.delete")}
-                      onClick={() => setConfirmId(candidate.id)}
-                      disabled={rowDeleting}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-                    >
-                      <CloseIcon width={16} height={16} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Inline archive form: optional reason, then commit. */}
-                {archivingId === candidate.id ? (
-                  <ArchiveForm
-                    onArchive={(reason) => moveStage(candidate.id, "archived", reason)}
-                    onCancel={() => setArchivingId(null)}
-                  />
-                ) : null}
+                {/* Urgent star at the far end — quiet when off, so it never
+                    fights the name for attention. */}
+                <button
+                  type="button"
+                  aria-label={t("candidates.urgent")}
+                  aria-pressed={candidate.urgent}
+                  onClick={() => void toggleUrgent(candidate.id, !candidate.urgent)}
+                  disabled={rowDeleting}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
+                    candidate.urgent
+                      ? "bg-app-amber/15 text-app-amber"
+                      : "text-muted hover:bg-hairline active:bg-hairline"
+                  }`}
+                >
+                  <StarIcon width={16} height={16} />
+                </button>
               </li>
             );
           })}
