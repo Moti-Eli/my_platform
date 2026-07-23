@@ -1,5 +1,6 @@
 {
   "name": "Candidates",
+  "back": "Back",
   "candidateCount": "candidates",
   "emptyBadge": "No candidates",
   "emptyBody": "Nothing here yet",
@@ -26,8 +27,8 @@
   "delete": "Delete",
   "confirmDelete": "Delete?",
   "deleteFailed": "Couldn't delete. Please try again.",
-  "stageContact": "Contact",
-  "stageInterview": "Interview",
+  "stageContact": "Contact details",
+  "stageInterview": "Acceptance",
   "stageIntake": "Intake",
   "stageArchived": "Archived",
   "urgent": "Urgent",

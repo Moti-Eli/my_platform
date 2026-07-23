@@ -1,5 +1,6 @@
 {
   "name": "מועמדים",
+  "back": "חזרה",
   "candidateCount": "מועמדים",
   "emptyBadge": "אין מועמדים",
   "emptyBody": "עדיין אין מועמדים",
@@ -26,8 +27,8 @@
   "delete": "מחיקה",
   "confirmDelete": "למחוק?",
   "deleteFailed": "המחיקה נכשלה. נסה שוב.",
-  "stageContact": "יצירת קשר",
-  "stageInterview": "ראיון",
+  "stageContact": "פרטי קשר",
+  "stageInterview": "קבלה",
   "stageIntake": "קליטה",
   "stageArchived": "ארכיון",
   "urgent": "דחוף",

@@ -1,30 +1,34 @@
 "use client";
 
 /**
- * Candidates full screen (Standard §2 `views/FullScreen.tsx`, §8). Cloned from
- * Notes' full screen, on the app-blue identity accent.
+ * Candidates full screen (Standard §2 `views/FullScreen.tsx`, §8). Data layer
+ * cloned from Notes' full screen; the LAYOUT is stage TABS, and its restrained
+ * treatment is the visual baseline for the other tools.
  *
- * Candidate pipeline grouped BY STAGE (contact → interview → intake → archived),
- * with an add action, a per-row inline EDIT (name/role/summary/tags/urgent), a
- * star toggle for `urgent`, a stage control (advance to the next stage + archive
- * with an optional reject reason), and a two-tap per-row delete. The read is the
- * SHARED react-query cache (`useCandidatesList`, queryKey ["candidates","list"])
- * — the same entry the dashboard card reads — so this screen renders from cache
- * and each write reconciles that cache via setQueryData (no refetch). Writes go
- * straight through the SERVER action (`runIntentAction`); every call — read or
- * write — builds ctx from the session, so no identity is sent from here.
+ * TOP BAR — one row: a minimal back chevron (start side; points RIGHT in RTL),
+ * three numbered stage tabs in the center (contact / interview / intake — the
+ * `archived` stage stays real in the DB/intents but gets NO tab here), and an
+ * icon-only add button (end side). Only the ACTIVE tab's candidates render;
+ * an empty stage shows the empty state.
  *
- * WRITES WORK (20260722000001 opened the path, mirroring notes). A write flows
- * runIntentAction -> the server data-layer -> the RLS client, gated ROW BY ROW by
- * `private.auth_user_can_write`: membership in the row's org tree is the gate. A
- * write can genuinely succeed — so this screen edits/deletes OPTIMISTICALLY and
- * reconciles to the server's authoritative answer — or genuinely fail, in which
- * case the failure is surfaced honestly, never faked and never swallowed.
+ * TONE: quiet. The accent is used sparingly — a subtle `bg-app-blue/10` +
+ * `text-app-blue` for the active tab and primary submits; every other surface
+ * sits on the neutral roles (bg-card / text-ink / text-muted / hairline). No
+ * solid accent fills.
  *
- * THE SHAPE DIFFERENCES FROM NOTES: rows are grouped into stage sections, and on
- * top of the generic edit there are two one-field writes — the urgent star
- * (`candidates.update_candidate`) and the stage control (`candidates.set_stage`)
- * — each with its own per-id in-flight guard, same discipline as notes' edit/delete.
+ * ADD: an OVERLAY (scrim + sheet, closes on scrim tap and Escape) hosting the
+ * same add form — same fields, validation, double-submit guard and optimistic
+ * write as before. The overlay shell (`CandidateFormOverlay`) is generic on
+ * purpose: an edit mode can mount in it later without reshaping this screen.
+ *
+ * WRITES (unchanged): the read is the SHARED react-query cache
+ * (`useCandidatesList`, queryKey ["candidates","list"]) — the same entry the
+ * dashboard card reads — and each write reconciles that cache via setQueryData
+ * (no refetch), OPTIMISTICALLY with snapshot-revert on failure. Writes flow
+ * runIntentAction -> the server data-layer -> the RLS client, gated ROW BY ROW
+ * by `private.auth_user_can_write`; failures surface honestly, never faked and
+ * never swallowed. Per-id in-flight guards: edit / star / stage / delete each
+ * hold their own lock.
  *
  * Built from design-system utilities + i18n only.
  */
@@ -34,14 +38,19 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { ChevronIcon, CloseIcon, InfoIcon, SparkIcon } from "@/components/icons";
-import { CANDIDATE_STAGES, type Candidate, type CandidateStage } from "../logic";
+import { ChevronIcon, CloseIcon, InfoIcon, PlusIcon, SparkIcon } from "@/components/icons";
+import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 
-/** Stage → its i18n label key (the section headers and stage buttons). */
+/** The stages this view shows, in tab order. `archived` is DELIBERATELY absent:
+ * it exists in the DB and intents (rows keep archiving), it just has no tab. */
+const VISIBLE_STAGES = ["contact", "interview", "intake"] as const;
+type VisibleStage = (typeof VISIBLE_STAGES)[number];
+
+/** Stage → its i18n label key (tabs and stage buttons). */
 const STAGE_LABEL_KEY = {
   contact: "candidates.stageContact",
   interview: "candidates.stageInterview",
@@ -82,6 +91,8 @@ export function FullScreen(_props: ToolViewProps) {
   // never hold diverging copies. Arriving from the card, the cache is warm and the
   // list paints instantly; react-query revalidates in the background.
   const { candidates, isLoading: loading, isError: loadError } = useCandidatesList();
+  // Which stage tab is active. Only its candidates render.
+  const [activeStage, setActiveStage] = useState<VisibleStage>("contact");
   const [adding, setAdding] = useState(false);
   // Which candidate is being edited inline (null = none). One row edits at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -227,9 +238,10 @@ export function FullScreen(_props: ToolViewProps) {
 
       stagingRef.current = new Set(stagingRef.current).add(id);
 
-      // 1. OPTIMISTIC: move the row to its new section immediately. Mirrors the
-      //    server's setStage: archiving writes rejectReason (defaulting to ''),
-      //    any other move leaves the stored reason untouched.
+      // 1. OPTIMISTIC: move the row to its new stage immediately (it leaves the
+      //    active tab's filter in the same render). Mirrors the server's setStage:
+      //    archiving writes rejectReason (defaulting to ''), any other move leaves
+      //    the stored reason untouched.
       setWriteError(null);
       patchCandidate(id, (it) => ({
         ...it,
@@ -309,31 +321,78 @@ export function FullScreen(_props: ToolViewProps) {
     [queryClient],
   );
 
-  // Stage sections in pipeline order; empty stages render nothing (the section
-  // headers exist for the rows, not as a fixed board).
-  const sections = CANDIDATE_STAGES.map((stage) => ({
-    stage,
-    items: candidates.filter((it) => it.stage === stage),
-  })).filter((section) => section.items.length > 0);
+  // Only the active tab's candidates render.
+  const items = candidates.filter((it) => it.stage === activeStage);
 
   return (
     <>
+      {/* TOP BAR — one row, one family of five: back (start = right in RTL) ·
+          three stage tabs · add (end). The two end CIRCLES are the prominent
+          pair (bg-card + hairline border + lifted shadow); the tabs are quiet
+          rounded RECTANGLES at the same h-10, so all five share one line. On
+          narrow screens the tab GROUP scrolls sideways (w-max inside an
+          overflow-x wrapper — mx-auto centers it while it fits); the circles
+          stay pinned at the ends. */}
       <div className="flex items-center gap-xs">
         <button
           type="button"
           onClick={() => router.back()}
-          aria-label={t("common.back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
+          aria-label={t("candidates.back")}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-card text-ink shadow-lifted interactive motion-safe:active:scale-[0.97]"
         >
+          {/* Points RIGHT in RTL (the flip), LEFT in LTR — always "back". */}
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
-        <h1 className="flex-1 type-title text-ink">{t("candidates.name")}</h1>
+
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <div
+            role="tablist"
+            aria-label={t("candidates.name")}
+            className="mx-auto flex w-max items-center gap-2xs"
+          >
+            {VISIBLE_STAGES.map((stage, i) => {
+              const active = activeStage === stage;
+              // The per-stage count, from the already-loaded shared list. Always
+              // shown, 0 included — the bar is the pipeline summary.
+              const count = candidates.filter((it) => it.stage === stage).length;
+              return (
+                <button
+                  key={stage}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveStage(stage)}
+                  className={`flex h-10 shrink-0 items-center gap-2xs rounded-lg border px-sm type-label interactive motion-safe:active:scale-[0.97] ${
+                    active
+                      ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
+                      : "border-hairline bg-card text-muted"
+                  }`}
+                >
+                  {/* One centerline for all three: the row is items-center, and
+                      the number sits INSIDE a fixed circle instead of on its own
+                      text baseline. */}
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full type-caption ${
+                      active ? "bg-app-blue/20" : "bg-hairline"
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <span>{t(STAGE_LABEL_KEY[stage])}</span>
+                  <span className="type-caption text-muted">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <button
           type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-app-blue px-md py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
+          onClick={() => setAdding(true)}
+          aria-label={t("candidates.addCandidate")}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-hairline bg-card text-ink shadow-lifted interactive motion-safe:active:scale-[0.97]"
         >
-          {t("candidates.addCandidate")}
+          <PlusIcon width={20} height={20} />
         </button>
       </div>
 
@@ -350,21 +409,25 @@ export function FullScreen(_props: ToolViewProps) {
       ) : null}
 
       {adding ? (
-        <AddCandidateForm
-          onCreated={(candidate) => {
-            // create_candidate returns { id }; the rest of the row is exactly what
-            // we submitted (plus the DB's defaults: stage 'contact', not urgent, no
-            // reject reason), so append it straight into the SHARED cache — no
-            // refetch, and the dashboard card sees the new candidate immediately.
-            queryClient.setQueryData<Candidate[]>(CANDIDATES_LIST_KEY, (prev) => [
-              ...(prev ?? []),
-              candidate,
-            ]);
-            setAdding(false);
-            setWriteError(null);
-          }}
-          onError={(code) => setWriteError(code)}
-        />
+        <CandidateFormOverlay title={t("candidates.addCandidate")} onClose={() => setAdding(false)}>
+          <AddCandidateForm
+            onCreated={(candidate) => {
+              // create_candidate returns { id }; the rest of the row is exactly what
+              // we submitted (plus the DB's defaults: stage 'contact', not urgent, no
+              // reject reason), so append it straight into the SHARED cache — no
+              // refetch, and the dashboard card sees the new candidate immediately.
+              queryClient.setQueryData<Candidate[]>(CANDIDATES_LIST_KEY, (prev) => [
+                ...(prev ?? []),
+                candidate,
+              ]);
+              setAdding(false);
+              setWriteError(null);
+              // New rows land in 'contact'; show them.
+              setActiveStage("contact");
+            }}
+            onError={(code) => setWriteError(code)}
+          />
+        </CandidateFormOverlay>
       ) : null}
 
       {loading ? (
@@ -380,162 +443,146 @@ export function FullScreen(_props: ToolViewProps) {
         </ul>
       ) : loadError ? (
         <p className="type-label text-muted">{t("candidates.loadFailed")}</p>
-      ) : candidates.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
           <p className="type-heading text-ink">{t("candidates.emptyTitle")}</p>
           <p className="max-w-[24ch] type-label text-muted">{t("candidates.emptyHint")}</p>
         </div>
       ) : (
-        sections.map(({ stage, items }) => (
-          <section key={stage} className="flex flex-col gap-2xs">
-            <h2 className="flex items-center gap-xs type-label text-muted">
-              <span>{t(STAGE_LABEL_KEY[stage])}</span>
-              <span className="rounded-pill bg-hairline px-xs type-caption text-muted">
-                {items.length}
-              </span>
-            </h2>
-            <ul className="flex flex-col divide-y divide-hairline">
-              {items.map((candidate) => {
-                const rowDeleting = deleting.has(candidate.id);
-                const confirming = confirmId === candidate.id;
-                const nextStage = NEXT_STAGE[candidate.stage];
+        <ul className="flex flex-col divide-y divide-hairline">
+          {items.map((candidate) => {
+            const rowDeleting = deleting.has(candidate.id);
+            const confirming = confirmId === candidate.id;
+            const nextStage = NEXT_STAGE[candidate.stage];
 
-                // Editing: the whole row becomes an inline edit form.
-                if (editingId === candidate.id) {
-                  return (
-                    <li key={candidate.id} className="py-sm">
-                      <EditCandidateForm
-                        candidate={candidate}
-                        onSave={(next) => saveCandidate(candidate.id, next)}
-                        onCancel={() => setEditingId(null)}
-                      />
-                    </li>
-                  );
-                }
+            // Editing: the whole row becomes an inline edit form.
+            if (editingId === candidate.id) {
+              return (
+                <li key={candidate.id} className="py-sm">
+                  <EditCandidateForm
+                    candidate={candidate}
+                    onSave={(next) => saveCandidate(candidate.id, next)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                </li>
+              );
+            }
 
-                return (
-                  <li key={candidate.id} className="flex flex-col gap-xs py-sm">
-                    <div className="flex items-center gap-sm">
-                      {/* Urgent star — an optimistic one-field toggle. */}
-                      <button
-                        type="button"
-                        aria-label={t("candidates.urgent")}
-                        aria-pressed={candidate.urgent}
-                        onClick={() => void toggleUrgent(candidate.id, !candidate.urgent)}
-                        disabled={rowDeleting}
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-                          candidate.urgent
-                            ? "bg-app-amber/15 text-app-amber"
-                            : "bg-hairline text-muted"
-                        }`}
-                      >
-                        <SparkIcon width={16} height={16} />
-                      </button>
+            return (
+              <li key={candidate.id} className="flex flex-col gap-xs py-sm">
+                <div className="flex items-center gap-sm">
+                  {/* Urgent star — an optimistic one-field toggle. */}
+                  <button
+                    type="button"
+                    aria-label={t("candidates.urgent")}
+                    aria-pressed={candidate.urgent}
+                    onClick={() => void toggleUrgent(candidate.id, !candidate.urgent)}
+                    disabled={rowDeleting}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
+                      candidate.urgent
+                        ? "bg-app-amber/15 text-app-amber"
+                        : "bg-hairline text-muted"
+                    }`}
+                  >
+                    <SparkIcon width={16} height={16} />
+                  </button>
 
-                      <button
-                        type="button"
-                        aria-label={t("candidates.editCandidate")}
-                        onClick={() => {
-                          setConfirmId(null);
-                          setArchivingId(null);
-                          setEditingId(candidate.id);
-                        }}
-                        disabled={rowDeleting}
-                        className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
-                      >
-                        <span className="w-full truncate type-heading text-ink">
-                          {candidate.name}
-                          {candidate.role ? (
-                            <span className="type-label text-muted"> · {candidate.role}</span>
-                          ) : null}
-                        </span>
-                        {candidate.summary ? (
-                          <span className="w-full truncate type-label text-muted">
-                            {candidate.summary}
-                          </span>
-                        ) : null}
-                        {candidate.tags.length > 0 ? (
-                          <span className="w-full truncate type-caption text-muted">
-                            {candidate.tags.join(" · ")}
-                          </span>
-                        ) : null}
-                        {candidate.stage === "archived" && candidate.rejectReason ? (
-                          <span className="w-full truncate type-caption text-danger">
-                            {t("candidates.rejectReason")}: {candidate.rejectReason}
-                          </span>
-                        ) : null}
-                      </button>
-
-                      {/* Stage control: advance to the next stage (when one exists)
-                          and archive (when not already archived). */}
-                      {nextStage ? (
-                        <button
-                          type="button"
-                          aria-label={t("candidates.advance")}
-                          onClick={() => void moveStage(candidate.id, nextStage)}
-                          disabled={rowDeleting}
-                          className="shrink-0 rounded-pill bg-app-blue/15 px-sm py-2xs type-caption text-app-blue interactive motion-safe:active:scale-[0.97]"
-                        >
-                          {t(STAGE_LABEL_KEY[nextStage])}
-                        </button>
+                  <button
+                    type="button"
+                    aria-label={t("candidates.editCandidate")}
+                    onClick={() => {
+                      setConfirmId(null);
+                      setArchivingId(null);
+                      setEditingId(candidate.id);
+                    }}
+                    disabled={rowDeleting}
+                    className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
+                  >
+                    <span className="w-full truncate type-heading text-ink">
+                      {candidate.name}
+                      {candidate.role ? (
+                        <span className="type-label text-muted"> · {candidate.role}</span>
                       ) : null}
-                      {candidate.stage !== "archived" ? (
-                        <button
-                          type="button"
-                          aria-label={t("candidates.archive")}
-                          onClick={() => {
-                            setConfirmId(null);
-                            setArchivingId((cur) => (cur === candidate.id ? null : candidate.id));
-                          }}
-                          disabled={rowDeleting}
-                          className="shrink-0 rounded-pill bg-hairline px-sm py-2xs type-caption text-muted interactive motion-safe:active:scale-[0.97]"
-                        >
-                          {t("candidates.archive")}
-                        </button>
-                      ) : null}
-
-                      {/* Delete — a two-tap inline confirm (no modal, no
-                          window.confirm): first tap arms "Delete?", a second tap
-                          commits. Tapping another row's trash moves the confirm there. */}
-                      {confirming ? (
-                        <button
-                          type="button"
-                          aria-label={t("candidates.confirmDelete")}
-                          onClick={() => {
-                            setConfirmId(null);
-                            void removeCandidate(candidate.id);
-                          }}
-                          disabled={rowDeleting}
-                          className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
-                        >
-                          {t("candidates.confirmDelete")}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          aria-label={t("candidates.delete")}
-                          onClick={() => setConfirmId(candidate.id)}
-                          disabled={rowDeleting}
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-                        >
-                          <CloseIcon width={16} height={16} />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Inline archive form: optional reason, then commit. */}
-                    {archivingId === candidate.id ? (
-                      <ArchiveForm
-                        onArchive={(reason) => moveStage(candidate.id, "archived", reason)}
-                        onCancel={() => setArchivingId(null)}
-                      />
+                    </span>
+                    {candidate.summary ? (
+                      <span className="w-full truncate type-label text-muted">
+                        {candidate.summary}
+                      </span>
                     ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))
+                    {candidate.tags.length > 0 ? (
+                      <span className="w-full truncate type-caption text-muted">
+                        {candidate.tags.join(" · ")}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {/* Stage control: advance to the next stage (when one exists)
+                      and archive — both on neutral surfaces; the accent belongs
+                      to the active tab, not to every action. */}
+                  {nextStage ? (
+                    <button
+                      type="button"
+                      aria-label={t("candidates.advance")}
+                      onClick={() => void moveStage(candidate.id, nextStage)}
+                      disabled={rowDeleting}
+                      className="shrink-0 rounded-pill bg-hairline px-sm py-2xs type-caption text-ink interactive motion-safe:active:scale-[0.97]"
+                    >
+                      {t(STAGE_LABEL_KEY[nextStage])}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    aria-label={t("candidates.archive")}
+                    onClick={() => {
+                      setConfirmId(null);
+                      setArchivingId((cur) => (cur === candidate.id ? null : candidate.id));
+                    }}
+                    disabled={rowDeleting}
+                    className="shrink-0 rounded-pill bg-hairline px-sm py-2xs type-caption text-muted interactive motion-safe:active:scale-[0.97]"
+                  >
+                    {t("candidates.archive")}
+                  </button>
+
+                  {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
+                      first tap arms "Delete?", a second tap commits. Tapping another
+                      row's trash moves the confirm there. */}
+                  {confirming ? (
+                    <button
+                      type="button"
+                      aria-label={t("candidates.confirmDelete")}
+                      onClick={() => {
+                        setConfirmId(null);
+                        void removeCandidate(candidate.id);
+                      }}
+                      disabled={rowDeleting}
+                      className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+                    >
+                      {t("candidates.confirmDelete")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={t("candidates.delete")}
+                      onClick={() => setConfirmId(candidate.id)}
+                      disabled={rowDeleting}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+                    >
+                      <CloseIcon width={16} height={16} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Inline archive form: optional reason, then commit. */}
+                {archivingId === candidate.id ? (
+                  <ArchiveForm
+                    onArchive={(reason) => moveStage(candidate.id, "archived", reason)}
+                    onCancel={() => setArchivingId(null)}
+                  />
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </>
   );
@@ -544,6 +591,71 @@ export function FullScreen(_props: ToolViewProps) {
 const inputClass =
   "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
 const invalidRing = "ring-1 ring-danger";
+/** The quiet primary action — a subtle accent tint, never a solid fill. */
+const primaryButtonClass =
+  "rounded-md bg-app-blue/10 py-sm type-label text-app-blue interactive motion-safe:active:scale-[0.97]";
+
+/**
+ * The form overlay — scrim + sheet (bottom on phones, centered on wider), closed
+ * by scrim tap and Escape. Follows the shell's dialog recipe (UrgencyInbox):
+ * `bg-scrim` backdrop, `ds-backdrop`/`ds-panel`, `shadow-lifted` sheet. GENERIC
+ * over its children ON PURPOSE (Standard: one overlay, many modes) — an edit
+ * mode mounts in this same shell later; only the add form lives here today.
+ */
+function CandidateFormOverlay({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useI18n();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
+      {/* The scrim IS the close control — a full-bleed button, so a tap anywhere
+          outside the sheet dismisses (and it's reachable by assistive tech). */}
+      <button
+        type="button"
+        aria-label={t("candidates.cancel")}
+        onClick={onClose}
+        className="ds-backdrop absolute inset-0 bg-scrim"
+      />
+
+      <div className="ds-panel relative z-10 w-full max-w-[480px] px-sm pb-sm">
+        <div className="flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted">
+          <div className="flex items-center justify-between">
+            <h2 className="type-heading text-ink">{title}</h2>
+            <button
+              type="button"
+              aria-label={t("candidates.cancel")}
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
+            >
+              <CloseIcon width={18} height={18} />
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AddCandidateForm({
   onCreated,
@@ -565,7 +677,8 @@ function AddCandidateForm({
   const [submitting, setSubmitting] = useState(false);
 
   // Guard: onCreated/onError setState in the PARENT after the await. If we unmount
-  // mid-submit, this stops us from touching the parent's state.
+  // mid-submit (e.g. the overlay is dismissed), this stops us from touching the
+  // parent's state.
   const mounted = useRef(true);
   useEffect(() => {
     // Re-arm on every (re)mount (StrictMode runs mount → cleanup → mount) so the
@@ -686,11 +799,7 @@ function AddCandidateForm({
           onChange={(e) => setTagsRaw(e.target.value)}
         />
       </label>
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded-md bg-app-blue py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-      >
+      <button type="submit" disabled={submitting} className={primaryButtonClass}>
         {t("candidates.add")}
       </button>
     </form>
@@ -822,11 +931,7 @@ function EditCandidateForm({
         {t("candidates.urgent")}
       </label>
       <div className="flex items-center gap-sm">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="flex-1 rounded-md bg-app-blue py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-        >
+        <button type="submit" disabled={submitting} className={`flex-1 ${primaryButtonClass}`}>
           {t("candidates.save")}
         </button>
         <button
@@ -873,10 +978,7 @@ function ArchiveForm({
         />
       </label>
       <div className="flex items-center gap-sm">
-        <button
-          type="submit"
-          className="flex-1 rounded-md bg-app-blue py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-        >
+        <button type="submit" className={`flex-1 ${primaryButtonClass}`}>
           {t("candidates.archive")}
         </button>
         <button
