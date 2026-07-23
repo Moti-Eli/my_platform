@@ -30,12 +30,14 @@ import { TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 import { NOTES_LIST_KEY } from "@/lib/query/useNotesList";
 import { EXPENSES_LIST_KEY } from "@/lib/query/useExpensesList";
 import { JOURNAL_LIST_KEY } from "@/lib/query/useJournalList";
+import { CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import { STAFF_MEMBERS_KEY } from "@/lib/query/useStaffMembers";
 import type { InventoryItem } from "@/tools/inventory/logic";
 import type { Task } from "@/tools/tasks/logic";
 import type { Note } from "@/tools/notes/logic";
 import type { Expense } from "@/tools/expenses/logic";
 import type { Entry } from "@/tools/journal/logic";
+import type { Candidate } from "@/tools/candidates/logic";
 import type { Member } from "@/tools/staff/logic";
 
 /** One matched row within a tool's group. `route` is the tool's full-screen route
@@ -167,6 +169,35 @@ export function useGlobalSearch(
           route: appRoute("journal"),
         }));
       const group = toGroup("journal", hits);
+      if (group) groups.push(group);
+    }
+
+    if (has("candidates")) {
+      const items = queryClient.getQueryData<Candidate[]>(CANDIDATES_LIST_KEY) ?? [];
+      const hits = items
+        .filter(
+          (it) =>
+            match(it.name) ||
+            match(it.role) ||
+            match(it.city) ||
+            match(it.phone) ||
+            match(it.email) ||
+            match(it.summary) ||
+            match(it.impression) ||
+            it.tags.some((tag) => match(tag)),
+        )
+        .map<SearchHit>((it) => {
+          // Secondary: role when present, otherwise city, otherwise nothing.
+          const base = it.role !== "" ? it.role : it.city !== "" ? it.city : null;
+          // Archived candidates ARE included (a name search must find them
+          // regardless of stage), but marked so a hit is not mistaken for an
+          // active candidate. This hook has no t() — it returns i18n KEYS, never
+          // resolved text — so the mark is the RAW stage, prefixed.
+          const secondary =
+            it.stage === "archived" ? (base ? `${it.stage} · ${base}` : it.stage) : base;
+          return { id: it.id, primary: it.name, secondary, route: appRoute("candidates") };
+        });
+      const group = toGroup("candidates", hits);
       if (group) groups.push(group);
     }
 
