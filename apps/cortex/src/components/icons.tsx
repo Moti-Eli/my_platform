@@ -77,6 +77,25 @@ export function StarIcon(props: IconProps) {
   );
 }
 
+/** A telephone handset — call affordances (tel: links). */
+export function PhoneIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M21 16.5v2.6a1.9 1.9 0 0 1-2.1 1.9 18.9 18.9 0 0 1-8.2-2.9 18.6 18.6 0 0 1-5.8-5.8A18.9 18.9 0 0 1 2 4.1 1.9 1.9 0 0 1 3.9 2h2.6a1.9 1.9 0 0 1 1.9 1.6c.12.9.34 1.8.66 2.7a1.9 1.9 0 0 1-.43 2L7.4 9.4a15.2 15.2 0 0 0 7.2 7.2l1.1-1.13a1.9 1.9 0 0 1 2-.43c.87.32 1.77.54 2.68.66A1.9 1.9 0 0 1 21 16.5Z" />
+    </svg>
+  );
+}
+
+/** An envelope — email affordances (mailto: links). */
+export function MailIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3.5 7.5 8.5 5.7 8.5-5.7" />
+    </svg>
+  );
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
