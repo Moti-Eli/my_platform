@@ -88,8 +88,9 @@ export function TextField({
 }
 
 /** The monogram initials: first letters of the first two words of the name —
- * works for Hebrew exactly as for Latin (first characters, no casing games). */
-function initialsOf(name: string): string {
+ * works for Hebrew exactly as for Latin (first characters, no casing games).
+ * Exported so the row monograms (FullScreen) share the exact same recipe. */
+export function initialsOf(name: string): string {
   return name
     .trim()
     .split(/\s+/)

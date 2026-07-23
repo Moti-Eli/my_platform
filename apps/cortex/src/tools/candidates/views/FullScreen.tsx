@@ -46,13 +46,13 @@ import {
   CloseIcon,
   InfoIcon,
   PlusIcon,
-  StarIcon,
 } from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import {
   CandidateCard,
   TextField,
+  initialsOf,
   inputClass,
   invalidRing,
   parseTags,
@@ -486,13 +486,16 @@ export function FullScreen(_props: ToolViewProps) {
 
             return (
               // Each row is its OWN CARD — a separate object, spaced from its
-              // neighbours (the list's gap), no dividers. Stage actions are NOT
-              // here: advance/archive live inside the candidate card only.
+              // neighbours (the list's gap), no dividers, THIN: a scannable
+              // list item, not a card with air in it. Stage actions are NOT
+              // here: advance/archive live inside the candidate card only; the
+              // urgent star lives on the candidate card too, not the row.
               <li
                 key={candidate.id}
-                className="flex items-center gap-sm rounded-lg border border-hairline bg-card p-md"
+                className="flex items-center gap-sm rounded-lg border border-hairline bg-card px-md py-xs"
               >
-                {/* The row body OPENS THE CARD. Identity first and dominant. */}
+                {/* The row body OPENS THE CARD. Monogram first (start side),
+                    then identity. */}
                 <button
                   type="button"
                   aria-label={t("candidates.openCard")}
@@ -501,32 +504,73 @@ export function FullScreen(_props: ToolViewProps) {
                     setViewingId(candidate.id);
                   }}
                   disabled={rowDeleting}
-                  className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
+                  className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
                 >
-                  <span className="flex w-full min-w-0 items-center gap-2xs">
-                    <span className="truncate type-label font-semibold text-ink">
-                      {candidate.name}
-                    </span>
-                    {candidate.role !== "" ? (
-                      <span className="shrink-0 type-label text-muted">· {candidate.role}</span>
-                    ) : null}
-                    {candidate.hasCertificate ? (
+                  {/* Monogram avatar — the SAME recipe as the candidate card
+                      (initialsOf), row-scaled. A future profile photo replaces
+                      the initials with an <img> inside this same wrapper
+                      (overflow-hidden is already in place for it). */}
+                  <span
+                    aria-hidden="true"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-app-blue/10 type-label text-app-blue"
+                  >
+                    {initialsOf(candidate.name)}
+                  </span>
+
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="flex w-full min-w-0 items-center gap-2xs">
+                      <span className="truncate type-label font-semibold text-ink">
+                        {candidate.name}
+                      </span>
+                      {candidate.role !== "" ? (
+                        <span className="shrink-0 type-label text-muted">
+                          · {candidate.role}
+                        </span>
+                      ) : null}
+                      {/* Explicit status marks — stated either way, never
+                          hidden-when-false; quiet enough not to fight the name. */}
                       <span
-                        aria-label={t("candidates.hasCertificate")}
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
+                        className={`inline-flex shrink-0 items-center gap-2xs type-caption ${
+                          candidate.hasCertificate ? "text-success" : "text-muted"
+                        }`}
                       >
-                        <CheckIcon width={12} height={12} />
+                        {t("candidates.hasCertificate")}
+                        {candidate.hasCertificate ? (
+                          <CheckIcon width={12} height={12} />
+                        ) : (
+                          <CloseIcon width={12} height={12} />
+                        )}
+                        <span className="sr-only">
+                          {t(candidate.hasCertificate ? "candidates.yes" : "candidates.no")}
+                        </span>
+                      </span>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-2xs type-caption ${
+                          candidate.hasCar ? "text-success" : "text-muted"
+                        }`}
+                      >
+                        {t("candidates.hasCar")}
+                        {candidate.hasCar ? (
+                          <CheckIcon width={12} height={12} />
+                        ) : (
+                          <CloseIcon width={12} height={12} />
+                        )}
+                        <span className="sr-only">
+                          {t(candidate.hasCar ? "candidates.yes" : "candidates.no")}
+                        </span>
+                      </span>
+                    </span>
+                    {contactLine !== "" ? (
+                      <span className="w-full truncate type-caption text-muted">
+                        {contactLine}
+                      </span>
+                    ) : null}
+                    {summaryLine !== "" ? (
+                      <span className="w-full truncate type-caption text-muted opacity-60">
+                        {summaryLine}
                       </span>
                     ) : null}
                   </span>
-                  {contactLine !== "" ? (
-                    <span className="w-full truncate type-caption text-muted">{contactLine}</span>
-                  ) : null}
-                  {summaryLine !== "" ? (
-                    <span className="w-full truncate type-caption text-muted opacity-60">
-                      {summaryLine}
-                    </span>
-                  ) : null}
                 </button>
 
                 {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
@@ -556,23 +600,6 @@ export function FullScreen(_props: ToolViewProps) {
                     <CloseIcon width={16} height={16} />
                   </button>
                 )}
-
-                {/* Urgent star at the far end — quiet when off, so it never
-                    fights the name for attention. */}
-                <button
-                  type="button"
-                  aria-label={t("candidates.urgent")}
-                  aria-pressed={candidate.urgent}
-                  onClick={() => void toggleUrgent(candidate.id, !candidate.urgent)}
-                  disabled={rowDeleting}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-                    candidate.urgent
-                      ? "bg-app-amber/15 text-app-amber"
-                      : "text-muted hover:bg-hairline active:bg-hairline"
-                  }`}
-                >
-                  <StarIcon width={16} height={16} />
-                </button>
               </li>
             );
           })}
@@ -613,12 +640,12 @@ export function FullScreen(_props: ToolViewProps) {
                   .join(" · ");
                 const summaryLine = candidate.summary.split("\n")[0] ?? "";
                 return (
-                  // Same card shape as a live row, visually RECESSED: reduced
-                  // opacity, no star, no delete. The body still opens the
-                  // candidate card (restore lands there later).
+                  // Same THIN row shape as a live row, visually RECESSED:
+                  // reduced opacity, no star, no delete. The body still opens
+                  // the candidate card (restore lands there later).
                   <li
                     key={candidate.id}
-                    className="flex items-center gap-sm rounded-lg border border-hairline bg-card p-md opacity-60"
+                    className="flex items-center gap-sm rounded-lg border border-hairline bg-card px-md py-xs opacity-60"
                   >
                     <button
                       type="button"
@@ -627,36 +654,68 @@ export function FullScreen(_props: ToolViewProps) {
                         setConfirmId(null);
                         setViewingId(candidate.id);
                       }}
-                      className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
+                      className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
                     >
-                      <span className="flex w-full min-w-0 items-center gap-2xs">
-                        <span className="truncate type-label font-semibold text-ink">
-                          {candidate.name}
+                      {/* Same monogram recipe as the live rows / candidate card. */}
+                      <span
+                        aria-hidden="true"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-app-blue/10 type-label text-app-blue"
+                      >
+                        {initialsOf(candidate.name)}
+                      </span>
+
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex w-full min-w-0 items-center gap-2xs">
+                          <span className="truncate type-label font-semibold text-ink">
+                            {candidate.name}
+                          </span>
+                          {candidate.role !== "" ? (
+                            <span className="shrink-0 type-label text-muted">
+                              · {candidate.role}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-2xs type-caption ${
+                              candidate.hasCertificate ? "text-success" : "text-muted"
+                            }`}
+                          >
+                            {t("candidates.hasCertificate")}
+                            {candidate.hasCertificate ? (
+                              <CheckIcon width={12} height={12} />
+                            ) : (
+                              <CloseIcon width={12} height={12} />
+                            )}
+                            <span className="sr-only">
+                              {t(candidate.hasCertificate ? "candidates.yes" : "candidates.no")}
+                            </span>
+                          </span>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-2xs type-caption ${
+                              candidate.hasCar ? "text-success" : "text-muted"
+                            }`}
+                          >
+                            {t("candidates.hasCar")}
+                            {candidate.hasCar ? (
+                              <CheckIcon width={12} height={12} />
+                            ) : (
+                              <CloseIcon width={12} height={12} />
+                            )}
+                            <span className="sr-only">
+                              {t(candidate.hasCar ? "candidates.yes" : "candidates.no")}
+                            </span>
+                          </span>
                         </span>
-                        {candidate.role !== "" ? (
-                          <span className="shrink-0 type-label text-muted">
-                            · {candidate.role}
+                        {contactLine !== "" ? (
+                          <span className="w-full truncate type-caption text-muted">
+                            {contactLine}
                           </span>
                         ) : null}
-                        {candidate.hasCertificate ? (
-                          <span
-                            aria-label={t("candidates.hasCertificate")}
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
-                          >
-                            <CheckIcon width={12} height={12} />
+                        {summaryLine !== "" ? (
+                          <span className="w-full truncate type-caption text-muted opacity-60">
+                            {summaryLine}
                           </span>
                         ) : null}
                       </span>
-                      {contactLine !== "" ? (
-                        <span className="w-full truncate type-caption text-muted">
-                          {contactLine}
-                        </span>
-                      ) : null}
-                      {summaryLine !== "" ? (
-                        <span className="w-full truncate type-caption text-muted opacity-60">
-                          {summaryLine}
-                        </span>
-                      ) : null}
                     </button>
                   </li>
                 );
