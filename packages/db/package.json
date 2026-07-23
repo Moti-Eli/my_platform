@@ -6,6 +6,7 @@
   "scripts": {
     "seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
+    "verify:admin-private": "tsx scripts/verify-admin-private-read.ts",
     "verify:child-org": "tsx scripts/verify-child-org.ts"
   },
   "main": "src/index.ts",
