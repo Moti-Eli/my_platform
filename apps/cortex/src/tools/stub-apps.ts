@@ -29,6 +29,8 @@ function stub(
     color, // design-system palette token
     permissions: [],
     roles: [],
+    // Stubs hold no data, but the contract is required — org, like every tool.
+    defaultVisibility: "org",
     requires: [],
     emits: [],
     listensTo: [],

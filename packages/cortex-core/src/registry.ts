@@ -38,7 +38,8 @@ export function appIdOf(intentName: string): string {
  * Enforces the contract invariants (Standard §3, §7):
  *   - an app id is registered at most once;
  *   - every intent name is exactly `<manifest.id>.<action>`;
- *   - intent names are globally unique.
+ *   - intent names are globally unique;
+ *   - every manifest declares defaultVisibility ("org" | "private").
  *
  * @throws if any invariant is violated (fail fast at boot, not at call time).
  */
@@ -49,6 +50,13 @@ export function registerApp(
 ): void {
   if (apps.has(manifest.id)) {
     throw new Error(`Cortex registry: app '${manifest.id}' is already registered.`);
+  }
+
+  if (manifest.defaultVisibility !== "org" && manifest.defaultVisibility !== "private") {
+    throw new Error(
+      `Cortex registry: app '${manifest.id}' must declare defaultVisibility as ` +
+        `"org" or "private" (got ${JSON.stringify(manifest.defaultVisibility)}).`,
+    );
   }
 
   for (const intent of intents) {

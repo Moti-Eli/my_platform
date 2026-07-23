@@ -22,6 +22,8 @@ export const manifest: AppManifest = {
   // for EVERYONE — no `requiresAdmin`, unlike staff.
   permissions: [],
   roles: ["owner", "manager", "employee"],
+  // New rows are born org-visible (the DB default today; declared, not silent).
+  defaultVisibility: "org",
 
   // Received ready from the shell — the tool never manages these itself.
   requires: ["auth", "org-context"],

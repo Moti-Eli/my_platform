@@ -115,6 +115,21 @@ export interface AppManifest {
   permissions: string[];
   /** Role names this tool understands. */
   roles: string[];
+  /**
+   * The visibility a NEW record of this tool is born with — the tool's position
+   * on the org/private axis, declared explicitly so it can never be a silent
+   * default. Only `"org"` or `"private"`: `"restricted"` is a per-record grant
+   * escalation (record_grants), never a birth default — a row born restricted
+   * with no grants is invisible.
+   *
+   * NOTE — currently INERT at the write path. Nothing stamps this onto inserts
+   * yet; the DB column default ('org') still applies. It matches reality only
+   * because every tool declares "org" today. Declaring "private" will NOT take
+   * effect until a later change stamps visibility from the manifest on insert
+   * (and wires auth_user_can_read for that tool). Do not declare "private" until
+   * then — it would fail closed (invisible), not private.
+   */
+  defaultVisibility: "org" | "private";
   /** Ids of other apps/capabilities this tool needs present. */
   requires: string[];
   /** Event types this tool may emit. */

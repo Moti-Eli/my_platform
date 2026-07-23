@@ -22,6 +22,8 @@ export const manifest: AppManifest = {
   // is dead weight that gates nothing. Tasks does not repeat that: [] is honest.
   permissions: [],
   roles: ["owner", "manager", "employee"],
+  // New rows are born org-visible (the DB default today; declared, not silent).
+  defaultVisibility: "org",
 
   // Received ready from the shell — the tool never manages these itself.
   requires: ["auth", "org-context"],

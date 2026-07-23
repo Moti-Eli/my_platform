@@ -55,6 +55,7 @@ async function main(): Promise<void> {
     color: "primary",
     permissions: [],
     roles: [],
+    defaultVisibility: "org",
     requires: [],
     emits: ["ping.fired"],
     listensTo: ["ping.fired"],

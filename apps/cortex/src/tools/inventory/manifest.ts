@@ -19,6 +19,8 @@ export const manifest: AppManifest = {
   // once real auth/RBAC is wired to Cortex.
   permissions: ["org.read", "org.write"],
   roles: ["owner", "manager", "employee"],
+  // New rows are born org-visible (the DB default today; declared, not silent).
+  defaultVisibility: "org",
 
   // Received ready from the shell — the tool never manages these itself.
   requires: ["auth", "org-context"],
