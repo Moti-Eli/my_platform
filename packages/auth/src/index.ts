@@ -903,3 +903,260 @@ export async function addMemberToOrg(
 
   return { error: null, userId: authId };
 }
+
+export interface CreateChildOrgWithMemberInput {
+  organizationName: string;
+  parentOrganizationId: string;
+  email: string;
+  displayName: string;
+  /**
+   * Password for the new member's auth account. The CALLER decides it (dev temp
+   * vs. random, never-disclosed), mirroring the other provisioning functions —
+   * this package never hard-codes a credential.
+   */
+  password: string;
+}
+
+export interface CreateChildOrgWithMemberResult {
+  /** Null on success; otherwise a short error key. */
+  error: string | null;
+  /** The new CHILD organization's id on success; null otherwise. */
+  organizationId: string | null;
+  /** The new member's user id on success; null otherwise. */
+  userId: string | null;
+}
+
+/**
+ * Provision an isolated CHILD organization under an existing org and join a new
+ * user to it. SERVER-SIDE ONLY.
+ *
+ * WHY THE GATE IS ON THE PARENT ORG: the child does not exist yet, so there is
+ * nothing to authorize against there — the act being authorized is "create a
+ * branch beneath THIS org", so the actor must hold `members.manage` IN THE
+ * PARENT. Checked on `actingClient` (their JWT) exactly like addMemberToOrg,
+ * which also enforces tenant isolation: an admin of Org A holds no
+ * members.manage in Org B, so they cannot grow branches under someone else's
+ * tree.
+ *
+ * WHAT THE ISOLATION BUYS — DOWNWARD-ONLY reads: org-tree membership
+ * (auth_user_is_member_of_tree) means "member of the org or of an ANCESTOR", so
+ * members of the parent can read the child's data, while the child's members
+ * CANNOT read the parent and sibling branches CANNOT read each other. A child
+ * org is the unit of isolation for a branch/team that the parent still oversees.
+ *
+ * TWO CLIENTS, NOT INTERCHANGEABLE (same split as addMemberToOrg):
+ * - `actingClient` carries the actor's JWT: the authorization gate above, and
+ *   the FINAL role assignment (step 8 below).
+ * - `serviceClient` (secret/service-role key, bypasses RLS) does the
+ *   provisioning writes (org/roles/user/profile/memberships), which have no
+ *   INSERT policy for `authenticated`.
+ *
+ * BOOTSTRAP EXEMPTION DEPENDENCY: the acting user's OWN Admin-role assignment
+ * in the brand-new child goes through the service client and relies on the
+ * bootstrap exemption in 20260717000003 — the escalation trigger waves through
+ * the first assignment in an org with ZERO membership_roles rows, because a
+ * just-provisioned org has no admin yet who could authorize one. That door is
+ * one-shot per org BY CONSTRUCTION: the exempted insert itself gives the org
+ * its first membership_roles row, closing the exemption behind it.
+ *
+ * WHY STEP 8 USES THE ACTING CLIENT: once the actor holds the child's is_admin
+ * role, the NEW member's Member-role assignment must carry the actor's JWT, not
+ * service_role — membership_roles has a `members.manage` INSERT policy AND the
+ * no-escalation trigger fires for service_role too and reads auth.uid(); a
+ * no-JWT service caller has auth.uid()=null and is rejected. The write goes
+ * through `actingClient` so the DB re-decides it per-row against the real actor.
+ *
+ * Atomic-ish with rollback (mirrors signUpWithNewOrganization verbatim): on any
+ * failure we delete whatever we created — the auth user (which cascades its
+ * profile/membership/role) and the child org (which cascades its
+ * roles/memberships, including the actor's) — so a failure never leaves a
+ * half-provisioned branch.
+ */
+export async function createChildOrgWithMember(
+  actingClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+  input: CreateChildOrgWithMemberInput
+): Promise<CreateChildOrgWithMemberResult> {
+  const organizationName = input.organizationName.trim();
+  const email = input.email.trim();
+  const displayName = input.displayName.trim();
+  const { parentOrganizationId } = input;
+
+  const fail = (error: string): CreateChildOrgWithMemberResult => ({
+    error,
+    organizationId: null,
+    userId: null,
+  });
+
+  // --- Input validation (before touching the DB / admin client) -------------
+  if (organizationName.length === 0) return fail("invalidOrgName");
+  if (!ORG_ADMIN_EMAIL_RE.test(email)) return fail("invalidEmail");
+  // Reject empty (trimmed) and over-length (raw) — the DB caps the raw length.
+  if (displayName.length === 0 || input.displayName.length > MAX_MEMBER_NAME_LEN) {
+    return fail("invalidName");
+  }
+  if (input.password.length < 6) return fail("invalidPassword");
+  if (!parentOrganizationId) return fail("invalidRequest");
+
+  // --- Authorization (acting client, RLS-scoped) — the security boundary -----
+  // The gate is on the PARENT org: creating a child beneath it is a parent-org
+  // management act. Runs as the actor, so it also forbids cross-org creation.
+  const actingUser = await getCurrentUser(actingClient);
+  if (!actingUser) return fail("notAllowed");
+  const allowed = await hasPermission(
+    actingClient,
+    actingUser.id,
+    parentOrganizationId,
+    "members.manage"
+  );
+  if (!allowed) return fail("notAllowed");
+
+  // --- Privileged provisioning (service role) --------------------------------
+  // Track what we created so we can roll back on any later failure.
+  let createdOrgId: string | null = null;
+  let createdAuthId: string | null = null;
+
+  const rollback = async (): Promise<void> => {
+    // Deleting the auth user cascades its profile/membership/role; deleting the
+    // org cascades its roles/memberships. Best-effort; ignore secondary errors.
+    if (createdAuthId) await serviceClient.auth.admin.deleteUser(createdAuthId);
+    if (createdOrgId) await serviceClient.from("organizations").delete().eq("id", createdOrgId);
+  };
+
+  // 1) The CHILD organization — parent_id is what hangs it under the tree.
+  const orgRes = await serviceClient
+    .from("organizations")
+    .insert({ name: organizationName, parent_id: parentOrganizationId })
+    .select("id")
+    .single();
+  if (orgRes.error || !orgRes.data) return fail("createFailed");
+  createdOrgId = (orgRes.data as { id: string }).id;
+
+  // 2) Admin + Member roles.
+  const adminRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Admin", is_admin: true })
+    .select("id")
+    .single();
+  if (adminRoleRes.error || !adminRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const adminRoleId = (adminRoleRes.data as { id: string }).id;
+
+  const memberRoleRes = await serviceClient
+    .from("roles")
+    .insert({ organization_id: createdOrgId, name: "Member", is_admin: false })
+    .select("id")
+    .single();
+  if (memberRoleRes.error || !memberRoleRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const memberRoleId = (memberRoleRes.data as { id: string }).id;
+
+  // 2b) Grant the Member role its baseline permissions (parity with the seed).
+  const permsRes = await serviceClient
+    .from("permissions")
+    .select("id, key")
+    .in("key", NEW_ORG_MEMBER_PERMISSIONS);
+  if (permsRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+  const rolePermRows = ((permsRes.data ?? []) as Array<{ id: string; key: string }>).map((p) => ({
+    role_id: memberRoleId,
+    permission_id: p.id,
+  }));
+  if (rolePermRows.length > 0) {
+    const rpRes = await serviceClient.from("role_permissions").insert(rolePermRows);
+    if (rpRes.error) {
+      await rollback();
+      return fail("createFailed");
+    }
+  }
+
+  // 3) The ACTING user's membership in the child — the parent admin runs the
+  //    branch they just created.
+  const actorMembershipRes = await serviceClient
+    .from("memberships")
+    .insert({ user_id: actingUser.id, organization_id: createdOrgId })
+    .select("id")
+    .single();
+  if (actorMembershipRes.error || !actorMembershipRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  // 3b) Assign the actor the child's Admin role. This service-client insert
+  //     relies on the BOOTSTRAP EXEMPTION in 20260717000003: the escalation
+  //     trigger waves through the first assignment in an org with ZERO
+  //     membership_roles rows (a just-provisioned org has no admin yet who could
+  //     authorize one). One-shot per org BY CONSTRUCTION — this very row closes
+  //     the exemption behind it.
+  const actorRoleRes = await serviceClient.from("membership_roles").insert({
+    membership_id: (actorMembershipRes.data as { id: string }).id,
+    role_id: adminRoleId,
+    organization_id: createdOrgId,
+  });
+  if (actorRoleRes.error) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  // 4) The new member's auth user. email_confirm so they can log in at once.
+  const created = await serviceClient.auth.admin.createUser({
+    email,
+    password: input.password,
+    email_confirm: true,
+  });
+  if (created.error || !created.data.user) {
+    await rollback();
+    return fail(isDuplicateEmail(created.error?.message) ? "emailExists" : "createFailed");
+  }
+  createdAuthId = created.data.user.id;
+  const normalizedEmail = created.data.user.email ?? email.toLowerCase();
+
+  // 5) Profile row.
+  const profileRes = await serviceClient
+    .from("users")
+    .insert({ id: createdAuthId, email: normalizedEmail, display_name: displayName });
+  if (profileRes.error) {
+    await rollback();
+    return fail(isDuplicateEmail(profileRes.error.message) ? "emailExists" : "createFailed");
+  }
+
+  // 6) Membership in the child org.
+  const membershipRes = await serviceClient
+    .from("memberships")
+    .insert({ user_id: createdAuthId, organization_id: createdOrgId })
+    .select("id")
+    .single();
+  if (membershipRes.error || !membershipRes.data) {
+    await rollback();
+    return fail("createFailed");
+  }
+
+  // 7) Member role on that membership — assigned AS THE ACTING USER, not with
+  //    the service key. By now the actor holds the child's is_admin role (3b),
+  //    so both the members.manage INSERT policy and the auth_user_may_assign_role
+  //    trigger pass FOR THE REAL ACTOR. It must carry their JWT rather than go
+  //    through service_role: the escalation guard (20260717000003) fires for
+  //    service_role too and reads auth.uid() — a no-JWT service caller has
+  //    auth.uid()=null and is rejected. The DB re-decides the write per-row
+  //    against the real actor.
+  const mrRes = await actingClient.from("membership_roles").insert({
+    membership_id: (membershipRes.data as { id: string }).id,
+    role_id: memberRoleId,
+    organization_id: createdOrgId,
+  });
+  if (mrRes.error) {
+    await rollback();
+    // The actor may not confer this role. That is a permission answer, not a fault.
+    return fail(
+      /Not allowed to assign the role/.test(mrRes.error.message) ? "notAllowed" : "createFailed"
+    );
+  }
+
+  return { error: null, organizationId: createdOrgId, userId: createdAuthId };
+}
