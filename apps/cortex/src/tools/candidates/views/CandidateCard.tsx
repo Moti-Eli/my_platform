@@ -45,12 +45,13 @@ import type { Candidate, CandidateStage } from "../logic";
 export const VISIBLE_STAGES = ["contact", "interview", "intake"] as const;
 export type VisibleStage = (typeof VISIBLE_STAGES)[number];
 
-/** Stage → its i18n label key. Shared by the top bar and the card. */
+/** VISIBLE stage → its i18n label key. Shared by the top bar, the card and the
+ * dashboard card. No `archived` entry — archived has no tab/segment; its one
+ * label (the drawer) reads `candidates.stageArchived` directly. */
 export const STAGE_LABEL_KEY = {
   contact: "candidates.stageContact",
   interview: "candidates.stageInterview",
   intake: "candidates.stageIntake",
-  archived: "candidates.stageArchived",
 } as const;
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
