@@ -21,6 +21,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { MouseEvent, ReactNode } from "react";
 import { HomeIcon, GridIcon, ChatIcon, UserIcon, SparkIcon } from "@/components/icons";
 import { useI18n } from "@/i18n";
+import { canGoBackInApp } from "@/lib/navigation-history";
 
 function TabLink({
   href,
@@ -76,13 +77,19 @@ export function TabBar({
   };
 
   // Toggle the profile tab: when already ON the profile screen, tapping it closes
-  // it exactly like the top-bar back chevron (router.back()) instead of a no-op
-  // re-navigation. Scoped to the exact route — on sub-pages the tap still routes
-  // up to /profile as normal.
+  // it exactly like the top-bar back chevron instead of a no-op re-navigation.
+  // Scoped to the exact route — on sub-pages the tap still routes up to /profile
+  // as normal. GUARDED: router.back() only when there is in-app history to return
+  // to (see lib/navigation-history); on a deep link / cold start it falls back to
+  // router.push("/") so back can never eject the user from the app.
   const onProfileScreen = pathname === "/profile";
   const toggleProfile = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
-    router.back();
+    if (canGoBackInApp()) {
+      router.back();
+    } else {
+      router.push("/");
+    }
   };
 
   return (

@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
 import { useInstalledApps, usePinnedApps } from "@/lib/installed-apps";
+import { markNavigation } from "@/lib/navigation-history";
 import { useI18n, type MessageKey } from "@/i18n";
 import { Header } from "./Header";
 import { TabBar } from "./TabBar";
@@ -85,6 +86,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setAiOpen(false);
     setInboxOpen(false);
+    // Count the navigation, so back controls know whether router.back() stays
+    // in-app (see lib/navigation-history — module state, resets on cold start).
+    markNavigation();
   }, [pathname]);
 
   // Re-tapping the home tab while already on home scrolls this container to the
