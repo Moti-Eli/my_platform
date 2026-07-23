@@ -73,6 +73,12 @@ const he = {
     hint: "אירעה תקלה זמנית. אפשר פשוט לנסות שוב.",
     retry: "נסה שוב",
   },
+  // The root 404 — a wrong address, not a failure; same calm register.
+  notFound: {
+    title: "הדף הזה לא נמצא",
+    hint: "יכול להיות שהכתובת השתנתה או שהוקלדה בטעות.",
+    action: "חזרה למסך הבית",
+  },
   common: {
     close: "סגירה",
     search: "חיפוש",
@@ -275,6 +281,11 @@ const en: Messages = {
     title: "Something didn't go as planned",
     hint: "A temporary hiccup. Just try again.",
     retry: "Try again",
+  },
+  notFound: {
+    title: "This page wasn't found",
+    hint: "The address may have changed or been mistyped.",
+    action: "Back to home",
   },
   common: {
     close: "Close",
