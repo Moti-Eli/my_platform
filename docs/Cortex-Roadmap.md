@@ -272,7 +272,7 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
    `roles: ["owner","manager","employee"]`. NONE exist: `public.permissions` holds
    exactly one row — `members.manage` (`roles.manage` was deleted in
    `20260717000004`; see Resolved debts) — and roles are per-org data with no
-   global names. It declares no `recordTypes`/`defaultVisibility`/`defaultGrants`,
+   global names. It declares `defaultVisibility` but still no `recordTypes`/`defaultGrants`,
    which the access model is built to consume. The server data-layer passes no
    checker, so this is latent: a real RBAC checker would fail every call for a
    reason unrelated to permissions.
