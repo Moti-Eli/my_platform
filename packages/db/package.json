@@ -7,7 +7,8 @@
     "seed": "tsx scripts/seed.ts",
     "typecheck": "tsc --noEmit",
     "verify:admin-private": "tsx scripts/verify-admin-private-read.ts",
-    "verify:child-org": "tsx scripts/verify-child-org.ts"
+    "verify:child-org": "tsx scripts/verify-child-org.ts",
+    "verify:time-entries": "tsx scripts/verify-time-entries.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",
