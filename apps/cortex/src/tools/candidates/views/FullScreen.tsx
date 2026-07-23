@@ -10,8 +10,8 @@
  * but gets NO tab) · icon-only add. Only the ACTIVE tab's candidates render.
  *
  * ROWS are compact CARDS (bg-card, hairline border, spaced apart — separate
- * objects, no dividers): name · role · certificate check · phone · city ·
- * first summary line, plus the urgent star and the two-tap delete. Tapping a
+ * objects, no dividers): monogram · name · role · status marks · phone · city ·
+ * first summary line, plus the two-tap delete. Tapping a
  * row opens the CANDIDATE CARD (see CandidateCard.tsx) in the same overlay
  * shell the add form uses. STAGE ACTIONS (advance/archive) live ONLY inside
  * the candidate card now — the card's footer reuses the EXISTING set_stage
@@ -28,8 +28,8 @@
  * via setQueryData (no refetch), OPTIMISTICALLY with snapshot-revert on
  * failure. Writes flow runIntentAction -> the server data-layer -> the RLS
  * client, gated ROW BY ROW by `private.auth_user_can_write`; failures surface
- * honestly, never faked and never swallowed. Per-id in-flight guards: star /
- * stage / save / delete each hold their own lock.
+ * honestly, never faked and never swallowed. Per-id in-flight guards: stage /
+ * save / delete each hold their own lock.
  *
  * Built from design-system utilities + i18n only.
  */
@@ -85,7 +85,7 @@ export function FullScreen(_props: ToolViewProps) {
   const [activeStage, setActiveStage] = useState<VisibleStage>("contact");
   const [adding, setAdding] = useState(false);
   // Which candidate's CARD is open (null = none). Resolved against the live cache
-  // each render, so a star toggle from the card is reflected immediately.
+  // each render, so a write made from the card is reflected immediately.
   const [viewingId, setViewingId] = useState<string | null>(null);
   // Whether the archive drawer (below the list) is open. Local UI state only.
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -110,9 +110,8 @@ export function FullScreen(_props: ToolViewProps) {
     };
   }, []);
 
-  // In-flight STAR toggles, STAGE moves and card-edit SAVES — SEPARATE per-id
-  // guards, same shape, so a star, a stage move and a save never share a lock.
-  const starringRef = useRef<Set<string>>(new Set());
+  // In-flight STAGE moves and card-edit SAVES — SEPARATE per-id guards, same
+  // shape, so a stage move and a save never share a lock.
   const stagingRef = useRef<Set<string>>(new Set());
   const savingRef = useRef<Set<string>>(new Set());
 
@@ -136,43 +135,11 @@ export function FullScreen(_props: ToolViewProps) {
     [queryClient],
   );
 
-  const toggleUrgent = useCallback(
-    async (id: string, nextUrgent: boolean) => {
-      // 0. GUARD: one star write per row at a time (its own lock — see above).
-      if (starringRef.current.has(id)) return;
-
-      const prevList = queryClient.getQueryData<Candidate[]>(CANDIDATES_LIST_KEY) ?? [];
-      const prev = prevList.find((it) => it.id === id) ?? null;
-
-      starringRef.current = new Set(starringRef.current).add(id);
-
-      // 1. OPTIMISTIC flip, shared cache first.
-      setWriteError(null);
-      patchCandidate(id, (it) => ({ ...it, urgent: nextUrgent }));
-
-      try {
-        const res = await runIntentAction("candidates.update_candidate", {
-          id,
-          urgent: nextUrgent,
-        });
-        if (!res.ok) {
-          // REVERT + surface.
-          if (prev) patchCandidate(id, () => prev);
-          if (mounted.current) setWriteError(res.code);
-        }
-      } finally {
-        const cleared = new Set(starringRef.current);
-        cleared.delete(id);
-        starringRef.current = cleared;
-      }
-    },
-    [patchCandidate, queryClient],
-  );
-
-  // The card's edit-mode save — the EXACT same discipline as toggleUrgent (the
-  // per-id guard, the snapshot, the optimistic patch, the revert), through the
-  // EXISTING update_candidate intent. Returns the failure code (null = success)
-  // so the card can stay in edit mode with the draft intact on failure.
+  // The card's edit-mode save — the same optimistic discipline as every other
+  // write here (the per-id guard, the snapshot, the optimistic patch, the
+  // revert), through the EXISTING update_candidate intent. Returns the failure
+  // code (null = success) so the card can stay in edit mode with the draft
+  // intact on failure.
   const saveCandidate = useCallback(
     async (id: string, patch: CandidatePatch): Promise<WriteErrorCode | null> => {
       // 0. GUARD: one save per row at a time. Unreachable in practice (the card
@@ -415,7 +382,6 @@ export function FullScreen(_props: ToolViewProps) {
         <CandidateFormOverlay title={t("candidates.cardTitle")} onClose={() => setViewingId(null)}>
           <CandidateCard
             candidate={viewing}
-            onToggleUrgent={() => void toggleUrgent(viewing.id, !viewing.urgent)}
             onSave={(patch) => saveCandidate(viewing.id, patch)}
             onSetStage={(stage) => {
               void moveStage(viewing.id, stage);
@@ -470,8 +436,7 @@ export function FullScreen(_props: ToolViewProps) {
               // Each row is its OWN CARD — a separate object, spaced from its
               // neighbours (the list's gap), no dividers, THIN: a scannable
               // list item, not a card with air in it. Stage actions are NOT
-              // here: advance/archive live inside the candidate card only; the
-              // urgent star lives on the candidate card too, not the row.
+              // here: they live inside the candidate card only.
               <li
                 key={candidate.id}
                 className="flex items-center gap-sm rounded-lg border border-hairline bg-card px-md py-xs"

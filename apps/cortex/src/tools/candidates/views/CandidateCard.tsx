@@ -35,7 +35,6 @@ import {
   MailIcon,
   PaperclipIcon,
   PhoneIcon,
-  StarIcon,
 } from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 
@@ -58,8 +57,9 @@ export const STAGE_LABEL_KEY = {
 export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 
 /** Everything the card's EDIT MODE may save — the full editable field set.
- * `urgent` is deliberately absent (the star owns it, live in both modes), and
- * stage/rejectReason go through set_stage, never through an edit save. */
+ * `urgent` is deliberately absent (the flag lives on in the data layer but has
+ * no UI for now), and stage/rejectReason go through set_stage, never through an
+ * edit save. */
 export type CandidatePatch = Omit<Candidate, "id" | "stage" | "urgent" | "rejectReason">;
 
 /** Parse the comma-separated tags input into a clean string[] — trimmed, empties
@@ -219,13 +219,11 @@ interface CardDraft {
  */
 export function CandidateCard({
   candidate,
-  onToggleUrgent,
   onSetStage,
   onArchive,
   onSave,
 }: {
   candidate: Candidate;
-  onToggleUrgent: () => void;
   onSetStage: (stage: CandidateStage) => void;
   onArchive: (reason?: string) => Promise<void>;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
@@ -339,20 +337,6 @@ export function CandidateCard({
               </span>
             )}
           </div>
-
-          {/* The star stays LIVE in BOTH modes — it's the same optimistic
-              one-field toggle the row has, on the same per-id guard. */}
-          <button
-            type="button"
-            aria-label={t("candidates.urgent")}
-            aria-pressed={candidate.urgent}
-            onClick={onToggleUrgent}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-              candidate.urgent ? "bg-app-amber/15 text-app-amber" : "bg-hairline text-muted"
-            }`}
-          >
-            <StarIcon width={16} height={16} />
-          </button>
 
           {/* THE EDIT/SAVE TOGGLE — one control, two states. Quiet in view
               mode; in edit mode it is the ONE loud element on the card: solid
