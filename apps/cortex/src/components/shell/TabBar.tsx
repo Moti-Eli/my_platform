@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * The bottom tab bar — 5 slots with the AI button as a dominant central hero.
+ * The bottom tab bar — 5 slots with the AI button as the central hero.
  *
  * RTL order (right → left, matching the Standard):
- *   1. Home (right-most)   2. Catalog "כל הכלים"   3. AI hero (center)
- *   4. Comms "צ'אט"        5. Profile (left-most)
+ *   1. Home (right-most)   2. Catalog   3. AI hero (center)
+ *   4. Comms               5. Profile (left-most)
  *
- * The four corner slots are route links (active state via the current path);
- * the center AI hero is a button that TOGGLES the AI sheet (it is not a route) —
+ * The four corner slots are ICON-ONLY route links (active state via the current
+ * path) — no visible text; the accessible name is the Link's `aria-label`. The
+ * center AI hero is a button that TOGGLES the AI sheet (it is not a route) —
  * tapping it while the sheet is open closes it, like the profile tab.
  *
  * The bar sits at `z-50`, above every overlay (AI sheet, urgency inbox), so it is
@@ -40,12 +41,11 @@ function TabLink({
       onClick={onClick}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`flex flex-1 flex-col items-center gap-2xs py-2xs touch-manipulation interactive motion-safe:active:scale-[0.97] ${
+      className={`flex min-h-11 flex-1 flex-col items-center justify-center py-xs touch-manipulation interactive motion-safe:active:scale-[0.97] ${
         active ? "text-accent" : "text-muted"
       }`}
     >
       <span>{icon}</span>
-      <span className="type-caption">{label}</span>
     </Link>
   );
 }
@@ -113,11 +113,11 @@ export function TabBar({
           aria-label={t("tabs.ai")}
           aria-pressed={aiOpen}
           onClick={onToggleAi}
-          className={`-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation interactive motion-safe:active:scale-[0.97] ${
+          className={`-mt-6 flex h-14 w-14 flex-col items-center justify-center rounded-full shadow-hero touch-manipulation interactive motion-safe:active:scale-[0.97] ${
             aiOpen ? "bg-inverse text-inverse-ink" : "bg-accent text-on-fill"
           }`}
         >
-          <SparkIcon width={28} height={28} />
+          <SparkIcon width={24} height={24} />
         </button>
       </div>
 
