@@ -39,7 +39,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { CheckIcon, ChevronIcon, CloseIcon, InfoIcon, PlusIcon, StarIcon } from "@/components/icons";
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronIcon,
+  CloseIcon,
+  InfoIcon,
+  PlusIcon,
+  StarIcon,
+} from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import {
@@ -96,6 +104,8 @@ export function FullScreen(_props: ToolViewProps) {
   // Which candidate's CARD is open (null = none). Resolved against the live cache
   // each render, so a star toggle from the card is reflected immediately.
   const [viewingId, setViewingId] = useState<string | null>(null);
+  // Whether the archive drawer (below the list) is open. Local UI state only.
+  const [archiveOpen, setArchiveOpen] = useState(false);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
   // "unavailable" (the DB refused — you may not) vs "failed" (something broke).
   // Never a silent no-op, and never a pretend-success.
@@ -305,6 +315,10 @@ export function FullScreen(_props: ToolViewProps) {
 
   // Only the active tab's candidates render.
   const items = candidates.filter((it) => it.stage === activeStage);
+  // Archived candidates — already in the shared list (query_list returns every
+  // stage); the drawer below the list is their only surface, since archived
+  // has no stage tab.
+  const archived = candidates.filter((it) => it.stage === "archived");
   // The card's candidate, resolved from the LIVE cache (not a snapshot) so
   // writes made from the card render immediately.
   const viewing = viewingId ? (candidates.find((it) => it.id === viewingId) ?? null) : null;
@@ -564,6 +578,93 @@ export function FullScreen(_props: ToolViewProps) {
           })}
         </ul>
       )}
+
+      {/* ARCHIVE DRAWER — a screen-level footer, NOT a stage tab: it appears
+          once at the bottom whichever tab is active, because archived rows have
+          no tab. The toggle is deliberately the QUIETEST interactive element on
+          the screen — a slim centered caption strip under a hairline rule, no
+          card, no box. */}
+      {!loading && !loadError ? (
+        <div className="mt-lg flex flex-col gap-sm">
+          <div className="border-t border-hairline pt-2xs">
+            <button
+              type="button"
+              onClick={() => setArchiveOpen((v) => !v)}
+              disabled={archived.length === 0}
+              aria-expanded={archiveOpen}
+              className="flex h-8 w-full items-center justify-center gap-2xs type-caption text-muted interactive disabled:opacity-50 motion-safe:active:scale-[0.99]"
+            >
+              {/* Points down closed, up open. */}
+              <ChevronDownIcon
+                width={14}
+                height={14}
+                className={`motion-safe:transition-transform ${archiveOpen ? "rotate-180" : ""}`}
+              />
+              <span>{t("candidates.stageArchived")}</span>
+              <span>({archived.length})</span>
+            </button>
+          </div>
+
+          {archiveOpen ? (
+            <ul className="flex flex-col gap-sm">
+              {archived.map((candidate) => {
+                const contactLine = [candidate.phone, candidate.city]
+                  .filter((part) => part !== "")
+                  .join(" · ");
+                const summaryLine = candidate.summary.split("\n")[0] ?? "";
+                return (
+                  // Same card shape as a live row, visually RECESSED: reduced
+                  // opacity, no star, no delete. The body still opens the
+                  // candidate card (restore lands there later).
+                  <li
+                    key={candidate.id}
+                    className="flex items-center gap-sm rounded-lg border border-hairline bg-card p-md opacity-60"
+                  >
+                    <button
+                      type="button"
+                      aria-label={t("candidates.openCard")}
+                      onClick={() => {
+                        setConfirmId(null);
+                        setViewingId(candidate.id);
+                      }}
+                      className="flex min-w-0 flex-1 flex-col items-start gap-2xs text-start interactive motion-safe:active:scale-[0.99]"
+                    >
+                      <span className="flex w-full min-w-0 items-center gap-2xs">
+                        <span className="truncate type-label font-semibold text-ink">
+                          {candidate.name}
+                        </span>
+                        {candidate.role !== "" ? (
+                          <span className="shrink-0 type-label text-muted">
+                            · {candidate.role}
+                          </span>
+                        ) : null}
+                        {candidate.hasCertificate ? (
+                          <span
+                            aria-label={t("candidates.hasCertificate")}
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-app-blue/10 text-app-blue"
+                          >
+                            <CheckIcon width={12} height={12} />
+                          </span>
+                        ) : null}
+                      </span>
+                      {contactLine !== "" ? (
+                        <span className="w-full truncate type-caption text-muted">
+                          {contactLine}
+                        </span>
+                      ) : null}
+                      {summaryLine !== "" ? (
+                        <span className="w-full truncate type-caption text-muted opacity-60">
+                          {summaryLine}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
