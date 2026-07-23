@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "verify:admin-private": "tsx scripts/verify-admin-private-read.ts",
     "verify:child-org": "tsx scripts/verify-child-org.ts",
+    "verify:multi-org": "tsx scripts/verify-multi-org.ts",
     "verify:time-entries": "tsx scripts/verify-time-entries.ts"
   },
   "main": "src/index.ts",
