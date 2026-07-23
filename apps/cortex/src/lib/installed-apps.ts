@@ -36,13 +36,25 @@ export const INSTALLED_APPS_KEY = ["installed-apps"] as const;
  * Reactive view of the installed-app ids, in INSTALL order (earliest first).
  * Returns `[]` while loading or on error, so callers never branch on undefined —
  * the same `string[]` contract the localStorage version had.
+ *
+ * Empty on the server and first client paint (so hydration matches — the same
+ * seam usePinnedApps keeps below), then the shared cache takes over. The gate is
+ * LOAD-BEARING, not an artifact: the always-mounted shell (Header/AppShell)
+ * starts this query the moment it hydrates, so by the time a later-streamed
+ * segment (e.g. the catalog page behind loading.tsx) hydrates, the cache can
+ * already hold the installed set — and an ungated read would render it on the
+ * hydration pass, mismatching the server HTML (which always rendered `[]`).
+ * React refuses to patch attribute mismatches (aria-pressed and friends), so
+ * stripping this gate brings back a real, visible hydration bug.
  */
 export function useInstalledApps(): string[] {
   const query = useQuery({
     queryKey: INSTALLED_APPS_KEY,
     queryFn: listInstalledApps,
   });
-  return query.data ?? [];
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  return hydrated ? (query.data ?? []) : [];
 }
 
 /**
