@@ -27,15 +27,32 @@ import { useEffect, useRef, useState } from "react";
 import type { IntentResult } from "@/cortex/actions";
 import { useI18n } from "@/i18n";
 import {
+  BoxIcon,
   CheckIcon,
   CloseIcon,
   ComposeIcon,
   InfoIcon,
   MailIcon,
+  PaperclipIcon,
   PhoneIcon,
   StarIcon,
 } from "@/components/icons";
 import type { Candidate, CandidateStage } from "../logic";
+
+/** The stages the tool SHOWS, in pipeline order. `archived` is deliberately
+ * absent: it exists in the DB and intents, it just has no tab and no segment.
+ * Exported so the top bar (FullScreen) and the card's stage control share one
+ * definition. */
+export const VISIBLE_STAGES = ["contact", "interview", "intake"] as const;
+export type VisibleStage = (typeof VISIBLE_STAGES)[number];
+
+/** Stage → its i18n label key. Shared by the top bar and the card. */
+export const STAGE_LABEL_KEY = {
+  contact: "candidates.stageContact",
+  interview: "candidates.stageInterview",
+  intake: "candidates.stageIntake",
+  archived: "candidates.stageArchived",
+} as const;
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -202,16 +219,14 @@ interface CardDraft {
  */
 export function CandidateCard({
   candidate,
-  nextStage,
   onToggleUrgent,
-  onAdvance,
+  onSetStage,
   onArchive,
   onSave,
 }: {
   candidate: Candidate;
-  nextStage: CandidateStage | undefined;
   onToggleUrgent: () => void;
-  onAdvance: (next: CandidateStage) => void;
+  onSetStage: (stage: CandidateStage) => void;
   onArchive: (reason?: string) => Promise<void>;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
 }) {
@@ -568,38 +583,87 @@ export function CandidateCard({
       </div>
 
       {!editing ? (
-        /* Footer — pinned (sticky against the overlay sheet's scroll): stage
-            actions through the EXISTING flow + the documents placeholder.
-            HIDDEN in edit mode — one clear action there: save. */
-        <div className="sticky bottom-0 flex flex-col gap-sm bg-screen pt-2xs">
+        /* Footer — pinned (sticky against the overlay sheet's scroll), QUIETER
+            than the identity block above: small controls, breathing room, one
+            hairline rule as the break — no nested boxes. HIDDEN in edit mode —
+            one clear action there: save. */
+        <div className="sticky bottom-0 flex flex-col gap-sm border-t border-hairline bg-screen pt-sm">
           {showArchive ? (
             <ArchiveForm onArchive={onArchive} onCancel={() => setShowArchive(false)} />
           ) : null}
+
+          {/* STAGE CONTROL — the top bar's segmented recipe, compact (h-8).
+              Tapping ANY segment moves the candidate there through the ONE
+              existing moveStage/set_stage flow (its per-id guard included) —
+              backward moves are deliberate, and segments beat directional
+              arrows, which are ambiguous in RTL. Tapping the current stage is
+              a no-op. On an archived candidate no segment is active, and the
+              quiet control beside becomes RESTORE (→ contact, same flow). */}
+          <div className="flex items-center gap-sm">
+            <div className="flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs">
+              {VISIBLE_STAGES.map((stage) => {
+                const active = candidate.stage === stage;
+                return (
+                  <button
+                    key={stage}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      if (!active) onSetStage(stage);
+                    }}
+                    className={`flex h-full min-w-0 flex-1 items-center justify-center rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
+                      active ? "bg-card text-app-blue" : "text-muted"
+                    }`}
+                  >
+                    <span
+                      className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
+                    >
+                      {t(STAGE_LABEL_KEY[stage])}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {candidate.stage === "archived" ? (
+              <button
+                type="button"
+                onClick={() => onSetStage("contact")}
+                className="flex h-8 shrink-0 items-center gap-2xs rounded-md px-xs type-caption text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+              >
+                <BoxIcon width={14} height={14} />
+                {t("candidates.restore")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowArchive((v) => !v)}
+                className="flex h-8 shrink-0 items-center gap-2xs rounded-md px-xs type-caption text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+              >
+                <BoxIcon width={14} height={14} />
+                {t("candidates.archive")}
+              </button>
+            )}
+          </div>
+
+          {/* DOCUMENTS — their own row: legible upload affordances (dashed
+              hairline, paperclip), honestly disabled until uploads exist. */}
           <div className="flex items-center gap-sm">
             <button
               type="button"
-              onClick={() => setShowArchive((v) => !v)}
-              className="rounded-md bg-hairline px-md py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
+              disabled
+              className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
             >
-              {t("candidates.archive")}
+              <PaperclipIcon width={14} height={14} />
+              {t("candidates.uploadCv")}
             </button>
-            <button
-              type="button"
-              disabled={nextStage === undefined}
-              onClick={() => {
-                if (nextStage !== undefined) onAdvance(nextStage);
-              }}
-              className={`flex-1 px-md ${primaryButtonClass} disabled:opacity-50`}
-            >
-              {t("candidates.advance")}
-            </button>
-            {/* Placeholder — no behavior yet, honestly disabled. */}
             <button
               type="button"
               disabled
-              className="rounded-md border border-hairline bg-card px-md py-sm type-label text-muted opacity-50"
+              className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
             >
-              {t("candidates.addDocuments")}
+              <PaperclipIcon width={14} height={14} />
+              {t("candidates.uploadDoc")}
             </button>
           </div>
         </div>

@@ -57,5 +57,8 @@
   "salaryPlaceholder": "לדוגמה: 45 ₪ לשעה",
   "yes": "כן",
   "no": "לא",
-  "addDocuments": "הוספת מסמכים"
+  "addDocuments": "הוספת מסמכים",
+  "restore": "שחזור",
+  "uploadCv": "העלאת קורות חיים",
+  "uploadDoc": "העלאת מסמך נוסף"
 }

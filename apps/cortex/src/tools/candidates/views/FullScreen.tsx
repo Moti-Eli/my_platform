@@ -51,35 +51,18 @@ import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import {
   CandidateCard,
+  STAGE_LABEL_KEY,
   TextField,
+  VISIBLE_STAGES,
   initialsOf,
   inputClass,
   invalidRing,
   parseTags,
   primaryButtonClass,
   type CandidatePatch,
+  type VisibleStage,
   type WriteErrorCode,
 } from "./CandidateCard";
-
-/** The stages this view shows, in tab order. `archived` is DELIBERATELY absent:
- * it exists in the DB and intents (rows keep archiving), it just has no tab. */
-const VISIBLE_STAGES = ["contact", "interview", "intake"] as const;
-type VisibleStage = (typeof VISIBLE_STAGES)[number];
-
-/** Stage → its i18n label key (tabs and stage buttons). */
-const STAGE_LABEL_KEY = {
-  contact: "candidates.stageContact",
-  interview: "candidates.stageInterview",
-  intake: "candidates.stageIntake",
-  archived: "candidates.stageArchived",
-} as const;
-
-/** The "advance" transition per stage. `intake` has no forward stage — its only
- * exit is the archive control; `archived` is terminal. */
-const NEXT_STAGE: Partial<Record<CandidateStage, CandidateStage>> = {
-  contact: "interview",
-  interview: "intake",
-};
 
 /** Muted placeholder block (same skeleton token recipe as the dashboard card). */
 const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
@@ -432,11 +415,10 @@ export function FullScreen(_props: ToolViewProps) {
         <CandidateFormOverlay title={t("candidates.cardTitle")} onClose={() => setViewingId(null)}>
           <CandidateCard
             candidate={viewing}
-            nextStage={NEXT_STAGE[viewing.stage]}
             onToggleUrgent={() => void toggleUrgent(viewing.id, !viewing.urgent)}
             onSave={(patch) => saveCandidate(viewing.id, patch)}
-            onAdvance={(next) => {
-              void moveStage(viewing.id, next);
+            onSetStage={(stage) => {
+              void moveStage(viewing.id, stage);
               setViewingId(null);
             }}
             onArchive={(reason) => {

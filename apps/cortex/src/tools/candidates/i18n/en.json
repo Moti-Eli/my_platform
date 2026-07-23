@@ -57,5 +57,8 @@
   "salaryPlaceholder": "e.g. 45 ILS per hour",
   "yes": "Yes",
   "no": "No",
-  "addDocuments": "Add documents"
+  "addDocuments": "Add documents",
+  "restore": "Restore",
+  "uploadCv": "Upload CV",
+  "uploadDoc": "Upload another document"
 }
