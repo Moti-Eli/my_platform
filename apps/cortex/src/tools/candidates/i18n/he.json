@@ -36,6 +36,8 @@
   "openCard": "פתיחת כרטיס מועמד",
   "cardTitle": "כרטיס מועמד",
   "sectionImpression": "התרשמות",
+  "sectionDetails": "פרטים",
+  "stageSectionEmpty": "עדיין לא נרשם דבר בשלב זה.",
   "phoneLabel": "טלפון",
   "cityLabel": "עיר",
   "emailLabel": "אימייל",

@@ -3,21 +3,27 @@
 /**
  * The candidate card + the tool's shared form primitives (Standard §2 views/).
  *
- * ART DIRECTION — a professional BUSINESS CARD, not a form: ONE continuous
- * bg-card surface (no boxes inside boxes), sections separated by generous
- * vertical space and a single hairline rule only where a break is genuinely
- * needed. The identity block (monogram avatar + name) is the moment; a status
- * strip states each boolean attribute EXPLICITLY (check when true, X when
- * false — never hidden-when-false); fields are VALUE-dominant (caption label
- * above, body value below); phone/email are live tel:/mailto: actions; the
- * impression is prose. In edit mode the save affordance is the one loud
- * element on the card.
+ * ART DIRECTION — a professional BUSINESS CARD in STAGE SECTIONS: the identity
+ * block (monogram avatar + name) is the moment, on its own surface; below it
+ * sit THREE SIBLING SECTIONS of the SAME visual weight — one per pipeline
+ * stage (details / acceptance / intake): same surface, same padding, same
+ * radius, so they read as three equal blocks, not one real block and two
+ * stubs. The section matching the candidate's CURRENT stage carries a quiet
+ * app-blue/30 border (archived marks none). A status strip states each boolean
+ * attribute EXPLICITLY (check when true, X when false — never
+ * hidden-when-false); fields are VALUE-dominant (caption label above, body
+ * value below); phone/email are live tel:/mailto: actions; the impression is
+ * prose. In edit mode the save affordance is the one loud element on the card.
+ *
+ * STAGE + ARCHIVE CONTROLS ARE NOT HERE: they moved to the overlay HEADER
+ * (FullScreen), which reuses the SAME moveStage flow the card's footer used to
+ * call. The card renders no footer; the ArchiveForm below is rendered by
+ * FullScreen inside the overlay, opened from that header.
  *
  * OWNERSHIP: this file owns NO data. FullScreen keeps the candidates list, the
  * react-query cache writes and every per-id in-flight guard; the card receives
  * the candidate and callbacks as props and owns only its own local UI state
- * (the edit draft, and whether the archive form is open). Nothing here touches
- * CANDIDATES_LIST_KEY.
+ * (the edit draft). Nothing here touches CANDIDATES_LIST_KEY.
  *
  * IMPORT DIRECTION is one-way: FullScreen imports from THIS file (the card,
  * ArchiveForm, TextField, parseTags, the style constants and the shared types)
@@ -27,7 +33,6 @@ import { useEffect, useRef, useState } from "react";
 import type { IntentResult } from "@/cortex/actions";
 import { useI18n } from "@/i18n";
 import {
-  BoxIcon,
   CheckIcon,
   CloseIcon,
   ComposeIcon,
@@ -36,7 +41,7 @@ import {
   PaperclipIcon,
   PhoneIcon,
 } from "@/components/icons";
-import type { Candidate, CandidateStage } from "../logic";
+import type { Candidate } from "../logic";
 
 /** The stages the tool SHOWS, in pipeline order. `archived` is deliberately
  * absent: it exists in the DB and intents, it just has no tab and no segment.
@@ -192,6 +197,32 @@ function StatusChip({ label, on }: { label: string; on: boolean }) {
   );
 }
 
+/** One stage section — all three render through this ONE recipe so they can
+ * never drift into unequal blocks: same surface, same padding, same radius.
+ * `current` marks the candidate's CURRENT stage with a quiet app-blue/30
+ * border; the border is transparent otherwise (not absent), so the geometry
+ * never shifts. Archived candidates mark no section. */
+function StageSection({
+  title,
+  current,
+  children,
+}: {
+  title: string;
+  current: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={`flex flex-col gap-sm rounded-lg border bg-card p-lg ${
+        current ? "border-app-blue/30" : "border-transparent"
+      }`}
+    >
+      <h3 className="type-label font-semibold text-ink">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 /** The card edit mode's draft — every editable field as input state (tags as
  * the raw comma-separated text). null draft = VIEW mode. */
 interface CardDraft {
@@ -215,23 +246,17 @@ interface CardDraft {
  * save → save). The draft lives locally and is seeded on entering edit; closing
  * the overlay unmounts the card, so an unsaved draft is discarded with no
  * confirm — by design. Saves go through the parent's saveCandidate (the ONE
- * update_candidate flow with its per-id guard); stage actions delegate to the
- * parent's moveStage — the card never owns a write.
+ * update_candidate flow with its per-id guard) — the card never owns a write.
+ * Stage moves and archiving live in the overlay HEADER (FullScreen), not here.
  */
 export function CandidateCard({
   candidate,
-  onSetStage,
-  onArchive,
   onSave,
 }: {
   candidate: Candidate;
-  onSetStage: (stage: CandidateStage) => void;
-  onArchive: (reason?: string) => Promise<void>;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
 }) {
   const { t } = useI18n();
-  // Whether the archive-reason form is open above the footer (view mode only).
-  const [showArchive, setShowArchive] = useState(false);
   // EDIT MODE: a non-null draft IS edit mode. Seeded from the candidate when
   // the toggle enters edit; nulled on save success or discarded on unmount.
   const [draft, setDraft] = useState<CardDraft | null>(null);
@@ -255,7 +280,6 @@ export function CandidateCard({
   }, []);
 
   function enterEdit() {
-    setShowArchive(false);
     setSaveError(null);
     setInvalidName(false);
     setDraft({
@@ -318,9 +342,9 @@ export function CandidateCard({
 
   return (
     <div className="flex flex-col gap-sm">
-      {/* THE ONE CONTINUOUS SURFACE — everything card lives on this. */}
+      {/* 1 · IDENTITY — its own surface, the business-card moment. */}
       <div className="rounded-lg bg-card">
-        {/* 1 · IDENTITY — the business-card moment. Room to breathe. */}
+        {/* Room to breathe. */}
         <div className="flex items-center gap-md p-lg">
           <span
             aria-hidden="true"
@@ -372,32 +396,36 @@ export function CandidateCard({
           <StatusChip label={t("candidates.hasCertificate")} on={candidate.hasCertificate} />
           <StatusChip label={t("candidates.hasCar")} on={candidate.hasCar} />
         </div>
+      </div>
 
+      {/* 3 · DETAILS SECTION — the first of the three equal stage sections;
+          holds every existing field (and, in edit mode, the document
+          placeholders). The candidate's CURRENT stage is marked by the section
+          border (see StageSection); archived marks none. */}
+      <StageSection title={t("candidates.sectionDetails")} current={candidate.stage === "contact"}>
         {/* A failed save, surfaced inside the card (see saveError above). */}
         {editing && saveError ? (
-          <div className="px-lg pb-sm">
-            <p
-              role="alert"
-              className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
-            >
-              <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
-              <span>
-                {t(saveError === "failed" ? "candidates.errorFailed" : "candidates.errorDenied")}
-              </span>
-            </p>
-          </div>
+          <p
+            role="alert"
+            className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
+          >
+            <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
+            <span>
+              {t(saveError === "failed" ? "candidates.errorFailed" : "candidates.errorDenied")}
+            </span>
+          </p>
         ) : null}
 
         {editing && draft !== null ? (
           /* EDIT MODE — every field an input, same recipes as the add form, on
-             the same continuous surface (no box-in-box). The form's onSubmit
-             covers Enter; the header save control is the button. */
+             the section's own surface (no box-in-box). The form's onSubmit
+             covers Enter; the identity block's save control is the button. */
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void handleSave();
             }}
-            className="flex flex-col gap-sm border-t border-hairline p-lg"
+            className="flex flex-col gap-sm"
           >
             <label className="flex flex-col gap-2xs type-label text-muted">
               <span>
@@ -501,13 +529,35 @@ export function CandidateCard({
                 {t("candidates.hasCar")}
               </label>
             </div>
+
+            {/* DOCUMENTS — edit mode only, the end of the details section:
+                legible upload affordances (dashed hairline, paperclip),
+                honestly disabled until uploads exist. */}
+            <div className="flex items-center gap-sm">
+              <button
+                type="button"
+                disabled
+                className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
+              >
+                <PaperclipIcon width={14} height={14} />
+                {t("candidates.uploadCv")}
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
+              >
+                <PaperclipIcon width={14} height={14} />
+                {t("candidates.uploadDoc")}
+              </button>
+            </div>
           </form>
         ) : (
-          /* VIEW MODE — value-dominant fields, then the impression as prose.
-             Two hairline rules total: one before each genuine break. */
+          /* VIEW MODE — value-dominant fields, then the impression as prose
+             behind the section's ONE hairline rule (its one genuine break). */
           <>
-            {/* 3/4 · FIELDS — two columns when the sheet is wide enough. */}
-            <div className="grid grid-cols-1 gap-md border-t border-hairline p-lg sm:grid-cols-2">
+            {/* FIELDS — two columns when the sheet is wide enough. */}
+            <div className="grid grid-cols-1 gap-md sm:grid-cols-2">
               <ContactField
                 label={t("candidates.phoneLabel")}
                 value={candidate.phone}
@@ -548,9 +598,9 @@ export function CandidateCard({
               </div>
             </div>
 
-            {/* 5 · IMPRESSION — prose, not a form field; summary keeps its own
+            {/* IMPRESSION — prose, not a form field; summary keeps its own
                 label beneath it. */}
-            <div className="flex flex-col gap-sm border-t border-hairline p-lg">
+            <div className="flex flex-col gap-sm border-t border-hairline pt-sm">
               <span className="type-caption text-muted">{t("candidates.sectionImpression")}</span>
               {candidate.impression !== "" ? (
                 <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
@@ -565,101 +615,29 @@ export function CandidateCard({
             </div>
           </>
         )}
-      </div>
+      </StageSection>
 
-      {!editing ? (
-        /* Footer — pinned (sticky against the overlay sheet's scroll), QUIETER
-            than the identity block above: small controls, breathing room, one
-            hairline rule as the break — no nested boxes. HIDDEN in edit mode —
-            one clear action there: save. */
-        <div className="sticky bottom-0 flex flex-col gap-sm border-t border-hairline bg-screen pt-sm">
-          {showArchive ? (
-            <ArchiveForm onArchive={onArchive} onCancel={() => setShowArchive(false)} />
-          ) : null}
-
-          {/* STAGE CONTROL — the top bar's segmented recipe, compact (h-8).
-              Tapping ANY segment moves the candidate there through the ONE
-              existing moveStage/set_stage flow (its per-id guard included) —
-              backward moves are deliberate, and segments beat directional
-              arrows, which are ambiguous in RTL. Tapping the current stage is
-              a no-op. On an archived candidate no segment is active, and the
-              quiet control beside becomes RESTORE (→ contact, same flow). */}
-          <div className="flex items-center gap-sm">
-            <div className="flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs">
-              {VISIBLE_STAGES.map((stage) => {
-                const active = candidate.stage === stage;
-                return (
-                  <button
-                    key={stage}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => {
-                      if (!active) onSetStage(stage);
-                    }}
-                    className={`flex h-full min-w-0 flex-1 items-center justify-center rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
-                      active ? "bg-card text-app-blue" : "text-muted"
-                    }`}
-                  >
-                    <span
-                      className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
-                    >
-                      {t(STAGE_LABEL_KEY[stage])}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {candidate.stage === "archived" ? (
-              <button
-                type="button"
-                onClick={() => onSetStage("contact")}
-                className="flex h-8 shrink-0 items-center gap-2xs rounded-md px-xs type-caption text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
-              >
-                <BoxIcon width={14} height={14} />
-                {t("candidates.restore")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowArchive((v) => !v)}
-                className="flex h-8 shrink-0 items-center gap-2xs rounded-md px-xs type-caption text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
-              >
-                <BoxIcon width={14} height={14} />
-                {t("candidates.archive")}
-              </button>
-            )}
-          </div>
-
-          {/* DOCUMENTS — their own row: legible upload affordances (dashed
-              hairline, paperclip), honestly disabled until uploads exist. */}
-          <div className="flex items-center gap-sm">
-            <button
-              type="button"
-              disabled
-              className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
-            >
-              <PaperclipIcon width={14} height={14} />
-              {t("candidates.uploadCv")}
-            </button>
-            <button
-              type="button"
-              disabled
-              className="flex flex-1 items-center justify-center gap-2xs rounded-md border border-dashed border-hairline px-sm py-xs type-caption text-muted opacity-50"
-            >
-              <PaperclipIcon width={14} height={14} />
-              {t("candidates.uploadDoc")}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      {/* 4/5 · ACCEPTANCE + INTAKE SECTIONS — honest stubs: the same equal
+          block as details, a short muted line each, and NO invented fields or
+          controls until these stages grow real content. */}
+      <StageSection
+        title={t("candidates.stageInterview")}
+        current={candidate.stage === "interview"}
+      >
+        <p className="type-caption text-muted">{t("candidates.stageSectionEmpty")}</p>
+      </StageSection>
+      <StageSection title={t("candidates.stageIntake")} current={candidate.stage === "intake"}>
+        <p className="type-caption text-muted">{t("candidates.stageSectionEmpty")}</p>
+      </StageSection>
     </div>
   );
 }
 
-/** Inline archive form — an OPTIONAL reason then commit. The parent's moveStage
- * owns the write (and its per-id guard), so this stays a dumb controlled input;
- * `disabled` while the tap settles is covered by that guard, not local state. */
+/** Inline archive form — an OPTIONAL reason then commit. Rendered by FullScreen
+ * inside the overlay (opened from the header's archive control). The parent's
+ * moveStage owns the write (and its per-id guard), so this stays a dumb
+ * controlled input; `disabled` while the tap settles is covered by that guard,
+ * not local state. */
 export function ArchiveForm({
   onArchive,
   onCancel,

@@ -13,9 +13,10 @@
  * objects, no dividers): monogram · name · role · status marks · phone · city ·
  * first summary line, plus the two-tap delete. Tapping a
  * row opens the CANDIDATE CARD (see CandidateCard.tsx) in the same overlay
- * shell the add form uses. STAGE ACTIONS (advance/archive) live ONLY inside
- * the candidate card now — the card's footer reuses the EXISTING set_stage
- * flow (`moveStage` + its per-id guard); no duplicated write logic.
+ * shell the add form uses. STAGE ACTIONS (advance/archive) live ONLY in that
+ * overlay's HEADER now — the segmented stage control and the icon-only
+ * archive/restore control both reuse the EXISTING set_stage flow (`moveStage`
+ * + its per-id guard); no duplicated write logic.
  *
  * TONE: quiet. The accent is used sparingly — subtle `bg-app-blue/10` +
  * `text-app-blue` tints for the active tab, primary submits and the certificate
@@ -40,6 +41,7 @@ import { runIntentAction } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import {
+  BoxIcon,
   CheckIcon,
   ChevronDownIcon,
   ChevronIcon,
@@ -50,6 +52,7 @@ import {
 import type { Candidate, CandidateStage } from "../logic";
 import { useCandidatesList, CANDIDATES_LIST_KEY } from "@/lib/query/useCandidatesList";
 import {
+  ArchiveForm,
   CandidateCard,
   STAGE_LABEL_KEY,
   TextField,
@@ -87,6 +90,10 @@ export function FullScreen(_props: ToolViewProps) {
   // Which candidate's CARD is open (null = none). Resolved against the live cache
   // each render, so a write made from the card is reflected immediately.
   const [viewingId, setViewingId] = useState<string | null>(null);
+  // Whether the card overlay's ARCHIVE-REASON form is open. Lives HERE (not in
+  // the card) because its toggle is the overlay HEADER's archive control; reset
+  // whenever a card opens or closes so it never leaks across candidates.
+  const [cardArchiveOpen, setCardArchiveOpen] = useState(false);
   // Whether the archive drawer (below the list) is open. Local UI state only.
   const [archiveOpen, setArchiveOpen] = useState(false);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
@@ -272,6 +279,13 @@ export function FullScreen(_props: ToolViewProps) {
   // The card's candidate, resolved from the LIVE cache (not a snapshot) so
   // writes made from the card render immediately.
   const viewing = viewingId ? (candidates.find((it) => it.id === viewingId) ?? null) : null;
+  // The ONE close path for the card overlay — every dismissal (X, scrim,
+  // Escape, a stage move) goes through here so the archive form never stays
+  // open across candidates.
+  const closeCard = () => {
+    setViewingId(null);
+    setCardArchiveOpen(false);
+  };
 
   return (
     <>
@@ -374,25 +388,105 @@ export function FullScreen(_props: ToolViewProps) {
       ) : null}
 
       {/* THE CANDIDATE CARD — view + edit modes in the SAME overlay shell the
-          add form uses (see CandidateCard.tsx). Stage actions reuse the existing
-          moveStage handler (and its per-id guard); the card closes optimistically
-          with the write — on failure the row reverts and the screen-level alert
-          reports it. */}
+          add form uses (see CandidateCard.tsx), with a CUSTOM header replacing
+          the title row: close X · the segmented stage control · the icon-only
+          archive/restore control. No visible title — the card's identity block
+          already shows the name; `title` stays as the dialog's aria-label.
+          Stage actions reuse the existing moveStage handler (and its per-id
+          guard); the card closes optimistically with the write — on failure the
+          row reverts and the screen-level alert reports it. */}
       {viewing ? (
-        <CandidateFormOverlay title={t("candidates.cardTitle")} onClose={() => setViewingId(null)}>
-          <CandidateCard
-            candidate={viewing}
-            onSave={(patch) => saveCandidate(viewing.id, patch)}
-            onSetStage={(stage) => {
-              void moveStage(viewing.id, stage);
-              setViewingId(null);
-            }}
-            onArchive={(reason) => {
-              const write = moveStage(viewing.id, "archived", reason);
-              setViewingId(null);
-              return write;
-            }}
-          />
+        <CandidateFormOverlay
+          title={t("candidates.cardTitle")}
+          onClose={closeCard}
+          header={
+            <div className="flex items-center gap-xs">
+              <button
+                type="button"
+                aria-label={t("candidates.cancel")}
+                onClick={closeCard}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
+              >
+                <CloseIcon width={18} height={18} />
+              </button>
+
+              {/* STAGE CONTROL — the footer's segmented recipe, moved up here
+                  (h-8, hairline track, active = bg-card text-app-blue).
+                  Tapping ANY segment moves the candidate there through the ONE
+                  existing moveStage/set_stage flow (its per-id guard included);
+                  tapping the current stage is a no-op. On an archived candidate
+                  no segment is active. */}
+              <div className="flex h-8 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs">
+                {VISIBLE_STAGES.map((stage) => {
+                  const active = viewing.stage === stage;
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => {
+                        if (!active) {
+                          void moveStage(viewing.id, stage);
+                          closeCard();
+                        }
+                      }}
+                      className={`flex h-full min-w-0 flex-1 items-center justify-center rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
+                        active ? "bg-card text-app-blue" : "text-muted"
+                      }`}
+                    >
+                      <span
+                        className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
+                      >
+                        {t(STAGE_LABEL_KEY[stage])}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ARCHIVE / RESTORE — icon-only; title + aria-label carry the
+                  name for hover and screen readers. Archive toggles the reason
+                  form below the header; restore is the same set_stage flow the
+                  footer used (→ contact). */}
+              {viewing.stage === "archived" ? (
+                <button
+                  type="button"
+                  title={t("candidates.restore")}
+                  aria-label={t("candidates.restore")}
+                  onClick={() => {
+                    void moveStage(viewing.id, "contact");
+                    closeCard();
+                  }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                >
+                  <BoxIcon width={16} height={16} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  title={t("candidates.archive")}
+                  aria-label={t("candidates.archive")}
+                  aria-expanded={cardArchiveOpen}
+                  onClick={() => setCardArchiveOpen((v) => !v)}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                >
+                  <BoxIcon width={16} height={16} />
+                </button>
+              )}
+            </div>
+          }
+        >
+          {cardArchiveOpen ? (
+            <ArchiveForm
+              onArchive={(reason) => {
+                const write = moveStage(viewing.id, "archived", reason);
+                closeCard();
+                return write;
+              }}
+              onCancel={() => setCardArchiveOpen(false)}
+            />
+          ) : null}
+          <CandidateCard candidate={viewing} onSave={(patch) => saveCandidate(viewing.id, patch)} />
         </CandidateFormOverlay>
       ) : null}
 
@@ -680,15 +774,20 @@ export function FullScreen(_props: ToolViewProps) {
  * by scrim tap and Escape. Follows the shell's dialog recipe (UrgencyInbox):
  * `bg-scrim` backdrop, `ds-backdrop`/`ds-panel`, `shadow-lifted` sheet. GENERIC
  * over its children ON PURPOSE (Standard: one overlay, many modes) — it hosts
- * the add form AND the candidate card.
+ * the add form AND the candidate card. An optional `header` REPLACES the
+ * default title-and-X row (the candidate card supplies its stage/archive
+ * header this way); when absent the add form's title row renders unchanged.
+ * `title` always names the dialog for assistive tech, header or not.
  */
 function CandidateFormOverlay({
   title,
   onClose,
+  header,
   children,
 }: {
   title: string;
   onClose: () => void;
+  header?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -719,17 +818,19 @@ function CandidateFormOverlay({
 
       <div className="ds-panel relative z-10 w-full max-w-[480px] px-sm pb-sm">
         <div className="flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted">
-          <div className="flex items-center justify-between">
-            <h2 className="type-heading text-ink">{title}</h2>
-            <button
-              type="button"
-              aria-label={t("candidates.cancel")}
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
-            >
-              <CloseIcon width={18} height={18} />
-            </button>
-          </div>
+          {header ?? (
+            <div className="flex items-center justify-between">
+              <h2 className="type-heading text-ink">{title}</h2>
+              <button
+                type="button"
+                aria-label={t("candidates.cancel")}
+                onClick={onClose}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-muted interactive motion-safe:active:scale-[0.97]"
+              >
+                <CloseIcon width={18} height={18} />
+              </button>
+            </div>
+          )}
           {children}
         </div>
       </div>

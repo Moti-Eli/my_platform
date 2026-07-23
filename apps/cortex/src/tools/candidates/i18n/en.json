@@ -36,6 +36,8 @@
   "openCard": "Open candidate card",
   "cardTitle": "Candidate card",
   "sectionImpression": "Impression",
+  "sectionDetails": "Details",
+  "stageSectionEmpty": "Nothing has been recorded for this stage yet.",
   "phoneLabel": "Phone",
   "cityLabel": "City",
   "emailLabel": "Email",
