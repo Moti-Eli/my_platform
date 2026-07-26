@@ -44,7 +44,11 @@ import { resolve } from "node:path";
 import { existsSync } from "node:fs";
 import dotenv from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { createOrganizationForCurrentUser } from "../../auth/src/index";
+import {
+  createOrganizationForCurrentUser,
+  hideOrganizationForCurrentUser,
+  signUpWithNewOrganization,
+} from "../../auth/src/index";
 
 import { assertLocalDatabase } from "./db-guard";
 
@@ -82,6 +86,24 @@ const ALL_CREATED_ORG_NAMES = [
   GATE_ORG_NAME,
   INVALID_ORG_NAME_RAW,
 ];
+
+// Scenario 7 (per-user duplicate-name guard) builds a runtime-unique org name so
+// a re-run never collides with leftovers. The exact name is unknown at module
+// scope, so the sweep matches these by PREFIX instead of by exact name.
+const DUP_ORG_PREFIX = "Multi-Org Dup";
+
+// Scenario 8 (hideOrganizationForCurrentUser) also builds runtime-unique names,
+// so the sweep matches its orgs by PREFIX too. This prefix covers ALL section-8
+// orgs: the two throwaway orgs AND the last-org-guard user's signup org — and
+// the prefix sweep deletes them by id via the SERVICE client, so a SOFT-DELETED
+// org (deleted_at set) is removed exactly like an active one.
+const HIDE_ORG_PREFIX = "Multi-Org Hide";
+// The brand-new single-org user staged for the last-org guard (scenario 8.6) is
+// the one EXTRA user this harness creates. Its email carries this prefix so the
+// sweep can find and HARD-DELETE the auth user (cascading its profile/membership/
+// role). Seeded users use @organizationA/B.com, so this prefix never matches one.
+const HIDE_LASTORG_USER_PREFIX = "verify-multi-org-hide-lastorg-";
+const HIDE_LASTORG_USER_DOMAIN = "verify-multi-org.test";
 
 // Tool rows created here are tagged so cleanup finds them by name/title prefix —
 // crucial for the rows that live in SEEDED Org A (those do NOT cascade, since Org
@@ -193,6 +215,36 @@ async function sweep(admin: SupabaseClient): Promise<void> {
   //    any tool rows still living inside a NEW org via org_id CASCADE).
   const orgs = await admin.from("organizations").select("id").in("name", ALL_CREATED_ORG_NAMES);
   for (const o of (orgs.data ?? []) as Array<{ id: string }>) {
+    await admin.from("organizations").delete().eq("id", o.id);
+  }
+  // 2b) Scenario-7 dup-guard orgs share a runtime suffix, so match by PREFIX.
+  //     This catches the base name created by BOTH users (two rows) plus any
+  //     stray a failed assertion might leave. Uppercase/padded variants never
+  //     persist (the guard rejects them), so a single prefix sweep suffices.
+  const dupOrgs = await admin.from("organizations").select("id").like("name", `${DUP_ORG_PREFIX}%`);
+  for (const o of (dupOrgs.data ?? []) as Array<{ id: string }>) {
+    await admin.from("organizations").delete().eq("id", o.id);
+  }
+  // 2c) Scenario-8: FIRST hard-delete the EXTRA last-org-guard user(s) by email
+  //     PREFIX. Deleting the auth user cascades its profile/membership/role (its
+  //     signup org is emptied of members, then removed by the org sweep below).
+  //     Runs on the SERVICE client, so it is never RLS-narrowed. This must
+  //     precede the org sweep so the signup org is memberless when it is deleted.
+  const staleUsers = await admin
+    .from("users")
+    .select("id")
+    .like("email", `${HIDE_LASTORG_USER_PREFIX}%`);
+  for (const u of (staleUsers.data ?? []) as Array<{ id: string }>) {
+    await admin.auth.admin.deleteUser(u.id);
+  }
+  // 2d) Scenario-8 orgs (two throwaway orgs + the last-org-guard signup org)
+  //     share a runtime suffix, so match by PREFIX. Deleting by id via the
+  //     SERVICE client is NOT deleted_at-filtered, so the SOFT-DELETED org from
+  //     the happy path is hard-deleted here exactly like the active ones. Org
+  //     deletion cascades roles/memberships (including the extra seeded-user
+  //     membership added in scenario 8.5).
+  const hideOrgs = await admin.from("organizations").select("id").like("name", `${HIDE_ORG_PREFIX}%`);
+  for (const o of (hideOrgs.data ?? []) as Array<{ id: string }>) {
     await admin.from("organizations").delete().eq("id", o.id);
   }
 }
@@ -397,6 +449,244 @@ async function main(): Promise<void> {
     .select("id")
     .eq("name", INVALID_ORG_NAME_RAW);
   check("no organization row was created for the invalid-name attempt", (invalidOrg.data ?? []).length === 0);
+
+  // --- Scenario 7: per-user duplicate-name guard (nameExists) ----------------
+  console.log("\n[7] Per-user duplicate-name guard — EXACTLY 'nameExists'");
+  // Unique suffix so a re-run never collides with leftovers; the sweep matches
+  // this by DUP_ORG_PREFIX, so every variant below is cleaned up regardless.
+  const dupName = `${DUP_ORG_PREFIX} ${Date.now()} (verify)`;
+
+  // 7.1 First creation by the actor succeeds.
+  const dup1 = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: dupName,
+  });
+  check(
+    "actor creates the dup-test org (error null)",
+    dup1.error === null,
+    `returned error=${JSON.stringify(dup1.error)}`
+  );
+
+  // 7.2 Identical name → EXACTLY 'nameExists', and NO second row is created.
+  const dup2 = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: dupName,
+  });
+  check(
+    "identical name rejected with EXACTLY 'nameExists'",
+    dup2.error === "nameExists",
+    `returned error=${JSON.stringify(dup2.error)} organizationId=${JSON.stringify(dup2.organizationId)}`
+  );
+  const afterDup2 = await admin.from("organizations").select("id").eq("name", dupName);
+  check(
+    "still exactly ONE org with that name after the identical retry (no 2nd row)",
+    (afterDup2.data ?? []).length === 1,
+    `count=${(afterDup2.data ?? []).length}`
+  );
+
+  // 7.3 Case + whitespace: UPPERCASED and space-padded are BOTH rejected —
+  //     proves the guard trims and compares case-insensitively. Still one row.
+  const dupUpper = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: dupName.toUpperCase(),
+  });
+  check(
+    "UPPERCASED name rejected with EXACTLY 'nameExists' (case-insensitive)",
+    dupUpper.error === "nameExists",
+    `returned error=${JSON.stringify(dupUpper.error)} organizationId=${JSON.stringify(dupUpper.organizationId)}`
+  );
+  const dupPadded = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: `   ${dupName}   `,
+  });
+  check(
+    "space-padded name rejected with EXACTLY 'nameExists' (trimmed)",
+    dupPadded.error === "nameExists",
+    `returned error=${JSON.stringify(dupPadded.error)} organizationId=${JSON.stringify(dupPadded.organizationId)}`
+  );
+  const afterVariants = await admin.from("organizations").select("id").eq("name", dupName);
+  check(
+    "still exactly ONE org with that name after case/whitespace retries",
+    (afterVariants.data ?? []).length === 1,
+    `count=${(afterVariants.data ?? []).length}`
+  );
+
+  // 7.4 Positive control — the guard is PER-USER, not global: a DIFFERENT seeded
+  //     user (the Org B admin) creates an org with the SAME name, error null.
+  //     Proves the guard did NOT become a global unique constraint.
+  const dupFromB = await createOrganizationForCurrentUser(adminBClient, admin, {
+    organizationName: dupName,
+  });
+  check(
+    "control: a DIFFERENT user creates the SAME name successfully (per-user, not global)",
+    dupFromB.error === null,
+    `returned error=${JSON.stringify(dupFromB.error)}`
+  );
+  const afterFromB = await admin.from("organizations").select("id").eq("name", dupName);
+  check(
+    "now exactly TWO orgs share that name (one per user) — guard is per-user, not a global UNIQUE",
+    (afterFromB.data ?? []).length === 2,
+    `count=${(afterFromB.data ?? []).length}`
+  );
+
+  // --- Scenario 8: hideOrganizationForCurrentUser (soft-delete an org) -------
+  console.log("\n[8] hideOrganizationForCurrentUser — soft-delete, RLS filter, guards");
+
+  // Read an org's deleted_at via the SERVICE client (bypasses RLS, so a
+  // soft-deleted row is STILL visible — the whole point of a read-back). Returns
+  // the literal "missing" only when the row is truly gone (never expected here).
+  const deletedAtOf = async (orgId: string): Promise<string | null | "missing"> => {
+    const r = await admin
+      .from("organizations")
+      .select("deleted_at")
+      .eq("id", orgId)
+      .maybeSingle();
+    if (r.error || !r.data) return "missing";
+    return (r.data as { deleted_at: string | null }).deleted_at;
+  };
+
+  // 8.0 Setup: the actor creates TWO throwaway ROOT orgs (unique-suffixed) so
+  //     they have several ACTIVE orgs to work with alongside Org A — hiding one
+  //     here can never trip the last-org guard (the actor is also still a member
+  //     of Org A and the earlier new orgs).
+  const hideSuffix = `${Date.now()} (verify)`;
+  const hideOrg1Name = `${HIDE_ORG_PREFIX} 1 ${hideSuffix}`;
+  const hideOrg2Name = `${HIDE_ORG_PREFIX} 2 ${hideSuffix}`;
+  const hideRes1 = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: hideOrg1Name,
+  });
+  const hideRes2 = await createOrganizationForCurrentUser(actorClient, admin, {
+    organizationName: hideOrg2Name,
+  });
+  check(
+    "8.0 setup: actor creates two throwaway orgs (both error null)",
+    hideRes1.error === null && hideRes2.error === null,
+    `err1=${JSON.stringify(hideRes1.error)} err2=${JSON.stringify(hideRes2.error)}`
+  );
+  if (!hideRes1.organizationId || !hideRes2.organizationId) {
+    console.log("\nRESULT: scenario 8 setup failed — cannot continue");
+    await sweep(admin);
+    process.exit(1);
+  }
+  const hideOrg1 = hideRes1.organizationId; // hidden in the happy path
+  const hideOrg2 = hideRes2.organizationId; // kept ACTIVE for the negative controls
+
+  // 8.1 Happy path: the actor hides one of their own throwaway orgs → error null.
+  const happy = await hideOrganizationForCurrentUser(actorClient, admin, {
+    organizationId: hideOrg1,
+  });
+  check(
+    "8.1 actor hides their own throwaway org (error null)",
+    happy.error === null,
+    `returned error=${JSON.stringify(happy.error)}`
+  );
+
+  // 8.2 Reading `organizations` THROUGH the ACTOR's RLS client, the hidden org
+  //     NO LONGER appears (proves the SELECT policy's deleted_at IS NULL filter).
+  //     Positive control: the OTHER throwaway org and Org A still DO appear.
+  const afterHideOrgs = await actorClient.from("organizations").select("id");
+  const afterHideIds = new Set(
+    ((afterHideOrgs.data ?? []) as Array<{ id: string }>).map((o) => o.id)
+  );
+  check(
+    "8.2 hidden org NO LONGER visible through the actor's RLS (deleted_at filter)",
+    !afterHideIds.has(hideOrg1)
+  );
+  check("8.2 control: the OTHER throwaway org STILL visible", afterHideIds.has(hideOrg2));
+  check("8.2 control: Organization A STILL visible", afterHideIds.has(orgA));
+
+  // 8.3 Service-client read-back: the hidden org's row STILL EXISTS with
+  //     deleted_at NOT NULL — proof it was SOFT-deleted, not hard-deleted (the
+  //     data survived).
+  const hiddenDeletedAt = await deletedAtOf(hideOrg1);
+  check(
+    "8.3 hidden org row STILL EXISTS with deleted_at NOT NULL (soft, not hard)",
+    hiddenDeletedAt !== "missing" && hiddenDeletedAt !== null,
+    `deleted_at=${JSON.stringify(hiddenDeletedAt)}`
+  );
+
+  // 8.4 Non-member rejected: a DIFFERENT user (the Org B admin, NOT a member of
+  //     hideOrg2) attempts to hide it → EXACTLY "notAllowed"; service read-back
+  //     confirms its deleted_at is still NULL (nothing happened).
+  const nonMember = await hideOrganizationForCurrentUser(adminBClient, admin, {
+    organizationId: hideOrg2,
+  });
+  check(
+    "8.4 non-member (Org B admin) rejected with EXACTLY 'notAllowed'",
+    nonMember.error === "notAllowed",
+    `returned error=${JSON.stringify(nonMember.error)}`
+  );
+  const afterNonMember = await deletedAtOf(hideOrg2);
+  check(
+    "8.4 read-back: rejected org's deleted_at STILL NULL (nothing happened)",
+    afterNonMember === null,
+    `deleted_at=${JSON.stringify(afterNonMember)}`
+  );
+
+  // 8.5 Solo-only guard: add a SECOND active member to hideOrg2 by directly
+  //     inserting a membership for another SEEDED user via the service client —
+  //     mirroring seed.ts's bare `memberships` insert (user_id + organization_id).
+  //     The solo guard counts MEMBERSHIPS only, so no membership_role is needed
+  //     (and a service-client role insert would hit the escalation trigger, which
+  //     reads auth.uid()=null — so we deliberately do NOT add one). The actor then
+  //     attempts to hide hideOrg2 → EXACTLY "orgHasOtherMembers"; read-back
+  //     confirms deleted_at still NULL.
+  const { userId: secondMemberId } = await signInClient(PLAIN_A_MEMBER_2_EMAIL);
+  const addMembership = await admin
+    .from("memberships")
+    .insert({ user_id: secondMemberId, organization_id: hideOrg2 });
+  check(
+    "8.5 setup: a second seeded member added to the throwaway org (via service client)",
+    !addMembership.error,
+    addMembership.error?.message ?? ""
+  );
+  const shared = await hideOrganizationForCurrentUser(actorClient, admin, {
+    organizationId: hideOrg2,
+  });
+  check(
+    "8.5 hiding an org with other active members rejected with EXACTLY 'orgHasOtherMembers'",
+    shared.error === "orgHasOtherMembers",
+    `returned error=${JSON.stringify(shared.error)}`
+  );
+  const afterShared = await deletedAtOf(hideOrg2);
+  check(
+    "8.5 read-back: shared org's deleted_at STILL NULL (nothing happened)",
+    afterShared === null,
+    `deleted_at=${JSON.stringify(afterShared)}`
+  );
+
+  // 8.6 Last-org guard. HOW IT IS STAGED WITHOUT TOUCHING SEEDED DATA: create a
+  //     BRAND-NEW user via signUpWithNewOrganization, which gives them EXACTLY
+  //     ONE org (their own signup org). THEY then attempt to hide their only org
+  //     → EXACTLY "cannotHideLastOrg"; read-back confirms deleted_at NULL. No
+  //     seeded user's org is ever hidden — this new user and their org are the
+  //     only things staged, and the sweep removes both (by email/name prefix).
+  const lastOrgUserEmail = `${HIDE_LASTORG_USER_PREFIX}${Date.now()}@${HIDE_LASTORG_USER_DOMAIN}`;
+  const lastOrgName = `${HIDE_ORG_PREFIX} LastOrg ${hideSuffix}`;
+  const signUp = await signUpWithNewOrganization(admin, {
+    email: lastOrgUserEmail,
+    password: TEMP_PASSWORD,
+    displayName: "Verify Last-Org User",
+    organizationName: lastOrgName,
+  });
+  check(
+    "8.6 setup: a brand-new single-org user is provisioned (error null)",
+    signUp.error === null && !!signUp.organizationId && !!signUp.userId,
+    `returned error=${JSON.stringify(signUp.error)}`
+  );
+  if (signUp.organizationId && signUp.userId) {
+    const { client: lastOrgClient } = await signInClient(lastOrgUserEmail);
+    const lastOrg = await hideOrganizationForCurrentUser(lastOrgClient, admin, {
+      organizationId: signUp.organizationId,
+    });
+    check(
+      "8.6 hiding one's ONLY org rejected with EXACTLY 'cannotHideLastOrg'",
+      lastOrg.error === "cannotHideLastOrg",
+      `returned error=${JSON.stringify(lastOrg.error)}`
+    );
+    const afterLastOrg = await deletedAtOf(signUp.organizationId);
+    check(
+      "8.6 read-back: only-org's deleted_at STILL NULL (nothing happened)",
+      afterLastOrg === null,
+      `deleted_at=${JSON.stringify(afterLastOrg)}`
+    );
+  }
 
   // --- Cleanup (ORDER MATTERS) ----------------------------------------------
   // Tool rows FIRST (notes/inventory_items — the ones in seeded Org A do NOT
