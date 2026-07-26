@@ -9,7 +9,9 @@
     "verify:admin-private": "tsx scripts/verify-admin-private-read.ts",
     "verify:child-org": "tsx scripts/verify-child-org.ts",
     "verify:multi-org": "tsx scripts/verify-multi-org.ts",
-    "verify:time-entries": "tsx scripts/verify-time-entries.ts"
+    "verify:time-entries": "tsx scripts/verify-time-entries.ts",
+    "verify:candidates-gate": "tsx scripts/verify-candidates-gate.ts",
+    "verify:candidate-answers": "tsx scripts/verify-candidate-answers.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",
