@@ -49,8 +49,15 @@ export interface Session {
  *   app/settings/version/page.tsx   -> requireSession()
  *   app/tools/inventory/page.tsx    -> requireSession() (passes ids to FullScreen)
  *   app/tools/[appId]/page.tsx      -> requireSession()
- *   app/login/page.tsx              -> NONE. Public by definition: it is how you
- *                                      get a session. Guarding it is a redirect loop.
+ *   app/login/page.tsx              -> IDENTITY-ONLY redirect-if-authenticated. It
+ *                                      never calls requireSession() (that would
+ *                                      loop: requireSession sends the unauthed to
+ *                                      /login, and this IS /login). It checks
+ *                                      getCurrentUser alone and bounces an
+ *                                      already-authenticated user to "/"; no
+ *                                      memberships query, so zero-org users are
+ *                                      forwarded too and requireSession on "/"
+ *                                      routes them to /no-organization.
  *   app/layout.tsx                  -> not a page; renders chrome only and reads
  *                                      no identity. See its note.
  */
@@ -111,15 +118,19 @@ export async function requireSession(): Promise<Session> {
   //         More than one -> the user's chosen org (ORG_COOKIE) if it names one of
   //         these memberships, else the earliest by created_at, deterministically.
   //
-  //         TODO(org-picker): PARTIALLY DONE. A user can genuinely belong to many
-  //         organizations (the schema is built for it: memberships is a join table,
-  //         and roles are per-org precisely so the same person can be an admin in
-  //         one org and a member in another). The cookie READER now exists — the
-  //         active org comes from the user's choice (ORG_COOKIE, the way locale and
-  //         theme already do), with the earliest-by-created_at as the no-cookie
-  //         first-visit default (stable across requests, which a picker-less UI
-  //         needs; NOT a claim that the first org is the right one). The remaining
-  //         piece is the WRITER — the "My organizations" page that sets the cookie.
+  //         org-picker: DONE. A user can genuinely belong to many organizations
+  //         (the schema is built for it: memberships is a join table, and roles are
+  //         per-org precisely so the same person can be an admin in one org and a
+  //         member in another). The cookie READER is here — the active org comes
+  //         from the user's choice (ORG_COOKIE, the way locale and theme already
+  //         do), with the earliest-by-created_at as the no-cookie first-visit
+  //         default (stable across requests, which the picker needs; NOT a claim
+  //         that the first org is the right one). The WRITER now exists too:
+  //         OrganizationsScreen.switchTo sets ORG_COOKIE client-side and then does
+  //         a FULL page load (window.location.assign) — deliberately not a soft
+  //         navigation, so the root-mounted, non-org-scoped react-query cache is
+  //         discarded and every tool re-reads the chosen org. The value it writes
+  //         is still only ever trusted after the SECURITY match below.
   //
   //         SECURITY: the cookie is only ever matched AGAINST the memberships array
   //         already fetched through the RLS-scoped, `.eq("user_id")`-filtered client

@@ -1,10 +1,23 @@
 /**
- * Login — THE ONLY PUBLIC PAGE IN CORTEX.
+ * Login — THE ONLY PUBLICLY-REACHABLE PAGE IN CORTEX.
  *
- * It calls no guard, deliberately and necessarily: this page is how a session is
- * obtained, so guarding it would be a redirect loop. Every other page under
- * src/app calls requireSession() itself (see src/lib/session.ts for the full
- * per-page table).
+ * It carries an IDENTITY-ONLY redirect-if-authenticated guard, and deliberately
+ * nothing more. The distinction matters:
+ *   - It must NEVER call requireSession(): that guard sends an unauthenticated
+ *     caller to /login, and this IS /login, so it would loop. That reasoning is
+ *     unchanged and is why the full guard stays out.
+ *   - But it MAY check identity alone. An already-authenticated user has no
+ *     business seeing the form, so we bounce them to "/" — which also stops the
+ *     Android back button from returning to /login after a successful login
+ *     (the success redirect leaves /login in history; re-rendering here on the
+ *     way back ejects them). We forward on IDENTITY ONLY — no memberships query —
+ *     so a logged-in user with zero orgs is still forwarded to "/", where
+ *     requireSession() routes them on to /no-organization. Deciding that here
+ *     would duplicate requireSession's logic, worse.
+ *   - When the client is null (unconfigured env) we render the form as before:
+ *     this guard is UX, not a security boundary (that lives in requireSession on
+ *     every protected page — see src/lib/session.ts for the full per-page table),
+ *     so it must degrade gracefully rather than block the login surface.
  *
  * Lives in the `(auth)` group, so it renders in the bare layout — no shell — at
  * the unchanged url `/login`. That layout owns the `<main>`, the centred column
@@ -12,9 +25,12 @@
  * to render its own `<main>` INSIDE AppShell's — a nested main, which is invalid.)
  *
  * A server component with client children — the same split every protected route
- * uses, for a different reason: here it is `useActionState` and `useI18n` that
- * need the client, not a guard that needs the server.
+ * uses: here the server half runs the identity guard, and `useActionState` /
+ * `useI18n` in the form children need the client.
  */
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@platform/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AuthPanel } from "./AuthPanel";
 
 /**
@@ -29,5 +45,17 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+
+  // Identity-only redirect-if-authenticated guard. See the header note: an
+  // authenticated user is bounced to "/" (never requireSession here — that would
+  // loop), and a null client falls through to render the form (guard is UX, not
+  // a boundary). No memberships query: forwarding on identity alone lets
+  // requireSession() on "/" own the zero-org -> /no-organization decision.
+  const supabase = await createSupabaseServerClient();
+  if (supabase) {
+    const user = await getCurrentUser(supabase);
+    if (user) redirect("/");
+  }
+
   return <AuthPanel notice={error === "expired" ? "login.linkExpired" : null} />;
 }
