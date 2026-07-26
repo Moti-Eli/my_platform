@@ -18,6 +18,7 @@ import { CheckIcon } from "@/components/icons";
 import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
 import { useI18n } from "@/i18n";
 import { CreateOrganization } from "./CreateOrganization";
+import { HideOrganization } from "./HideOrganization";
 
 interface OrgRow {
   id: string;
@@ -59,6 +60,9 @@ export function OrganizationsScreen({
               {active ? <CheckIcon width={18} height={18} className="text-accent" /> : null}
             </>
           );
+          // The ACTIVE row carries no remove control on purpose: hiding the
+          // org you're currently in would strand the active-org cookie, which
+          // is out of scope here — switch away first, then remove it.
           return active ? (
             <div
               key={org.id}
@@ -67,14 +71,16 @@ export function OrganizationsScreen({
               {content}
             </div>
           ) : (
-            <button
-              key={org.id}
-              type="button"
-              onClick={() => switchTo(org.id)}
-              className="flex items-center justify-between rounded-lg px-md py-sm type-heading text-muted interactive"
-            >
-              {content}
-            </button>
+            <div key={org.id} className="flex items-center gap-2xs rounded-lg pe-2xs">
+              <button
+                type="button"
+                onClick={() => switchTo(org.id)}
+                className="flex min-w-0 flex-1 items-center justify-between rounded-lg px-md py-sm type-heading text-muted interactive"
+              >
+                {content}
+              </button>
+              <HideOrganization orgId={org.id} orgName={org.name} />
+            </div>
           );
         })}
       </div>
