@@ -1354,3 +1354,95 @@ export async function createOrganizationForCurrentUser(
 
   return { error: null, organizationId: createdOrgId };
 }
+
+export interface HideOrganizationInput {
+  organizationId: string;
+}
+export interface HideOrganizationResult {
+  error: string | null;
+}
+
+/**
+ * SOFT-DELETE an organization the current user belongs to: stamp
+ * `organizations.deleted_at = now()`. Reversible, NO data loss, NO cascade —
+ * every membership, role and tool row survives untouched; clearing `deleted_at`
+ * fully restores the org. This is deliberately NOT a hard delete.
+ *
+ * WHY IT VANISHES FROM THE SWITCHER WITH NO CLIENT-SIDE HIDING: the
+ * organizations SELECT policy is `deleted_at IS NULL AND auth_user_is_member_of(id)`
+ * (20260610000001), and the membership helpers are deleted_at-aware, so a
+ * soft-deleted org drops out of every RLS read — the switcher, which lists orgs
+ * THROUGH RLS, simply stops seeing it. Nothing filters it out in the client.
+ *
+ * TWO GUARDS, both refusals rather than damage:
+ *  - NOT THE LAST ORG (`cannotHideLastOrg`): hiding a user's only remaining
+ *    active org would strand them with no active context to fall back to, so we
+ *    refuse when this is their sole active membership.
+ *  - SOLO ONLY (`orgHasOtherMembers`): an org other people are actively members
+ *    of is shared infrastructure — one member must not be able to yank it out
+ *    from under the others, so we refuse unless the caller is its only active
+ *    member.
+ *
+ * TWO CLIENTS, same split as the sibling functions:
+ *  - `actingClient` (actor's JWT, RLS-scoped): the "logged in" gate and the
+ *    membership check — RLS guarantees a non-member cannot even see the org.
+ *  - `serviceClient` (service-role, bypasses RLS): the single UPDATE, which has
+ *    no client UPDATE policy.
+ */
+export async function hideOrganizationForCurrentUser(
+  actingClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+  input: HideOrganizationInput
+): Promise<HideOrganizationResult> {
+  const fail = (error: string): HideOrganizationResult => ({ error });
+
+  // --- Authorization (acting client, RLS-scoped) — the security boundary -----
+  const actingUser = await getCurrentUser(actingClient);
+  if (!actingUser) return fail("notAllowed");
+
+  // 2) Membership check THROUGH RLS: the user must be an ACTIVE member of the
+  //    target org. RLS already scopes this — a non-member cannot see the org's
+  //    memberships at all — so a zero-row read IS the "not a member" answer.
+  const membershipRes = await actingClient
+    .from("memberships")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .eq("user_id", actingUser.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (membershipRes.error || !membershipRes.data) return fail("notAllowed");
+
+  // 3) GUARD — NOT THE LAST ORG. getUserOrganizations runs through the acting
+  //    client, so RLS returns only orgs the user is an ACTIVE member of. If the
+  //    target is their ONLY remaining active org, hiding it would leave them
+  //    with no active context — refuse.
+  const activeOrgs = await getUserOrganizations(actingClient, actingUser.id);
+  if (activeOrgs.length <= 1) return fail("cannotHideLastOrg");
+
+  // 4) GUARD — SOLO ONLY. Count ACTIVE members of the target org via the service
+  //    client (an authoritative count, not RLS-narrowed). More than one active
+  //    member means the org is shared — you cannot hide an organization other
+  //    people are actively using — so refuse.
+  const membersRes = await serviceClient
+    .from("memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", input.organizationId)
+    .is("deleted_at", null);
+  if (membersRes.error) return fail("hideFailed");
+  if ((membersRes.count ?? 0) > 1) return fail("orgHasOtherMembers");
+
+  // 5) THE SOFT DELETE. Stamp deleted_at only if it is still NULL (idempotent —
+  //    a double-submit cannot re-stamp an already-hidden org). Nothing cascades;
+  //    all rows survive; clearing deleted_at reverses this entirely.
+  const nowIso = new Date().toISOString();
+  const updateRes = await serviceClient
+    .from("organizations")
+    .update({ deleted_at: nowIso })
+    .eq("id", input.organizationId)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updateRes.error || !updateRes.data) return fail("hideFailed");
+
+  return { error: null };
+}
