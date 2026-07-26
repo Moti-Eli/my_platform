@@ -56,6 +56,10 @@ import { manifest as candidatesManifest } from "@/tools/candidates/manifest";
 import { createCandidatesLogic } from "@/tools/candidates/logic";
 import { createCandidatesIntents } from "@/tools/candidates/intents";
 import { createCandidatesListeners } from "@/tools/candidates/events";
+import { manifest as timeEntriesManifest } from "@/tools/time_entries/manifest";
+import { createTimeEntriesLogic } from "@/tools/time_entries/logic";
+import { createTimeEntriesIntents } from "@/tools/time_entries/intents";
+import { createTimeEntriesListeners } from "@/tools/time_entries/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -136,6 +140,16 @@ function build(): Runtime {
       candidatesManifest,
       createCandidatesIntents(candidatesLogic),
       createCandidatesListeners(candidatesLogic),
+    );
+  }
+  const timeEntriesLogic = createTimeEntriesLogic({ db, emit: eventBus.emit });
+  if (!getApp(timeEntriesManifest.id)) {
+    // Listeners close over timeEntriesLogic (see events.ts); time_entries has none
+    // today, so this registers an empty listener set, same shape as the other tools.
+    registerApp(
+      timeEntriesManifest,
+      createTimeEntriesIntents(timeEntriesLogic),
+      createTimeEntriesListeners(timeEntriesLogic),
     );
   }
 

@@ -124,18 +124,15 @@ export function CatalogView({ isAdmin }: { isAdmin: boolean }) {
   const installed = useInstalledApps();
 
   return (
-    <>
-      <h1 className="px-2xs type-title text-ink">{t("catalog.title")}</h1>
-      <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-sm">
-        {apps.map((manifest) => (
-          <CatalogCard
-            key={manifest.id}
-            manifest={manifest}
-            installed={installed.includes(manifest.id)}
-            locked={Boolean(manifest.requiresAdmin) && !isAdmin}
-          />
-        ))}
-      </section>
-    </>
+    <section aria-label={t("catalog.title")} className="grid grid-cols-3 gap-sm">
+      {apps.map((manifest) => (
+        <CatalogCard
+          key={manifest.id}
+          manifest={manifest}
+          installed={installed.includes(manifest.id)}
+          locked={Boolean(manifest.requiresAdmin) && !isAdmin}
+        />
+      ))}
+    </section>
   );
 }

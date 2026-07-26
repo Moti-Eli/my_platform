@@ -38,6 +38,10 @@ import { manifest as candidatesManifest } from "@/tools/candidates/manifest";
 import { createCandidatesLogic } from "@/tools/candidates/logic";
 import { createCandidatesIntents } from "@/tools/candidates/intents";
 import { createCandidatesListeners } from "@/tools/candidates/events";
+import { manifest as timeEntriesManifest } from "@/tools/time_entries/manifest";
+import { createTimeEntriesLogic } from "@/tools/time_entries/logic";
+import { createTimeEntriesIntents } from "@/tools/time_entries/intents";
+import { createTimeEntriesListeners } from "@/tools/time_entries/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
@@ -153,6 +157,14 @@ function build(): DataLayer {
       candidatesManifest,
       createCandidatesIntents(candidatesLogic),
       createCandidatesListeners(candidatesLogic),
+    );
+  }
+  const timeEntriesLogic = createTimeEntriesLogic({ db, emit: eventBus.emit });
+  if (!getApp(timeEntriesManifest.id)) {
+    registerApp(
+      timeEntriesManifest,
+      createTimeEntriesIntents(timeEntriesLogic),
+      createTimeEntriesListeners(timeEntriesLogic),
     );
   }
   for (const stub of STUB_APPS) {
