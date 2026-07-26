@@ -86,7 +86,7 @@ function parseTags(raw: string): string[] {
 }
 
 const inputClass =
-  "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
+  "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted/50";
 const invalidRing = "ring-1 ring-danger";
 /** The quiet primary action — a subtle accent tint, never a solid fill. */
 const primaryButtonClass =
@@ -499,7 +499,7 @@ export function CandidateCard({
           FullScreen's state); share and the edit/save toggle are the card's
           own. No surface, no box. Role and the status booleans are NOT repeated
           here — they are fields in the details section. */}
-      <div className="flex items-center gap-sm">
+      <div className="sticky top-0 z-10 flex items-center gap-sm bg-screen pt-sm pb-2xs">
         {/* Monogram — a future profile photo replaces the initials with an
             <img> inside this same overflow-hidden wrapper. */}
         <span

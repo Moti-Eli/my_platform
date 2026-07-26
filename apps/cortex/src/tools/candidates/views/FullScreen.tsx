@@ -446,7 +446,7 @@ export function FullScreen(_props: ToolViewProps) {
         <div
           role="tablist"
           aria-label={t("candidates.name")}
-          className="flex h-9 min-w-0 flex-1 items-center gap-xs"
+          className="flex h-9 min-w-0 flex-1 items-center justify-center gap-xs"
         >
           {VISIBLE_STAGES.map((stage, i) => {
             const active = activeStage === stage;
@@ -761,7 +761,7 @@ export function FullScreen(_props: ToolViewProps) {
           the screen — a slim centered caption strip under a hairline rule, no
           card, no box. */}
       {!loading && !loadError ? (
-        <div className="mt-lg flex flex-col gap-sm">
+        <div className="mt-sm flex flex-col gap-sm">
           <div className="border-t border-hairline pt-2xs">
             <button
               type="button"
@@ -938,7 +938,7 @@ function CandidateFormOverlay({
         <div
           className={
             bare
-              ? "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto bg-screen py-sm"
+              ? "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-t-lg bg-screen pb-sm sm:rounded-lg"
               : "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted"
           }
         >
