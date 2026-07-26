@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useI18n } from "@/i18n";
+import { useI18n, type MessageKey } from "@/i18n";
 import { LoginTitle } from "./LoginTitle";
 import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
@@ -15,12 +15,26 @@ import { SignupForm } from "./SignupForm";
  * a mode switch, not navigation — there is no other URL) styled with `.interactive`
  * and a quiet type-label / text-muted look, no bespoke pressable styling.
  */
-export function AuthPanel() {
+export function AuthPanel({ notice }: { notice?: MessageKey | null }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "signup">("login");
 
   return (
     <div className="flex flex-col gap-lg">
+      {/* A quiet, non-intrusive status line above the form (e.g. an expired
+          recovery link forwarded from /confirm). `role="status"` announces it
+          without the assertive urgency of the form's `role="alert"` errors, and
+          it uses the muted card surface, not danger — it is information, not a
+          failure the user caused. */}
+      {notice ? (
+        <p
+          role="status"
+          className="rounded-md bg-card px-sm py-xs text-center type-caption text-muted"
+        >
+          {t(notice)}
+        </p>
+      ) : null}
+
       {mode === "login" ? (
         <LoginTitle />
       ) : (

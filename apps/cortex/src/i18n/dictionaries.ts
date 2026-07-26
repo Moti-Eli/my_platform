@@ -43,6 +43,23 @@ const he = {
     notPermitted: "החשבון מזוהה אך אינו מורשה להיכנס",
     notConfigured: "המערכת אינה מחוברת לשרת",
     failed: "הכניסה נכשלה, נסה שוב",
+    // Surfaced above the form (small, non-intrusive) when /confirm bounces back
+    // with ?error=expired — the recovery/OTP link was expired or already used.
+    linkExpired: "הקישור פג תוקף או כבר נוצל. בקש קישור חדש ונסה שוב.",
+  },
+  // Set-password screen (the recovery link's destination, via /confirm). Same
+  // never-render-raw rule as login: every error is one of these keys.
+  setPassword: {
+    title: "בחירת סיסמה",
+    subtitle: "בחר סיסמה חדשה כדי להמשיך",
+    password: "סיסמה חדשה",
+    confirm: "אימות סיסמה",
+    submit: "שמירת סיסמה",
+    saving: "שומר…",
+    tooShort: "הסיסמה חייבת להכיל לפחות 6 תווים",
+    mismatch: "הסיסמאות אינן תואמות",
+    notConfigured: "המערכת אינה מחוברת לשרת",
+    failed: "שמירת הסיסמה נכשלה, נסה שוב",
   },
   // Self-service signup. Error keys ONLY for now (UI labels come later). Each maps
   // 1:1 from a `signUpWithNewOrganization` error key in @platform/auth, plus
@@ -275,6 +292,19 @@ const en: Messages = {
     notPermitted: "This account is recognised but is not allowed to sign in",
     notConfigured: "The app is not connected to a server",
     failed: "Sign-in failed, please try again",
+    linkExpired: "That link has expired or was already used. Request a new one and try again.",
+  },
+  setPassword: {
+    title: "Choose a password",
+    subtitle: "Set a new password to continue",
+    password: "New password",
+    confirm: "Confirm password",
+    submit: "Save password",
+    saving: "Saving…",
+    tooShort: "The password must be at least 6 characters",
+    mismatch: "The passwords don't match",
+    notConfigured: "The app is not connected to a server",
+    failed: "Saving the password failed, please try again",
   },
   signup: {
     title: "Sign up for Cortex",

@@ -17,6 +17,17 @@
  */
 import { AuthPanel } from "./AuthPanel";
 
-export default function LoginPage() {
-  return <AuthPanel />;
+/**
+ * `?error=expired` arrives here from /confirm when a recovery/OTP link was
+ * expired or already used. We translate it into a single `login.*` key and hand
+ * it to the panel to render as a quiet notice above the form — nothing else in
+ * the query string is trusted or displayed.
+ */
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  return <AuthPanel notice={error === "expired" ? "login.linkExpired" : null} />;
 }
