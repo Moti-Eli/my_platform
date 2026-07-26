@@ -29,6 +29,8 @@ function toCreateOrgErrorKey(key: string): MessageKey {
       return "profile.createOrgInvalidName";
     case "notAllowed":
       return "profile.createOrgNotAllowed";
+    case "nameExists":
+      return "profile.createOrgNameExists";
     default:
       return "profile.createOrgFailed";
   }

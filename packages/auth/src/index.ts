@@ -1238,6 +1238,29 @@ export async function createOrganizationForCurrentUser(
   const actingUser = await getCurrentUser(actingClient);
   if (!actingUser) return fail("notAllowed");
 
+  // --- Per-user duplicate-name guard (acting client, RLS-scoped) -------------
+  // Reuse getUserOrganizations — the SAME memberships→organizations read used
+  // elsewhere — through the ACTING client, so RLS returns only orgs this user
+  // is an ACTIVE member of: soft-deleted orgs (deleted_at IS NOT NULL) are
+  // already excluded by the organizations SELECT policy, so every name here is
+  // active. Compare both sides trimmed + case-insensitive.
+  //
+  // SCOPE — intentionally PER-USER, not global: two unrelated tenants may share
+  // a name BY DESIGN, so we do NOT check every org in the system. This only
+  // stops one person from creating two same-named orgs that would be
+  // indistinguishable in their OWN switcher.
+  //
+  // NOT a DB UNIQUE constraint: per-user uniqueness can't be expressed as one
+  // (there is no owner column on organizations to key it against), and this is
+  // a USABILITY guard, not a security boundary — so it lives here in the seam.
+  const existingOrgs = await getUserOrganizations(actingClient, actingUser.id);
+  const clash = existingOrgs.some(
+    (o) => o.organizationName.trim().toLowerCase() === organizationName.toLowerCase()
+  );
+  // No organization row has been inserted yet, so there is NOTHING to roll back
+  // here — we simply return before provisioning begins.
+  if (clash) return fail("nameExists");
+
   // --- Privileged provisioning (service role) --------------------------------
   // Track what we created so we can roll back on any later failure.
   let createdOrgId: string | null = null;
