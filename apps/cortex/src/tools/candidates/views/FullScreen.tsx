@@ -16,10 +16,10 @@
  * objects, no dividers): monogram · name · role · status marks · phone · city ·
  * first summary line, plus the two-tap delete. Tapping a
  * row opens the CANDIDATE CARD (see CandidateCard.tsx) in the same overlay
- * shell the add form uses. STAGE ACTIONS (advance/archive) live ONLY in that
- * overlay's HEADER now — the segmented stage control and the icon-only
- * archive/restore control both reuse the EXISTING set_stage flow (`moveStage`
- * + its per-id guard); no duplicated write logic.
+ * shell the add form uses. The manual stage pills were REMOVED from the overlay
+ * header — stage is now DERIVED from field completeness inside the card. ARCHIVE
+ * / RESTORE stays in that header and still reuses the EXISTING set_stage flow
+ * (`moveStage` + its per-id guard); no duplicated write logic.
  *
  * TONE: quiet. The accent is used sparingly — subtle `bg-app-blue/10` +
  * `text-app-blue` tints for the active tab, primary submits and the certificate
@@ -37,7 +37,7 @@
  *
  * Built from design-system utilities + i18n only.
  */
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
@@ -501,125 +501,22 @@ export function FullScreen(_props: ToolViewProps) {
       {/* THE CANDIDATE CARD — one overlay, three uses: view, edit, and CREATE
           (the plus flow: BLANK_CANDIDATE + startInEdit; a save routes to
           create_candidate and the card flips to view on the new row without
-          closing). The header replaces the title row: close X · the segmented
-          stage control · the icon-only archive/restore control. No visible
-          title — the card's identity row already shows the name; `title` stays
-          as the dialog's aria-label. Stage actions reuse the existing
-          moveStage handler (and its per-id guard); the card closes
+          closing). The overlay is BARE (plain sheet, no card surface) so the
+          only bubbles on screen are the card's three stage sections. There is
+          NO separate header row: the overlay-owned controls (archive/restore +
+          the close X) are handed to the card via `headerActions` and live on
+          the card's single header line; the archive-reason form goes down via
+          `archivePanel`. No visible title — the header row shows the name;
+          `title` stays as the dialog's aria-label. Stage actions reuse the
+          existing moveStage handler (and its per-id guard); the card closes
           optimistically with the write — on failure the row reverts and the
           screen-level alert reports it. */}
       {cardCandidate ? (
         <CandidateFormOverlay
           title={creating ? t("candidates.addCandidate") : t("candidates.cardTitle")}
           onClose={closeCard}
-          header={
-            <div className="flex items-center gap-xs">
-              {/* Bare glyph — no disc; the rounded-full only shapes the faint
-                  hover/press tint. */}
-              <button
-                type="button"
-                aria-label={t("candidates.cancel")}
-                onClick={closeCard}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
-              >
-                <CloseIcon width={18} height={18} />
-              </button>
-
-              {/* STAGE CONTROL — a PIPELINE, not a track: three independent
-                  pills joined by short hairline connectors, so the stages read
-                  as one sequence (no bubble-inside-a-bubble). Tapping ANY pill
-                  moves the candidate there through the ONE existing
-                  moveStage/set_stage flow (its per-id guard included); tapping
-                  the current stage is a no-op. On an archived candidate no
-                  pill is active. DISABLED (the whole group muted uniformly,
-                  layout unchanged) while the card is in edit mode — a stage
-                  move closes the overlay and would silently discard the draft
-                  — and for an UNSAVED candidate (nothing to move yet). */}
-              <div
-                className={`flex h-8 min-w-0 flex-1 items-center justify-center gap-xs ${
-                  headerLocked ? "opacity-50" : ""
-                }`}
-              >
-                {VISIBLE_STAGES.map((stage, i) => {
-                  const active = cardCandidate.stage === stage;
-                  return (
-                    <Fragment key={stage}>
-                      {/* Decorative connector between pills — the "pipe". */}
-                      {i > 0 ? (
-                        <span aria-hidden="true" className="h-px max-w-6 flex-1 bg-hairline" />
-                      ) : null}
-                      <button
-                        type="button"
-                        aria-pressed={active}
-                        disabled={headerLocked}
-                        onClick={() => {
-                          if (!active) {
-                            void moveStage(cardCandidate.id, stage);
-                            closeCard();
-                          }
-                        }}
-                        className={`flex h-7 min-w-0 shrink items-center justify-center rounded-pill border px-sm interactive motion-safe:active:scale-[0.97] ${
-                          active
-                            ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
-                            : "border-hairline text-muted"
-                        }`}
-                      >
-                        <span
-                          className={`min-w-0 truncate type-caption ${active ? "font-semibold" : ""}`}
-                        >
-                          {t(STAGE_LABEL_KEY[stage])}
-                        </span>
-                      </button>
-                    </Fragment>
-                  );
-                })}
-              </div>
-
-              {/* ARCHIVE / RESTORE — icon-only; title + aria-label carry the
-                  name for hover and screen readers. Archive toggles the reason
-                  form below the header; restore is the same set_stage flow the
-                  footer used (→ contact). Disabled while editing and for an
-                  unsaved candidate, same reason as the stage control. */}
-              {cardCandidate.stage === "archived" ? (
-                <button
-                  type="button"
-                  title={t("candidates.restore")}
-                  aria-label={t("candidates.restore")}
-                  disabled={headerLocked}
-                  onClick={() => {
-                    void moveStage(cardCandidate.id, "contact");
-                    closeCard();
-                  }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
-                >
-                  <BoxIcon width={16} height={16} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  title={t("candidates.archive")}
-                  aria-label={t("candidates.archive")}
-                  aria-expanded={cardArchiveOpen}
-                  disabled={headerLocked}
-                  onClick={() => setCardArchiveOpen((v) => !v)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
-                >
-                  <BoxIcon width={16} height={16} />
-                </button>
-              )}
-            </div>
-          }
+          bare
         >
-          {cardArchiveOpen ? (
-            <ArchiveForm
-              onArchive={(reason) => {
-                const write = moveStage(cardCandidate.id, "archived", reason);
-                closeCard();
-                return write;
-              }}
-              onCancel={() => setCardArchiveOpen(false)}
-            />
-          ) : null}
           <CandidateCard
             candidate={cardCandidate}
             startInEdit={creating}
@@ -627,6 +524,64 @@ export function FullScreen(_props: ToolViewProps) {
               creating ? createCandidate(patch) : saveCandidate(cardCandidate.id, patch)
             }
             onEditingChange={handleCardEditingChange}
+            archivePanel={
+              cardArchiveOpen ? (
+                <ArchiveForm
+                  onArchive={(reason) => {
+                    const write = moveStage(cardCandidate.id, "archived", reason);
+                    closeCard();
+                    return write;
+                  }}
+                  onCancel={() => setCardArchiveOpen(false)}
+                />
+              ) : null
+            }
+            headerActions={
+              <>
+                {/* ARCHIVE / RESTORE — icon-only, bare glyph (rounded-full only
+                    shapes the hover/press tint, no disc). Archive toggles the
+                    reason form; restore is the same set_stage flow the footer
+                    used (→ contact). Disabled while editing and for an unsaved
+                    candidate. Exact handlers/aria preserved from the old header. */}
+                {cardCandidate.stage === "archived" ? (
+                  <button
+                    type="button"
+                    title={t("candidates.restore")}
+                    aria-label={t("candidates.restore")}
+                    disabled={headerLocked}
+                    onClick={() => {
+                      void moveStage(cardCandidate.id, "contact");
+                      closeCard();
+                    }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
+                  >
+                    <BoxIcon width={16} height={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    title={t("candidates.archive")}
+                    aria-label={t("candidates.archive")}
+                    aria-expanded={cardArchiveOpen}
+                    disabled={headerLocked}
+                    onClick={() => setCardArchiveOpen((v) => !v)}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
+                  >
+                    <BoxIcon width={16} height={16} />
+                  </button>
+                )}
+
+                {/* CLOSE X — the far END of the header row; bare glyph, no disc. */}
+                <button
+                  type="button"
+                  aria-label={t("candidates.cancel")}
+                  onClick={closeCard}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline motion-safe:active:scale-[0.97]"
+                >
+                  <CloseIcon width={18} height={18} />
+                </button>
+              </>
+            }
           />
         </CandidateFormOverlay>
       ) : null}
@@ -916,19 +871,24 @@ export function FullScreen(_props: ToolViewProps) {
  * `bg-scrim` backdrop, `ds-backdrop`/`ds-panel`, `shadow-lifted` sheet. GENERIC
  * over its children ON PURPOSE (Standard: one overlay, many modes) — it hosts
  * the candidate card in ALL its uses (view, edit, blank-card create). `header`
- * is the caller's top row (close X · stage control · archive) — REQUIRED since
- * the old default title row's only consumer, the add form, is gone. `title`
- * names the dialog for assistive tech; nothing renders it visibly.
+ * is an OPTIONAL top row above the children (the candidate card renders its own
+ * single header row instead, so it passes none). `bare` drops the sheet's
+ * card-like surface (rounding + inner padding + shadow) down to the PLAIN sheet
+ * background, so the ONLY bubbles are the card's three stage sections — killing
+ * the bubble-in-bubble; other (non-bare) callers keep the current surface.
+ * `title` names the dialog for assistive tech; nothing renders it visibly.
  */
 function CandidateFormOverlay({
   title,
   onClose,
   header,
+  bare = false,
   children,
 }: {
   title: string;
   onClose: () => void;
-  header: React.ReactNode;
+  header?: React.ReactNode;
+  bare?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -958,7 +918,18 @@ function CandidateFormOverlay({
       />
 
       <div className="ds-panel relative z-10 w-full max-w-[480px] px-sm pb-sm">
-        <div className="flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted">
+        {/* BARE: the plain sheet background only (bg-screen) — no rounding, no
+            inner padding, no shadow, so nothing frames the card and the three
+            stage sections are the sole bubbles. NON-BARE keeps the card-like
+            surface for any other caller. Structure (scroll + max height + gap)
+            is shared. */}
+        <div
+          className={
+            bare
+              ? "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto bg-screen py-sm"
+              : "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted"
+          }
+        >
           {header}
           {children}
         </div>

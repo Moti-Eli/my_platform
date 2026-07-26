@@ -43,6 +43,7 @@ import {
   CloseIcon,
   ComposeIcon,
   InfoIcon,
+  LockIcon,
   MailIcon,
   PaperclipIcon,
   PhoneIcon,
@@ -91,28 +92,59 @@ const invalidRing = "ring-1 ring-danger";
 const primaryButtonClass =
   "rounded-md bg-app-blue/10 py-sm type-label text-app-blue interactive motion-safe:active:scale-[0.97]";
 
+/** The details section's REQUIRED contact fields — all four must be non-empty
+ * before the acceptance (קבלה) stage unlocks. They carry visible validation in
+ * edit mode (the same recipe the name field used to have alone). */
+const REQUIRED_FIELDS = ["name", "role", "phone", "email"] as const;
+type RequiredField = (typeof REQUIRED_FIELDS)[number];
+
 /** ONE text-field recipe for the card's edit mode — the single candidate form
- * now that the separate add form is gone. */
+ * now that the separate add form is gone. Optionally REQUIRED: a `*` on the
+ * label, a danger ring while `invalid`, and the shared "required" message —
+ * exactly the treatment the name field carried before the four contact fields
+ * joined it. */
 function TextField({
   label,
   value,
   placeholder,
   onChange,
+  required = false,
+  invalid = false,
 }: {
   label: string;
   value: string;
   placeholder: string;
   onChange: (value: string) => void;
+  required?: boolean;
+  invalid?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <label className="flex flex-col gap-2xs type-label text-muted">
-      {label}
+      <span>
+        {label}
+        {required ? (
+          <>
+            {" "}
+            <span aria-hidden="true" className="text-danger">
+              *
+            </span>
+          </>
+        ) : null}
+      </span>
       <input
-        className={inputClass}
+        className={invalid ? `${inputClass} ${invalidRing}` : inputClass}
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        aria-required={required || undefined}
+        aria-invalid={invalid || undefined}
       />
+      {required && invalid ? (
+        <span role="alert" className="type-caption text-danger">
+          {t("candidates.fieldRequired")}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -206,27 +238,44 @@ function StatusChip({ label, on }: { label: string; on: boolean }) {
 
 /** One stage section — all three render through this ONE recipe so they can
  * never drift into unequal blocks: same surface, same padding, same radius.
- * `current` marks the candidate's CURRENT stage with a quiet app-blue/30
- * border; the border is transparent otherwise (not absent), so the geometry
- * never shifts. Archived candidates mark no section. */
+ * `current` marks the candidate's CURRENT (derived) stage with a quiet
+ * app-blue/30 border; the border is transparent otherwise (not absent), so the
+ * geometry never shifts. `locked` mutes a stage that its predecessor hasn't
+ * unlocked yet (a locked section is never the current stage, so the two states
+ * never collide). Archived candidates mark no section. */
 function StageSection({
   title,
   current,
+  locked = false,
   children,
 }: {
   title: string;
   current: boolean;
+  locked?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section
       className={`flex flex-col gap-sm rounded-lg border bg-card p-lg ${
         current ? "border-app-blue/30" : "border-transparent"
-      }`}
+      } ${locked ? "opacity-60" : ""}`}
     >
       <h3 className="type-label font-semibold text-ink">{title}</h3>
       {children}
     </section>
+  );
+}
+
+/** The muted hint shown INSIDE a locked stage section — a small padlock glyph
+ * plus one line telling the user to finish the previous stage. It replaces the
+ * section's field entirely while locked (nothing editable leaks through). */
+function LockedHint() {
+  const { t } = useI18n();
+  return (
+    <p className="flex items-center gap-2xs type-caption text-muted">
+      <LockIcon width={14} height={14} aria-hidden className="shrink-0" />
+      {t("candidates.stageLocked")}
+    </p>
   );
 }
 
@@ -286,11 +335,20 @@ export function CandidateCard({
   startInEdit = false,
   onSave,
   onEditingChange,
+  headerActions,
+  archivePanel,
 }: {
   candidate: Candidate;
   startInEdit?: boolean;
   onSave: (patch: CandidatePatch) => Promise<WriteErrorCode | null>;
   onEditingChange: (editing: boolean) => void;
+  /** Overlay-owned controls (archive/restore + the close X) slotted into the
+   * END of the ONE header row — they live in FullScreen because their handlers
+   * need the overlay's state, but they belong on the card's single header line. */
+  headerActions?: React.ReactNode;
+  /** The archive-reason form (FullScreen-owned), rendered directly under the
+   * header row when open — null/absent otherwise. */
+  archivePanel?: React.ReactNode;
 }) {
   const { t } = useI18n();
   // EDIT MODE: a non-null draft IS edit mode. Seeded from the candidate when
@@ -301,8 +359,10 @@ export function CandidateCard({
     startInEdit ? draftOf(candidate) : null,
   );
   const editing = draft !== null;
-  // Blank-name-on-save marking (the same visible validation the add form has).
-  const [invalidName, setInvalidName] = useState(false);
+  // Which REQUIRED contact fields failed the last save attempt (name/role/
+  // phone/email). Marked on save, cleared per-field as the user types — the
+  // same visible validation the name field alone used to carry.
+  const [invalidFields, setInvalidFields] = useState<ReadonlySet<RequiredField>>(new Set());
   // A FAILED save's code, surfaced INSIDE the card — the screen-level alert
   // sits behind the overlay, so it cannot carry this one.
   const [saveError, setSaveError] = useState<WriteErrorCode | null>(null);
@@ -330,28 +390,46 @@ export function CandidateCard({
 
   function enterEdit() {
     setSaveError(null);
-    setInvalidName(false);
+    setInvalidFields(new Set());
     setDraft(draftOf(candidate));
   }
 
   const patchDraft = (patch: Partial<CardDraft>) =>
     setDraft((cur) => (cur === null ? cur : { ...cur, ...patch }));
 
+  // Clear one required field's invalid mark as the user types into it (no-op if
+  // it wasn't marked), so the danger ring disappears the moment it's satisfied.
+  const clearInvalid = (field: RequiredField) =>
+    setInvalidFields((prev) => {
+      if (!prev.has(field)) return prev;
+      const next = new Set(prev);
+      next.delete(field);
+      return next;
+    });
+
   async function handleSave() {
     if (draft === null || submitting) return;
 
-    const nextName = draft.name.trim();
-    setInvalidName(nextName === "");
-    if (nextName === "") return;
+    // All four contact fields are REQUIRED — mark every empty one and abort if
+    // any is missing (the acceptance stage's unlock depends on them too).
+    const trimmed: Record<RequiredField, string> = {
+      name: draft.name.trim(),
+      role: draft.role.trim(),
+      phone: draft.phone.trim(),
+      email: draft.email.trim(),
+    };
+    const missing = new Set<RequiredField>(REQUIRED_FIELDS.filter((f) => trimmed[f] === ""));
+    setInvalidFields(missing);
+    if (missing.size > 0) return;
 
     setSubmitting(true);
     try {
       const code = await onSave({
-        name: nextName,
-        role: draft.role.trim(),
-        phone: draft.phone.trim(),
+        name: trimmed.name,
+        role: trimmed.role,
+        phone: trimmed.phone,
         city: draft.city.trim(),
-        email: draft.email.trim(),
+        email: trimmed.email,
         availability: draft.availability.trim(),
         salaryExpectation: draft.salaryExpectation.trim(),
         summary: draft.summary.trim(),
@@ -375,12 +453,42 @@ export function CandidateCard({
     }
   }
 
+  // Effective values for the completeness gates: the LIVE draft while editing,
+  // the saved candidate otherwise — so the stage tiers unlock (and the accent
+  // moves) as you type, and reflect what's stored when viewing.
+  const effective = draft ?? candidate;
+  // "פרטי קשר" is complete once all four required contact fields are non-empty.
+  const contactComplete =
+    effective.name.trim() !== "" &&
+    effective.role.trim() !== "" &&
+    effective.phone.trim() !== "" &&
+    effective.email.trim() !== "";
+  // INTERIM: קבלה's one field is (temporarily) the `impression` column — see the
+  // section below. קליטה unlocks once that field is filled.
+  const acceptanceComplete = contactComplete && effective.impression.trim() !== "";
+  // A LOCKED section shows only the lock hint and edits nothing.
+  const acceptanceLocked = !contactComplete;
+  const intakeLocked = !acceptanceComplete;
+  // DISPLAY-ONLY derived stage (NO persistence in this step — stage is never
+  // written and moveStage is untouched): the section that carries the app-blue
+  // current-stage accent. all four contact + קבלה filled → intake; all four
+  // contact filled → interview; otherwise → contact.
+  const derivedStage: VisibleStage = acceptanceComplete
+    ? "intake"
+    : contactComplete
+      ? "interview"
+      : "contact";
+
   return (
     <div className="flex flex-col gap-sm">
-      {/* 1 · IDENTITY — a BARE row directly on the sheet: no surface, no box.
-          Monogram · name · edit + share, one thin line. Role and the status
-          booleans are NOT repeated here — they are fields in the details
-          section; stating them twice is what made the old header heavy. */}
+      {/* 1 · HEADER — the ONE thin header row (the overlay no longer paints a
+          second row above it). RTL: monogram + name at the START (right), then
+          the action icons — share · edit/save · archive/restore — then the
+          close X at the far END (left). `headerActions` carries the
+          overlay-owned controls (archive/restore + close X, which need
+          FullScreen's state); share and the edit/save toggle are the card's
+          own. No surface, no box. Role and the status booleans are NOT repeated
+          here — they are fields in the details section. */}
       <div className="flex items-center gap-sm">
         {/* Monogram — a future profile photo replaces the initials with an
             <img> inside this same overflow-hidden wrapper. */}
@@ -391,6 +499,19 @@ export function CandidateCard({
           {initialsOf(candidate.name)}
         </span>
         <span className="min-w-0 flex-1 truncate type-title text-ink">{candidate.name}</span>
+
+        {/* SHARE — honest disabled placeholder until sharing exists; a bare
+            muted glyph (no disc), title + aria-label carry the name for hover
+            and screen readers. */}
+        <button
+          type="button"
+          disabled
+          title={t("candidates.share")}
+          aria-label={t("candidates.share")}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted opacity-50"
+        >
+          <ShareIcon width={16} height={16} />
+        </button>
 
         {/* THE EDIT/SAVE TOGGLE — one control, two states. A BARE glyph in
             view mode (no disc; rounded-full only shapes the faint hover/press
@@ -420,25 +541,23 @@ export function CandidateCard({
           )}
         </button>
 
-        {/* SHARE — honest disabled placeholder until sharing exists; a bare
-            muted glyph (no disc), title + aria-label carry the name for hover
-            and screen readers. */}
-        <button
-          type="button"
-          disabled
-          title={t("candidates.share")}
-          aria-label={t("candidates.share")}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted opacity-50"
-        >
-          <ShareIcon width={16} height={16} />
-        </button>
+        {/* OVERLAY-OWNED CONTROLS — archive/restore then the close X (X last, so
+            it sits at the far end). Rendered by FullScreen (their handlers need
+            the overlay's state) and slotted in here so the whole header is ONE
+            row. */}
+        {headerActions}
       </div>
 
-      {/* 3 · DETAILS SECTION — the first of the three equal stage sections;
-          holds every existing field (and, in edit mode, the document
-          placeholders). The candidate's CURRENT stage is marked by the section
-          border (see StageSection); archived marks none. */}
-      <StageSection title={t("candidates.sectionDetails")} current={candidate.stage === "contact"}>
+      {/* The archive-reason form, when open — slotted directly under the header
+          row (FullScreen-owned; see archivePanel). */}
+      {archivePanel}
+
+      {/* 3 · DETAILS SECTION (פרטי קשר) — the first of the three equal stage
+          sections; holds every existing field (and, in edit mode, the document
+          placeholders). Its four contact fields (name/role/phone/email) are
+          REQUIRED and gate the acceptance stage below. The derived current
+          stage is marked by the section border (see StageSection). */}
+      <StageSection title={t("candidates.sectionDetails")} current={derivedStage === "contact"}>
         {/* A failed save, surfaced inside the card (see saveError above). */}
         {editing && saveError ? (
           <p
@@ -463,47 +582,52 @@ export function CandidateCard({
             }}
             className="flex flex-col gap-sm"
           >
-            <label className="flex flex-col gap-2xs type-label text-muted">
-              <span>
-                {t("candidates.candidateName")}{" "}
-                <span aria-hidden="true" className="text-danger">
-                  *
-                </span>
-              </span>
-              <input
-                className={invalidName ? `${inputClass} ${invalidRing}` : inputClass}
-                value={draft.name}
-                placeholder={t("candidates.namePlaceholder")}
-                onChange={(e) => {
-                  patchDraft({ name: e.target.value });
-                  if (invalidName) setInvalidName(false);
-                }}
-                aria-required="true"
-                aria-invalid={invalidName}
-              />
-              {invalidName ? (
-                <span role="alert" className="type-caption text-danger">
-                  {t("candidates.fieldRequired")}
-                </span>
-              ) : null}
-            </label>
+            {/* The four REQUIRED contact fields — name/role/phone/email — each
+                carrying the shared required-field validation. Non-empty on all
+                four is exactly what unlocks the acceptance stage below. */}
+            <TextField
+              label={t("candidates.candidateName")}
+              value={draft.name}
+              placeholder={t("candidates.namePlaceholder")}
+              onChange={(v) => {
+                patchDraft({ name: v });
+                clearInvalid("name");
+              }}
+              required
+              invalid={invalidFields.has("name")}
+            />
             <TextField
               label={t("candidates.roleLabel")}
               value={draft.role}
               placeholder={t("candidates.rolePlaceholder")}
-              onChange={(v) => patchDraft({ role: v })}
+              onChange={(v) => {
+                patchDraft({ role: v });
+                clearInvalid("role");
+              }}
+              required
+              invalid={invalidFields.has("role")}
             />
             <TextField
               label={t("candidates.phoneLabel")}
               value={draft.phone}
               placeholder={t("candidates.phonePlaceholder")}
-              onChange={(v) => patchDraft({ phone: v })}
+              onChange={(v) => {
+                patchDraft({ phone: v });
+                clearInvalid("phone");
+              }}
+              required
+              invalid={invalidFields.has("phone")}
             />
             <TextField
               label={t("candidates.emailLabel")}
               value={draft.email}
               placeholder={t("candidates.emailPlaceholder")}
-              onChange={(v) => patchDraft({ email: v })}
+              onChange={(v) => {
+                patchDraft({ email: v });
+                clearInvalid("email");
+              }}
+              required
+              invalid={invalidFields.has("email")}
             />
             <TextField
               label={t("candidates.cityLabel")}
@@ -529,16 +653,8 @@ export function CandidateCard({
               placeholder={t("candidates.summaryPlaceholder")}
               onChange={(v) => patchDraft({ summary: v })}
             />
-            <label className="flex flex-col gap-2xs type-label text-muted">
-              {t("candidates.impressionLabel")}
-              <textarea
-                className={`${inputClass} min-h-24 resize-y`}
-                value={draft.impression}
-                placeholder={t("candidates.impressionPlaceholder")}
-                rows={3}
-                onChange={(e) => patchDraft({ impression: e.target.value })}
-              />
-            </label>
+            {/* NOTE: the impression field is NOT here anymore — it is the
+                acceptance (קבלה) stage's one field now (see that section). */}
             <TextField
               label={t("candidates.tagsLabel")}
               value={draft.tagsRaw}
@@ -589,8 +705,8 @@ export function CandidateCard({
             </div>
           </form>
         ) : (
-          /* VIEW MODE — value-dominant fields, then the impression as prose
-             behind the section's ONE hairline rule (its one genuine break). */
+          /* VIEW MODE — value-dominant fields. The impression is NOT shown here
+             anymore: it is the acceptance stage's field now (see that section). */
           <>
             {/* FIELDS — two columns when the sheet is wide enough. Role leads:
                 it moved here from the old identity header (stated once). */}
@@ -640,38 +756,78 @@ export function CandidateCard({
                   </span>
                 )}
               </div>
-            </div>
-
-            {/* IMPRESSION — prose, not a form field; summary keeps its own
-                label beneath it. */}
-            <div className="flex flex-col gap-sm border-t border-hairline pt-sm">
-              <span className="type-caption text-muted">{t("candidates.sectionImpression")}</span>
-              {candidate.impression !== "" ? (
-                <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
-                  {candidate.impression}
-                </p>
-              ) : (
-                <span aria-hidden="true" className="type-body text-muted">
-                  —
-                </span>
-              )}
-              <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
+              {/* Summary — full-width, the last details field (impression left
+                  this section for the acceptance stage). */}
+              <div className="sm:col-span-2">
+                <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
+              </div>
             </div>
           </>
         )}
       </StageSection>
 
-      {/* 4/5 · ACCEPTANCE + INTAKE SECTIONS — honest stubs: the same equal
-          block as details, a short muted line each, and NO invented fields or
-          controls until these stages grow real content. */}
+      {/* 4 · ACCEPTANCE SECTION (קבלה) — LOCKED until all four contact fields
+          are non-empty; then it shows its ONE field.
+          INTERIM — SHARED COLUMN: there is no `acceptance` column yet, so this
+          field temporarily reads/writes the existing `impression` column. It is
+          the ONLY control bound to `impression` (the details section no longer
+          edits it), so there is no double-binding. The follow-up DB prompt
+          splits `impression` into real `acceptance`/`intake` columns. */}
       <StageSection
         title={t("candidates.stageInterview")}
-        current={candidate.stage === "interview"}
+        current={derivedStage === "interview"}
+        locked={acceptanceLocked}
       >
-        <p className="type-caption text-muted">{t("candidates.stageSectionEmpty")}</p>
+        {acceptanceLocked ? (
+          <LockedHint />
+        ) : editing && draft !== null ? (
+          <label className="flex flex-col gap-2xs type-label text-muted">
+            {t("candidates.impressionLabel")}
+            <textarea
+              className={`${inputClass} min-h-24 resize-y`}
+              value={draft.impression}
+              placeholder={t("candidates.impressionPlaceholder")}
+              rows={3}
+              onChange={(e) => patchDraft({ impression: e.target.value })}
+            />
+          </label>
+        ) : candidate.impression !== "" ? (
+          <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+            {candidate.impression}
+          </p>
+        ) : (
+          <span aria-hidden="true" className="type-body text-muted">
+            —
+          </span>
+        )}
       </StageSection>
-      <StageSection title={t("candidates.stageIntake")} current={candidate.stage === "intake"}>
-        <p className="type-caption text-muted">{t("candidates.stageSectionEmpty")}</p>
+
+      {/* 5 · INTAKE SECTION (קליטה) — LOCKED until the acceptance field above is
+          non-empty; then it shows its ONE field.
+          INTERIM — this field would ALSO share the `impression` column, so to
+          avoid two inputs fighting over one column it is rendered as a DISABLED
+          placeholder (visible, NOT wired). The three-tier lock is demonstrable
+          without a second live binding; the follow-up wires it to its own
+          column. */}
+      <StageSection
+        title={t("candidates.stageIntake")}
+        current={derivedStage === "intake"}
+        locked={intakeLocked}
+      >
+        {intakeLocked ? (
+          <LockedHint />
+        ) : (
+          <label className="flex flex-col gap-2xs type-label text-muted">
+            {t("candidates.intakeFieldLabel")}
+            <input
+              className={`${inputClass} opacity-50`}
+              value=""
+              placeholder={t("candidates.intakeFieldPlaceholder")}
+              disabled
+              readOnly
+            />
+          </label>
+        )}
       </StageSection>
     </div>
   );

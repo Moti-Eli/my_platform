@@ -378,3 +378,14 @@ export function ShareIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** A closed padlock — the locked/gated affordance (e.g. a stage section not yet
+ * unlocked by the previous stage's completeness). */
+export function LockIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
