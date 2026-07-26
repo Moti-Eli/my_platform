@@ -37,7 +37,7 @@
  *
  * Built from design-system utilities + i18n only.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
@@ -422,12 +422,14 @@ export function FullScreen(_props: ToolViewProps) {
 
   return (
     <>
-      {/* TOP BAR — one row: a light back chevron (start = right in RTL), ONE
-          segmented stage control spanning the middle (hairline track, the
-          active segment raised by sitting lighter on it — no borders, no
-          shadow), and a light add icon (end). Deliberately no taller than the
-          app tabs row above it. On narrow screens the segments SHRINK and
-          truncate their labels — the control never scrolls or breaks. */}
+      {/* TOP BAR — one row: a light back chevron (start = right in RTL), the
+          stage FILTER tabs as a PIPELINE spanning the middle (independent
+          bordered pills joined by short hairline connectors — the SAME visual
+          language as the card's stage pills, NO enclosing track), and a light
+          add icon (end). Deliberately no taller than the app tabs row above it.
+          On narrow screens the pills SHRINK and truncate their labels — the row
+          never scrolls or breaks. These are FILTER tabs (role="tab", they
+          switch which stage's list shows), NOT the card's value-setting pills. */}
       <div className="flex items-center gap-xs">
         <button
           type="button"
@@ -442,36 +444,44 @@ export function FullScreen(_props: ToolViewProps) {
         <div
           role="tablist"
           aria-label={t("candidates.name")}
-          className="flex h-9 min-w-0 flex-1 items-center gap-2xs rounded-lg bg-hairline p-2xs"
+          className="flex h-9 min-w-0 flex-1 items-center gap-xs"
         >
-          {VISIBLE_STAGES.map((stage) => {
+          {VISIBLE_STAGES.map((stage, i) => {
             const active = activeStage === stage;
             // The per-stage count, from the already-loaded shared list. Always
             // shown, 0 included — the bar is the pipeline summary.
             const count = candidates.filter((it) => it.stage === stage).length;
             return (
-              <button
-                key={stage}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveStage(stage)}
-                className={`flex h-full min-w-0 flex-1 items-center justify-center gap-2xs rounded-md px-2xs interactive motion-safe:active:scale-[0.97] ${
-                  active ? "bg-card text-app-blue" : "text-muted"
-                }`}
-              >
-                <span className={`min-w-0 truncate type-label ${active ? "font-semibold" : ""}`}>
-                  {t(STAGE_LABEL_KEY[stage])}
-                </span>
-                {/* The count stays SECONDARY to the label in both states. */}
-                <span
-                  className={`shrink-0 type-caption ${
-                    active ? "text-app-blue opacity-60" : "text-muted"
+              <Fragment key={stage}>
+                {/* Decorative connector between pills — the "pipe" that makes the
+                    three independent pills read as one pipeline. */}
+                {i > 0 ? (
+                  <span aria-hidden="true" className="h-px max-w-6 flex-1 bg-hairline" />
+                ) : null}
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveStage(stage)}
+                  className={`flex h-7 min-w-0 shrink items-center justify-center gap-2xs rounded-pill border px-sm interactive motion-safe:active:scale-[0.97] ${
+                    active
+                      ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
+                      : "border-hairline text-muted"
                   }`}
                 >
-                  {count}
-                </span>
-              </button>
+                  <span className={`min-w-0 truncate type-label ${active ? "font-semibold" : ""}`}>
+                    {t(STAGE_LABEL_KEY[stage])}
+                  </span>
+                  {/* The count stays SECONDARY to the label in both states. */}
+                  <span
+                    className={`shrink-0 type-caption ${
+                      active ? "text-app-blue opacity-60" : "text-muted"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              </Fragment>
             );
           })}
         </div>
