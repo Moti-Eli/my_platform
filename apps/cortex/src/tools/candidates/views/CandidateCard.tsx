@@ -499,7 +499,7 @@ export function CandidateCard({
           FullScreen's state); share and the edit/save toggle are the card's
           own. No surface, no box. Role and the status booleans are NOT repeated
           here — they are fields in the details section. */}
-      <div className="sticky top-0 z-10 flex items-center gap-sm bg-screen pt-sm pb-2xs">
+      <div className="sticky top-0 z-10 flex items-center gap-sm bg-screen px-sm pt-sm pb-2xs">
         {/* Monogram — a future profile photo replaces the initials with an
             <img> inside this same overflow-hidden wrapper. */}
         <span

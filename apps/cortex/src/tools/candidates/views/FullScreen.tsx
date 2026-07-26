@@ -460,29 +460,36 @@ export function FullScreen(_props: ToolViewProps) {
                 {i > 0 ? (
                   <span aria-hidden="true" className="h-px max-w-6 flex-1 bg-hairline" />
                 ) : null}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  onClick={() => setActiveStage(stage)}
-                  className={`flex h-7 min-w-0 shrink items-center justify-center gap-2xs rounded-pill border px-sm interactive motion-safe:active:scale-[0.97] ${
-                    active
-                      ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
-                      : "border-hairline text-muted"
-                  }`}
-                >
-                  <span className={`min-w-0 truncate type-label ${active ? "font-semibold" : ""}`}>
-                    {t(STAGE_LABEL_KEY[stage])}
-                  </span>
-                  {/* The count stays SECONDARY to the label in both states. */}
-                  <span
-                    className={`shrink-0 type-caption ${
-                      active ? "text-app-blue opacity-60" : "text-muted"
+                {/* Wrapper carries `relative` (the positioning context for the
+                    badge) — NEVER the button: the button's `.interactive` class
+                    overrides Tailwind position utilities, so `relative` on it is
+                    silently dropped. The badge is a SIBLING of the button inside
+                    this wrapper, riding the pill's top-outer corner. */}
+                <span className="relative inline-flex min-w-0 shrink">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveStage(stage)}
+                    className={`flex h-7 min-w-0 shrink items-center justify-center rounded-pill border px-sm interactive motion-safe:active:scale-[0.97] ${
+                      active
+                        ? "border-app-blue/30 bg-app-blue/10 text-app-blue"
+                        : "border-hairline text-muted"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
+                    <span className={`min-w-0 truncate type-label ${active ? "font-semibold" : ""}`}>
+                      {t(STAGE_LABEL_KEY[stage])}
+                    </span>
+                  </button>
+                  {/* Count as a superscript BADGE riding the pill's top-outer
+                      corner (logical -start = top-RIGHT in RTL). Hidden entirely
+                      at 0 so an empty stage carries no dot. */}
+                  {count > 0 ? (
+                    <span className="absolute -top-1 -start-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-success/15 px-2xs type-caption tabular-nums text-success">
+                      {count}
+                    </span>
+                  ) : null}
+                </span>
               </Fragment>
             );
           })}
@@ -930,20 +937,25 @@ function CandidateFormOverlay({
       />
 
       <div className="ds-panel relative z-10 w-full max-w-[480px] px-sm pb-sm">
-        {/* BARE: the plain sheet background only (bg-screen) — no rounding, no
-            inner padding, no shadow, so nothing frames the card and the three
-            stage sections are the sole bubbles. NON-BARE keeps the card-like
-            surface for any other caller. Structure (scroll + max height + gap)
-            is shared. */}
+        {/* OUTER wrapper owns the ROUNDING + the clip: `overflow-hidden` on the
+            rounded box means the rounded top corner is clipped cleanly on BOTH
+            sides — the scroll (and its scrollbar) lives on the INNER div, so the
+            scrollbar can no longer square off the corner on its side (RTL: left).
+            BARE keeps just the sheet background; NON-BARE additionally keeps its
+            card-like surface (p-md + shadow) here on the outer. */}
         <div
           className={
             bare
-              ? "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-t-lg bg-screen pb-sm sm:rounded-lg"
-              : "flex max-h-[85dvh] flex-col gap-sm overflow-y-auto rounded-lg bg-screen p-md shadow-lifted"
+              ? "overflow-hidden rounded-t-lg bg-screen sm:rounded-lg"
+              : "overflow-hidden rounded-t-lg bg-screen p-md shadow-lifted sm:rounded-lg"
           }
         >
-          {header}
-          {children}
+          {/* INNER div owns the SCROLL only (max height + gap + overflow), no
+              rounding of its own — shared by both variants. */}
+          <div className="flex max-h-[85dvh] flex-col gap-sm overflow-y-auto pb-sm">
+            {header}
+            {children}
+          </div>
         </div>
       </div>
     </div>
