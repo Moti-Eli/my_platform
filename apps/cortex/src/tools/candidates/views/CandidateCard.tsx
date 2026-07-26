@@ -291,6 +291,8 @@ interface CardDraft {
   salaryExpectation: string;
   summary: string;
   impression: string;
+  acceptanceNote: string;
+  intakeNote: string;
   tagsRaw: string;
   hasCertificate: boolean;
   hasCar: boolean;
@@ -309,6 +311,8 @@ function draftOf(candidate: Candidate): CardDraft {
     salaryExpectation: candidate.salaryExpectation,
     summary: candidate.summary,
     impression: candidate.impression,
+    acceptanceNote: candidate.acceptanceNote,
+    intakeNote: candidate.intakeNote,
     // The same round-trip the old inline editor used: chips -> "a, b" -> parseTags.
     tagsRaw: candidate.tags.join(", "),
     hasCertificate: candidate.hasCertificate,
@@ -433,13 +437,11 @@ export function CandidateCard({
         availability: draft.availability.trim(),
         salaryExpectation: draft.salaryExpectation.trim(),
         summary: draft.summary.trim(),
+        // impression is a normal DETAILS field again (its own free text); the two
+        // per-stage notes are the acceptance (קבלה) and intake (קליטה) fields.
         impression: draft.impression.trim(),
-        // INTERIM: this card does NOT yet edit the per-stage notes — the קבלה
-        // field is still bound to `impression` above. Pass the stored notes
-        // through UNCHANGED so the CandidatePatch shape is satisfied without a
-        // behavioural change; the NEXT prompt repoints these two to real inputs.
-        acceptanceNote: candidate.acceptanceNote,
-        intakeNote: candidate.intakeNote,
+        acceptanceNote: draft.acceptanceNote.trim(),
+        intakeNote: draft.intakeNote.trim(),
         tags: parseTags(draft.tagsRaw),
         hasCertificate: draft.hasCertificate,
         hasCar: draft.hasCar,
@@ -469,16 +471,18 @@ export function CandidateCard({
     effective.role.trim() !== "" &&
     effective.phone.trim() !== "" &&
     effective.email.trim() !== "";
-  // INTERIM: קבלה's one field is (temporarily) the `impression` column — see the
-  // section below. קליטה unlocks once that field is filled.
-  const acceptanceComplete = contactComplete && effective.impression.trim() !== "";
+  // קבלה's one field is `acceptanceNote` (the real column now). קליטה unlocks
+  // once it is filled — the SAME signal the server's deriveStage reads, so this
+  // client accent and the persisted stage always agree.
+  const acceptanceComplete = contactComplete && effective.acceptanceNote.trim() !== "";
   // A LOCKED section shows only the lock hint and edits nothing.
   const acceptanceLocked = !contactComplete;
   const intakeLocked = !acceptanceComplete;
-  // DISPLAY-ONLY derived stage (NO persistence in this step — stage is never
-  // written and moveStage is untouched): the section that carries the app-blue
-  // current-stage accent. all four contact + קבלה filled → intake; all four
-  // contact filled → interview; otherwise → contact.
+  // Derived stage — the section that carries the app-blue current-stage accent.
+  // Reads the SAME fields (contact four + acceptanceNote) the server's deriveStage
+  // uses on save, so the accent shown here is exactly what gets persisted: all
+  // four contact + acceptanceNote filled → intake; all four contact → interview;
+  // otherwise → contact.
   const derivedStage: VisibleStage = acceptanceComplete
     ? "intake"
     : contactComplete
@@ -659,8 +663,19 @@ export function CandidateCard({
               placeholder={t("candidates.summaryPlaceholder")}
               onChange={(v) => patchDraft({ summary: v })}
             />
-            {/* NOTE: the impression field is NOT here anymore — it is the
-                acceptance (קבלה) stage's one field now (see that section). */}
+            {/* IMPRESSION — a normal optional DETAILS field (free-text prose),
+                back in its own home now that the per-stage notes have real
+                columns. It is NOT a stage field and does not gate anything. */}
+            <label className="flex flex-col gap-2xs type-label text-muted">
+              {t("candidates.impressionLabel")}
+              <textarea
+                className={`${inputClass} min-h-24 resize-y`}
+                value={draft.impression}
+                placeholder={t("candidates.impressionPlaceholder")}
+                rows={3}
+                onChange={(e) => patchDraft({ impression: e.target.value })}
+              />
+            </label>
             <TextField
               label={t("candidates.tagsLabel")}
               value={draft.tagsRaw}
@@ -762,10 +777,23 @@ export function CandidateCard({
                   </span>
                 )}
               </div>
-              {/* Summary — full-width, the last details field (impression left
-                  this section for the acceptance stage). */}
+              {/* Summary — full-width. */}
               <div className="sm:col-span-2">
                 <CardField label={t("candidates.summaryLabel")} value={candidate.summary} />
+              </div>
+              {/* Impression — a normal optional details field again, shown as
+                  prose (its own free text; NOT a stage field). */}
+              <div className="flex min-w-0 flex-col gap-2xs sm:col-span-2">
+                <span className="type-caption text-muted">{t("candidates.impressionLabel")}</span>
+                {candidate.impression !== "" ? (
+                  <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+                    {candidate.impression}
+                  </p>
+                ) : (
+                  <span aria-hidden="true" className="type-body text-muted">
+                    —
+                  </span>
+                )}
               </div>
             </div>
           </>
@@ -773,12 +801,9 @@ export function CandidateCard({
       </StageSection>
 
       {/* 4 · ACCEPTANCE SECTION (קבלה) — LOCKED until all four contact fields
-          are non-empty; then it shows its ONE field.
-          INTERIM — SHARED COLUMN: there is no `acceptance` column yet, so this
-          field temporarily reads/writes the existing `impression` column. It is
-          the ONLY control bound to `impression` (the details section no longer
-          edits it), so there is no double-binding. The follow-up DB prompt
-          splits `impression` into real `acceptance`/`intake` columns. */}
+          are non-empty; then it shows its ONE field, the real `acceptanceNote`
+          column (20260723000006). Filling it is what moves the candidate to
+          'intake' — the server's deriveStage reads this exact field on save. */}
       <StageSection
         title={t("candidates.stageInterview")}
         current={derivedStage === "interview"}
@@ -788,18 +813,18 @@ export function CandidateCard({
           <LockedHint />
         ) : editing && draft !== null ? (
           <label className="flex flex-col gap-2xs type-label text-muted">
-            {t("candidates.impressionLabel")}
+            {t("candidates.acceptanceNoteLabel")}
             <textarea
               className={`${inputClass} min-h-24 resize-y`}
-              value={draft.impression}
-              placeholder={t("candidates.impressionPlaceholder")}
+              value={draft.acceptanceNote}
+              placeholder={t("candidates.acceptanceNotePlaceholder")}
               rows={3}
-              onChange={(e) => patchDraft({ impression: e.target.value })}
+              onChange={(e) => patchDraft({ acceptanceNote: e.target.value })}
             />
           </label>
-        ) : candidate.impression !== "" ? (
+        ) : candidate.acceptanceNote !== "" ? (
           <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
-            {candidate.impression}
+            {candidate.acceptanceNote}
           </p>
         ) : (
           <span aria-hidden="true" className="type-body text-muted">
@@ -809,12 +834,9 @@ export function CandidateCard({
       </StageSection>
 
       {/* 5 · INTAKE SECTION (קליטה) — LOCKED until the acceptance field above is
-          non-empty; then it shows its ONE field.
-          INTERIM — this field would ALSO share the `impression` column, so to
-          avoid two inputs fighting over one column it is rendered as a DISABLED
-          placeholder (visible, NOT wired). The three-tier lock is demonstrable
-          without a second live binding; the follow-up wires it to its own
-          column. */}
+          non-empty; then it shows its ONE field, the real `intakeNote` column
+          (20260723000006). A live field now, the SAME recipe as the קבלה field —
+          no longer a disabled placeholder. */}
       <StageSection
         title={t("candidates.stageIntake")}
         current={derivedStage === "intake"}
@@ -822,17 +844,25 @@ export function CandidateCard({
       >
         {intakeLocked ? (
           <LockedHint />
-        ) : (
+        ) : editing && draft !== null ? (
           <label className="flex flex-col gap-2xs type-label text-muted">
-            {t("candidates.intakeFieldLabel")}
-            <input
-              className={`${inputClass} opacity-50`}
-              value=""
-              placeholder={t("candidates.intakeFieldPlaceholder")}
-              disabled
-              readOnly
+            {t("candidates.intakeNoteLabel")}
+            <textarea
+              className={`${inputClass} min-h-24 resize-y`}
+              value={draft.intakeNote}
+              placeholder={t("candidates.intakeNotePlaceholder")}
+              rows={3}
+              onChange={(e) => patchDraft({ intakeNote: e.target.value })}
             />
           </label>
+        ) : candidate.intakeNote !== "" ? (
+          <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+            {candidate.intakeNote}
+          </p>
+        ) : (
+          <span aria-hidden="true" className="type-body text-muted">
+            —
+          </span>
         )}
       </StageSection>
     </div>
