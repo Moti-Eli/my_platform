@@ -12,9 +12,12 @@
  * membership. The `org_id` filter below is a CONTEXT filter, not a security one —
  * RLS is the enforcement point (see the note in queryList).
  *
- * The writes below do NOT set `visibility` (defaults to 'org') and create does NOT
- * set `stage` (defaults to 'contact') — the DB defaults are the single source of
- * those initial values, exactly as notes' createNote leaves visibility to the DB.
+ * The writes below do NOT set `visibility` (defaults to 'org'), exactly as notes'
+ * createNote leaves visibility to the DB. `stage`, by contrast, is now DERIVED on
+ * EVERY write (create + update) from field completeness via {@link deriveStage} —
+ * it is never client-supplied. The manual `set_stage` pathway remains ONLY for
+ * archive/restore (the two transitions deriveStage never makes); a future cleanup
+ * MAY narrow set_stage to just those two, but this change does not touch it.
  */
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
@@ -42,6 +45,12 @@ export interface Candidate {
   availability: string;
   hasCar: boolean;
   salaryExpectation: string;
+  // Per-stage notes (20260723000006) — same conventions: text '' when unset. These
+  // REPLACE the interim shared-`impression` binding. `acceptanceNote` is also the
+  // completeness signal deriveStage reads to move a candidate from 'interview' →
+  // 'intake' (see deriveStage).
+  acceptanceNote: string;
+  intakeNote: string;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -59,6 +68,8 @@ export interface CreateCandidateInput {
   availability?: string;
   hasCar?: boolean;
   salaryExpectation?: string;
+  acceptanceNote?: string;
+  intakeNote?: string;
 }
 export interface UpdateCandidateInput {
   id: string;
@@ -75,6 +86,8 @@ export interface UpdateCandidateInput {
   availability?: string;
   hasCar?: boolean;
   salaryExpectation?: string;
+  acceptanceNote?: string;
+  intakeNote?: string;
 }
 export interface SetStageInput {
   id: string;
@@ -122,7 +135,34 @@ function toCandidate(row: DbRow): Candidate {
     availability: row.availability == null ? "" : String(row.availability),
     hasCar: row.has_car === true,
     salaryExpectation: row.salary_expectation == null ? "" : String(row.salary_expectation),
+    acceptanceNote: row.acceptance_note == null ? "" : String(row.acceptance_note),
+    intakeNote: row.intake_note == null ? "" : String(row.intake_note),
   };
+}
+
+/** DERIVED STAGE — computed on every create/update from the row's RESULTING field
+ * completeness, mirroring the card UI's client-side derivation EXACTLY:
+ *   - name, role, email, phone all non-empty AND acceptanceNote non-empty → 'intake'
+ *   - name, role, email, phone all non-empty                              → 'interview'
+ *   - otherwise                                                           → 'contact'
+ * A field counts as filled when it is non-empty after trimming (same as the UI).
+ * Stage is therefore DERIVED, never client-supplied. NOTE: 'archived' is NOT in
+ * this function's range and is never produced by it — archive/restore stay on the
+ * manual `set_stage` pathway, and callers MUST NOT run deriveStage on a row whose
+ * current stage is 'archived' (updateCandidate guards exactly that). */
+function deriveStage(fields: {
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
+  acceptanceNote: string;
+}): "contact" | "interview" | "intake" {
+  const filled = (s: string) => s.trim() !== "";
+  const contactComplete =
+    filled(fields.name) && filled(fields.role) && filled(fields.email) && filled(fields.phone);
+  if (contactComplete && filled(fields.acceptanceNote)) return "intake";
+  if (contactComplete) return "interview";
+  return "contact";
 }
 
 export function createCandidatesLogic({
@@ -153,16 +193,27 @@ export function createCandidatesLogic({
     async createCandidate(input, ctx) {
       const id = safeRandomUUID();
       const now = new Date().toISOString();
+      // DERIVE the initial stage from the create's resulting values. A new candidate
+      // is never archived, so derive normally (no archived guard needed here).
+      const stage = deriveStage({
+        name: input.name,
+        role: input.role ?? "",
+        email: input.email ?? "",
+        phone: input.phone ?? "",
+        acceptanceNote: input.acceptanceNote ?? "",
+      });
       await db.insert(CANDIDATES_TABLE, {
         id,
-        // The mandatory fields (§6). Both are NOT NULL on the table. `visibility`
-        // and `stage` are deliberately omitted — the columns default to 'org' and
-        // 'contact'; so are `urgent` / `reject_reason` (default false / '').
+        // The mandatory fields (§6). Both are NOT NULL on the table. `visibility` is
+        // deliberately omitted — the column defaults to 'org'; so are `urgent` /
+        // `reject_reason` (default false / ''). `stage` is DERIVED above, not left
+        // to the DB default, so a born-complete candidate lands past 'contact'.
         owner_id: ctx.userId,
         org_id: ctx.orgId,
         // tool columns
         name: input.name,
         role: input.role ?? "",
+        stage,
         summary: input.summary ?? "",
         tags: input.tags ?? [],
         // card columns (20260723000002) — camelCase input → snake_case columns
@@ -174,6 +225,9 @@ export function createCandidatesLogic({
         availability: input.availability ?? "",
         has_car: input.hasCar ?? false,
         salary_expectation: input.salaryExpectation ?? "",
+        // per-stage notes (20260723000006)
+        acceptance_note: input.acceptanceNote ?? "",
+        intake_note: input.intakeNote ?? "",
         created_at: now,
         updated_at: now,
       });
@@ -186,8 +240,9 @@ export function createCandidatesLogic({
       // alone — org scope is enforced by RLS, not this filter.
       //
       // Only the fields the caller actually sent are patched: each field is
-      // optional, so an edit of one leaves the others untouched. Stage moves are
-      // NOT here — they go through setStage, the one place stage transitions live.
+      // optional, so an edit of one leaves the others untouched. `stage` is the one
+      // exception — it is DERIVED below (never accepted from the caller), except for
+      // archive/restore which stay on the setStage pathway.
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
       if (input.name !== undefined) patch.name = input.name;
       if (input.role !== undefined) patch.role = input.role;
@@ -203,6 +258,28 @@ export function createCandidatesLogic({
       if (input.hasCar !== undefined) patch.has_car = input.hasCar;
       if (input.salaryExpectation !== undefined)
         patch.salary_expectation = input.salaryExpectation;
+      if (input.acceptanceNote !== undefined) patch.acceptance_note = input.acceptanceNote;
+      if (input.intakeNote !== undefined) patch.intake_note = input.intakeNote;
+
+      // DERIVE STAGE. Read the existing row FIRST — for two reasons: (1) to learn its
+      // current stage, and (2) to fill in the completeness fields the caller did NOT
+      // send, so derivation runs over the row's RESULTING values, not a partial patch.
+      // CRITICAL — never clobber archived: if the row is currently 'archived', leave
+      // `stage` untouched (a candidate stays archived until set_stage restores it).
+      // Otherwise overwrite `stage` with the derived value. (If the row is unreadable
+      // — RLS/absent — we skip derivation and let the update itself answer via RLS.)
+      const existingRows = await db.select(CANDIDATES_TABLE, { id: input.id });
+      const existing = existingRows[0] ? toCandidate(existingRows[0]) : null;
+      if (existing && existing.stage !== "archived") {
+        patch.stage = deriveStage({
+          name: input.name ?? existing.name,
+          role: input.role ?? existing.role,
+          email: input.email ?? existing.email,
+          phone: input.phone ?? existing.phone,
+          acceptanceNote: input.acceptanceNote ?? existing.acceptanceNote,
+        });
+      }
+
       await db.update(CANDIDATES_TABLE, { id: input.id }, patch);
       return { id: input.id };
     },
@@ -212,6 +289,11 @@ export function createCandidatesLogic({
       // stage, and ONLY when archiving also writes reject_reason (defaulting to ''
       // so a reason-less archive clears any stale reason). Moving OUT of archived
       // leaves reject_reason intact — history, not state.
+      //
+      // STAGE IS NOW DERIVED on create/update (see deriveStage), so this manual
+      // pathway is left ONLY for archive/restore — the two transitions deriveStage
+      // never makes. It still accepts any stage in the vocabulary (unchanged this
+      // prompt); a future cleanup MAY narrow it to just 'archived' ↔ restore.
       const patch: Record<string, unknown> = {
         stage: input.stage,
         updated_at: new Date().toISOString(),

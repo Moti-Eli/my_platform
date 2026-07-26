@@ -89,6 +89,8 @@ const BLANK_CANDIDATE: Candidate = {
   availability: "",
   hasCar: false,
   salaryExpectation: "",
+  acceptanceNote: "",
+  intakeNote: "",
 };
 
 // userId/orgId arrive as props (the page called requireSession()) but are NOT

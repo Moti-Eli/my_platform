@@ -434,6 +434,12 @@ export function CandidateCard({
         salaryExpectation: draft.salaryExpectation.trim(),
         summary: draft.summary.trim(),
         impression: draft.impression.trim(),
+        // INTERIM: this card does NOT yet edit the per-stage notes — the קבלה
+        // field is still bound to `impression` above. Pass the stored notes
+        // through UNCHANGED so the CandidatePatch shape is satisfied without a
+        // behavioural change; the NEXT prompt repoints these two to real inputs.
+        acceptanceNote: candidate.acceptanceNote,
+        intakeNote: candidate.intakeNote,
         tags: parseTags(draft.tagsRaw),
         hasCertificate: draft.hasCertificate,
         hasCar: draft.hasCar,

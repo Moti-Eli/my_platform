@@ -46,6 +46,12 @@ const candidate = z.object({
   availability: z.string(),
   hasCar: z.boolean(),
   salaryExpectation: z.string(),
+  // Per-stage notes (20260723000006). Declared here for the SAME reason as the
+  // card fields: zod strips undeclared keys on parse, so omitting them would drop
+  // them from every query_list result — the views need them to bind the קבלה /
+  // קליטה fields (next prompt).
+  acceptanceNote: z.string(),
+  intakeNote: z.string(),
 });
 
 export function createCandidatesIntents(logic: CandidatesLogic) {
@@ -75,6 +81,8 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
         availability: z.string().optional(),
         hasCar: z.boolean().optional(),
         salaryExpectation: z.string().optional(),
+        acceptanceNote: z.string().optional(),
+        intakeNote: z.string().optional(),
       }),
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.createCandidate(input, ctx),
@@ -99,6 +107,8 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
         availability: z.string().optional(),
         hasCar: z.boolean().optional(),
         salaryExpectation: z.string().optional(),
+        acceptanceNote: z.string().optional(),
+        intakeNote: z.string().optional(),
       }),
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.updateCandidate(input, ctx),
