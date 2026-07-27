@@ -647,12 +647,19 @@ export function CandidateCard({
           row (FullScreen-owned; see archivePanel). */}
       {archivePanel}
 
-      {/* INVITE RESULT — quiet panel directly under the header: either the issued
-          link (readonly, LTR, break-all, with a copy button + a one-line hint to
-          send it on) or a mapped error line in the shared bg-danger/10 style. */}
+      {/* INVITE RESULT — the link BUBBLE is the whole panel: the readonly link
+          fills it, with two BARE floating glyphs inside — copy on the RIGHT
+          (inline-start in RTL), a close X on the LEFT (inline-end) that hides the
+          panel. A one-line hint sits below. Or a mapped error line instead.
+          CSS-CASCADE CAUTION: `.interactive` overrides position utilities, so the
+          `absolute` lives on a plain SPAN wrapper, NEVER on the button; the bubble
+          is a plain `relative` div. Logical start/end insets flip correctly in RTL. */}
       {inviteLink !== null ? (
-        <div className="flex flex-col gap-xs rounded-lg bg-card p-md">
-          <div className="flex items-start gap-xs">
+        <div className="flex flex-col gap-xs">
+          <div className="relative rounded-lg bg-card">
+            {/* px-xl reserves an inline gutter on BOTH edges so the link text never
+                runs under either floating glyph; bg-transparent lets the bubble
+                surface show through. */}
             <textarea
               ref={linkRef}
               readOnly
@@ -660,16 +667,36 @@ export function CandidateCard({
               value={inviteLink}
               rows={2}
               onFocus={(e) => e.currentTarget.select()}
-              className="min-w-0 flex-1 resize-none break-all rounded-md bg-screen px-sm py-xs type-caption text-ink outline-none"
+              className="w-full resize-none break-all rounded-lg bg-transparent px-xl py-sm type-caption text-ink outline-none"
             />
-            <button
-              type="button"
-              onClick={() => void copyLink()}
-              className="flex shrink-0 items-center gap-2xs rounded-md bg-app-blue/10 px-sm py-xs type-label text-app-blue interactive motion-safe:active:scale-[0.97]"
-            >
-              <CopyIcon width={14} height={14} />
-              {t(copied ? "candidates.inviteCopied" : "candidates.inviteCopy")}
-            </button>
+            {/* COPY — RIGHT side (inline-start in RTL). Bare glyph; swaps to a check
+                on success (the only copied feedback now that the label is gone). */}
+            <span className="absolute top-2 start-2">
+              <button
+                type="button"
+                onClick={() => void copyLink()}
+                title={t(copied ? "candidates.inviteCopied" : "candidates.inviteCopy")}
+                aria-label={t(copied ? "candidates.inviteCopied" : "candidates.inviteCopy")}
+                className="flex items-center justify-center text-muted interactive motion-safe:active:scale-[0.97]"
+              >
+                {copied ? <CheckIcon width={14} height={14} /> : <CopyIcon width={14} height={14} />}
+              </button>
+            </span>
+            {/* CLOSE — LEFT side (inline-end in RTL). Hides the result panel. */}
+            <span className="absolute top-2 end-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteLink(null);
+                  setCopied(false);
+                }}
+                title={t("candidates.cancel")}
+                aria-label={t("candidates.cancel")}
+                className="flex items-center justify-center text-muted interactive motion-safe:active:scale-[0.97]"
+              >
+                <CloseIcon width={14} height={14} />
+              </button>
+            </span>
           </div>
           <p className="type-caption text-muted">{t("candidates.inviteHint")}</p>
         </div>
