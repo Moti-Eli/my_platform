@@ -20,5 +20,15 @@
   "addMemberEmailExists": "כתובת האימייל כבר רשומה במערכת",
   "addMemberAlreadyMember": "המשתמש כבר חבר בארגון הזה",
   "addMemberInvalidEmail": "כתובת אימייל לא תקינה",
-  "addMemberFailed": "הוספת החבר נכשלה, נסה שוב"
+  "addMemberFailed": "הוספת החבר נכשלה, נסה שוב",
+  "rolesTitle": "תפקידים",
+  "rolesLoadFailed": "טעינת התפקידים נכשלה",
+  "rolesEmpty": "אין תפקידים מוגדרים",
+  "roleHolders": "{count} מחזיקים",
+  "rolePermissions": "{count} הרשאות",
+  "allPermissions": "כל ההרשאות",
+  "roleAdminBadge": "תפקיד ניהול — כל ההרשאות",
+  "permGroupPlatform": "מערכת",
+  "rolePermsExpand": "הצג הרשאות",
+  "rolePermsCollapse": "הסתר הרשאות"
 }

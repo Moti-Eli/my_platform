@@ -20,5 +20,15 @@
   "addMemberEmailExists": "That email is already registered",
   "addMemberAlreadyMember": "This user is already a member of this organization",
   "addMemberInvalidEmail": "Invalid email address",
-  "addMemberFailed": "Couldn't add the member. Please try again."
+  "addMemberFailed": "Couldn't add the member. Please try again.",
+  "rolesTitle": "Roles",
+  "rolesLoadFailed": "Couldn't load roles",
+  "rolesEmpty": "No roles defined",
+  "roleHolders": "{count} holding",
+  "rolePermissions": "{count} permissions",
+  "allPermissions": "all permissions",
+  "roleAdminBadge": "Admin role — all permissions",
+  "permGroupPlatform": "Platform",
+  "rolePermsExpand": "Show permissions",
+  "rolePermsCollapse": "Hide permissions"
 }

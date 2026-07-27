@@ -1,6 +1,7 @@
 /**
- * Staff — the AI API ("the connection file", Standard §4). Three intents: the read
- * `staff.list_members`, and the writes `staff.set_member_role` (Member↔Admin) and
+ * Staff — the AI API ("the connection file", Standard §4). Four intents: the reads
+ * `staff.list_members` and `staff.list_roles` (roles + permission keys + who holds
+ * what, read-only), and the writes `staff.set_member_role` (Member↔Admin) and
  * `staff.add_member` (add a new user to the org as a plain member).
  *
  * The handler delegates to `logic` (the only code that touches the client) and
@@ -25,6 +26,20 @@ const member = z.object({
   joinedAt: z.string(),
 });
 
+/** One org role plus its flattened permission keys (empty for admin roles). */
+const roleWithPermissions = z.object({
+  id: z.string(),
+  name: z.string(),
+  isAdmin: z.boolean(),
+  permissionKeys: z.array(z.string()),
+});
+
+/** One membership_roles edge — which membership holds which role. */
+const memberRoleLink = z.object({
+  membershipId: z.string(),
+  roleId: z.string(),
+});
+
 export function createStaffIntents(logic: StaffLogic) {
   return [
     defineIntent({
@@ -33,6 +48,18 @@ export function createStaffIntents(logic: StaffLogic) {
       input: z.object({}),
       output: z.array(member),
       handler: (input, ctx) => logic.listMembers(input, ctx),
+    }),
+
+    defineIntent({
+      name: "staff.list_roles",
+      description:
+        "List the roles of the current organization, their permission keys, and role assignments",
+      input: z.object({}),
+      output: z.object({
+        roles: z.array(roleWithPermissions),
+        memberRoles: z.array(memberRoleLink),
+      }),
+      handler: (input, ctx) => logic.listRoles(input, ctx),
     }),
 
     defineIntent({
