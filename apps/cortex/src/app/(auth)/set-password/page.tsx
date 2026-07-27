@@ -15,12 +15,24 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@platform/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeRelativePath } from "@/lib/safe-next";
 import { SetPasswordForm } from "./SetPasswordForm";
 
-export default async function SetPasswordPage() {
+export default async function SetPasswordPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
   const supabase = await createSupabaseServerClient();
   const user = supabase ? await getCurrentUser(supabase) : null;
   if (!user) redirect("/login");
 
-  return <SetPasswordForm />;
+  // Where to go after setting (or skipping) the password. Same sanitize rule as
+  // /confirm, default "/" — the invite chain passes "/tools/questionnaire". The
+  // action re-sanitises the form's copy (never trust the client); this pre-sanitised
+  // value seeds the hidden field and the skip link.
+  const { next: rawNext } = await searchParams;
+  const next = safeRelativePath(rawNext ?? null, "/");
+
+  return <SetPasswordForm next={next} />;
 }

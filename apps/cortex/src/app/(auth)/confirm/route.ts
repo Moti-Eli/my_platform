@@ -15,11 +15,14 @@
  *
  * `type` defaults to "recovery" (the password-reset link) and is validated against
  * the set of email OTP types — an unknown value falls back to "recovery" rather
- * than reaching GoTrue. `next` is sanitised to a same-origin relative path so the
- * confirm link can never be turned into an open redirect.
+ * than reaching GoTrue. `next` is sanitised to a same-origin relative path (via the
+ * shared {@link safeRelativePath}, which ACCEPTS a query string like
+ * "/set-password?next=/tools/questionnaire" while still rejecting off-site targets)
+ * so the confirm link can never be turned into an open redirect.
  */
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeRelativePath } from "@/lib/safe-next";
 
 /** The email OTP types GoTrue accepts for a token-hash verification. Declared
  * locally (a plain string union) so the app never imports @supabase/* directly —
@@ -34,23 +37,12 @@ const EMAIL_OTP_TYPES = [
 ] as const;
 type EmailOtpType = (typeof EMAIL_OTP_TYPES)[number];
 
-/** Only a same-origin RELATIVE path is allowed as a post-confirm destination: it
- * must start with a single "/", never "//" or "/\" (which browsers read as
- * protocol-relative — an off-site redirect). Anything else falls back to the
- * recovery screen. */
-function safeNext(raw: string | null): string {
-  const fallback = "/set-password";
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) {
-    return fallback;
-  }
-  return raw;
-}
-
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const tokenHash = url.searchParams.get("token_hash");
   const rawType = url.searchParams.get("type");
-  const next = safeNext(url.searchParams.get("next"));
+  // The recovery screen is the default when `next` is absent or off-site.
+  const next = safeRelativePath(url.searchParams.get("next"), "/set-password");
 
   const type: EmailOtpType = EMAIL_OTP_TYPES.includes(rawType as EmailOtpType)
     ? (rawType as EmailOtpType)

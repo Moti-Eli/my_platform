@@ -8,16 +8,19 @@
  * runtime. It proves, with SPECIFIC outcomes (regexes / exact error keys / counts —
  * never a bare `error !== null`):
  *
- *   a) invite → a /confirm recovery link; child org under the parent; a real user;
- *      answer rows = question-bank count, all owned by the new user in the child
- *      org; the candidate record linked to the new user.
- *   b) invite AGAIN → NO new org/user, a DIFFERENT fresh link (idempotent resend).
+ *   a) invite → a /confirm recovery link (nested next → /set-password → questionnaire);
+ *      child org under the parent; a real user; answer rows = question-bank count,
+ *      all owned by the new user in the child org; EXACTLY ONE questionnaire
+ *      app_instances row for that user/org/definition; the candidate record linked.
+ *   b) invite AGAIN → NO new org/user, NO second app_instances row, a DIFFERENT
+ *      fresh link (idempotent resend).
  *   c) invite on an ARCHIVED candidate → exactly "archived", nothing created.
  *   d) invite where the email is an EXISTING user's → exactly "emailExists", no
  *      orphan child org left behind by the rolled-back provisioning.
- *   e) ROLLBACK PROBE: a deterministic step-(d) failure (a service-client proxy
- *      that fails ONLY the candidate_answers insert; everything else real) →
- *      exactly "provisionFailed", and NO orphan auth user / child org / link.
+ *   e) ROLLBACK PROBE: a deterministic COMMIT-step failure (an rls-client proxy that
+ *      forces the (e) candidate-link UPDATE to affect zero rows) AFTER (d) answers +
+ *      (d.5) install have SUCCEEDED → exactly "provisionFailed", and NO orphan auth
+ *      user / child org / link / app_instances row (the install is created then rolled back).
  *
  * Run:  pnpm --filter @platform/db run verify:invite-candidate
  */
@@ -135,7 +138,48 @@ async function candidateUserId(admin: SupabaseClient, id: string): Promise<strin
   return (res.data as { candidate_user_id: string | null }).candidate_user_id;
 }
 
-const LINK_RE = /\/confirm\?token_hash=.+&type=recovery/;
+/** Resolve an app_definitions id by key — also asserts the seed row EXISTS (the
+ * invite install step hard-fails without it). */
+async function definitionIdByKey(admin: SupabaseClient, key: string): Promise<string> {
+  const res = await admin.from("app_definitions").select("id").eq("key", key).maybeSingle();
+  if (res.error || !res.data) {
+    throw new Error(`app_definitions "${key}" missing — apply the seed (20260727000002)`);
+  }
+  return (res.data as { id: string }).id;
+}
+
+/** app_instances rows for exactly this (owner, org, definition). */
+async function instanceCount(
+  admin: SupabaseClient,
+  ownerId: string,
+  orgId: string,
+  defId: string,
+): Promise<number> {
+  const res = await admin
+    .from("app_instances")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_id", ownerId)
+    .eq("org_id", orgId)
+    .eq("definition_id", defId);
+  if (res.error) throw new Error(`instanceCount: ${res.error.message}`);
+  return res.count ?? 0;
+}
+
+/** Total app_instances rows for a definition — the invariant the rollback probe
+ * checks (unchanged before/after = nothing orphaned). */
+async function instanceCountByDefinition(admin: SupabaseClient, defId: string): Promise<number> {
+  const res = await admin
+    .from("app_instances")
+    .select("id", { count: "exact", head: true })
+    .eq("definition_id", defId);
+  if (res.error) throw new Error(`instanceCountByDefinition: ${res.error.message}`);
+  return res.count ?? 0;
+}
+
+// The recovery link now nests the onward target as ONE urlencoded `next` param:
+// /confirm?token_hash=…&type=recovery&next=<enc("/set-password?next=/tools/questionnaire")>.
+const LINK_RE =
+  /\/confirm\?token_hash=.+&type=recovery&next=%2Fset-password%3Fnext%3D%2Ftools%2Fquestionnaire/;
 
 async function cleanup(admin: SupabaseClient, parentId: string): Promise<void> {
   // ORDER: child orgs FIRST (org_id ON DELETE CASCADE clears answers + child
@@ -164,6 +208,9 @@ async function main(): Promise<void> {
   });
 
   const parent = await orgIdByName(admin, PARENT_ORG_NAME);
+  // The questionnaire definition the invite install step resolves — also asserts the
+  // seed exists before we rely on it.
+  const qDefId = await definitionIdByKey(admin, "questionnaire");
 
   // --- Pre-clean any leftovers from a previous (possibly failed) run. ---------
   console.log("\n[setup] pre-clean + fixtures");
@@ -251,6 +298,13 @@ async function main(): Promise<void> {
   const linkedTo = await candidateUserId(admin, candAId);
   check("candidate record's candidate_user_id = new user", linkedTo === newUserId, `got ${linkedTo}`);
 
+  const instA = await instanceCount(admin, newUserId, childId, qDefId);
+  check(
+    "exactly one questionnaire app_instances row (new user / child org / questionnaire def)",
+    instA === 1,
+    `count=${instA}`,
+  );
+
   // --- (b) invite AGAIN → idempotent resend ----------------------------------
   console.log("\n[b] invite again → no new org/user, a DIFFERENT fresh link");
   const orgsBefore = await childOrgCount(admin, CAND_A_NAME, parent);
@@ -266,6 +320,8 @@ async function main(): Promise<void> {
   check("second link DIFFERS from the first (fresh token)", bOk && bRes.link !== aRes.link);
   const orgsAfter = await childOrgCount(admin, CAND_A_NAME, parent);
   check("no new child org created (count unchanged)", orgsAfter === orgsBefore && orgsAfter === 1, `before=${orgsBefore} after=${orgsAfter}`);
+  const instAfterResend = await instanceCount(admin, newUserId, childId, qDefId);
+  check("resend created NO second app_instances row (still exactly 1)", instAfterResend === 1, `count=${instAfterResend}`);
   const linkedAfterResend = await candidateUserId(admin, candAId);
   check("candidate_user_id unchanged after resend", linkedAfterResend === newUserId);
 
@@ -300,33 +356,38 @@ async function main(): Promise<void> {
   check("no orphan child org left by the rolled-back provisioning", (await childOrgCount(admin, CAND_DUP_NAME, parent)) === 0);
   check("dup-email candidate still unlinked (candidate_user_id null)", (await candidateUserId(admin, candDupId)) === null);
 
-  // --- (e) ROLLBACK PROBE: deterministic step-(d) failure --------------------
-  console.log("\n[e] rollback probe → 'provisionFailed', NO orphan user / org / link");
-  // A service-client PROXY that fails ONLY the candidate_answers insert. Every
-  // other .from(...) and .auth (provisioning + compensation) pass through to the
-  // real service client, so the rollback runs for real. This deterministically
-  // forces failure at step (d), AFTER the child org + user were provisioned.
-  const probeServiceDb = new Proxy(admin, {
+  // --- (e) ROLLBACK PROBE: deterministic COMMIT-step failure -----------------
+  console.log("\n[e] rollback probe → 'provisionFailed', NO orphan user / org / link / install");
+  // An rls-client PROXY over the actor that forces the (e) COMMIT — the
+  // `candidates` UPDATE — to affect ZERO rows (the core reads that as an RLS
+  // refusal and compensates), while leaving the candidate READ (a) and every
+  // createChildOrgWithMember call (memberships/roles/auth) working. The failure lands
+  // at (e), AFTER (d) answers AND (d.5) install have SUCCEEDED — so compensation must
+  // clean the org (cascading answers + the app_instances row) and the user.
+  const probeRlsDb = new Proxy(actor, {
     get(target, prop, receiver) {
-      if (prop === "from") {
-        return (table: string) => {
-          if (table === "candidate_answers") {
-            return {
-              insert: async () => ({
-                data: null,
-                error: { message: "injected (rollback probe): candidate_answers insert forced to fail" },
-              }),
-            };
-          }
-          return target.from(table);
-        };
-      }
-      return Reflect.get(target, prop, receiver);
+      if (prop !== "from") return Reflect.get(target, prop, receiver);
+      return (table: string) => {
+        const real = target.from(table);
+        if (table !== "candidates") return real;
+        // Same table for the READ (select→…→maybeSingle) and the COMMIT
+        // (update→eq→select): pass the read through; stub ONLY update to zero rows.
+        return new Proxy(real, {
+          get(rt, p, rc) {
+            if (p === "update") {
+              return () => ({ eq: () => ({ select: async () => ({ data: [], error: null }) }) });
+            }
+            const v = Reflect.get(rt, p, rc);
+            return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(rt) : v;
+          },
+        });
+      };
     },
   }) as SupabaseClient;
 
+  const instBeforeProbe = await instanceCountByDefinition(admin, qDefId);
   const e = await inviteCandidateCore(
-    { rlsDb: actor, serviceDb: probeServiceDb },
+    { rlsDb: probeRlsDb, serviceDb: admin },
     { candidateId: candProbeId, activeOrgId: parent, baseUrl: BASE_URL },
   );
   check(
@@ -336,6 +397,12 @@ async function main(): Promise<void> {
   );
   check("no orphan auth user (compensation deleted it)", (await findUserByEmail(admin, CAND_PROBE_EMAIL)) === null);
   check("no orphan child org (compensation deleted it)", (await childOrgCount(admin, CAND_PROBE_NAME, parent)) === 0);
+  const instAfterProbe = await instanceCountByDefinition(admin, qDefId);
+  check(
+    "no orphan app_instances (install created then rolled back — total unchanged)",
+    instAfterProbe === instBeforeProbe,
+    `before=${instBeforeProbe} after=${instAfterProbe}`,
+  );
   check("probe candidate never linked (candidate_user_id null)", (await candidateUserId(admin, candProbeId)) === null);
 
   // --- Cleanup ---------------------------------------------------------------

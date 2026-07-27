@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useI18n } from "@/i18n";
 import { InfoIcon } from "@/components/icons";
@@ -19,7 +20,7 @@ const initialState: SetPasswordState = { error: null };
  * re-checks both regardless (never trust the client); its `state.error` covers
  * the cases the client cannot see (no session, a GoTrue failure, no env).
  */
-export function SetPasswordForm() {
+export function SetPasswordForm({ next }: { next: string }) {
   const { t } = useI18n();
   const [state, formAction, pending] = useActionState(setPasswordAction, initialState);
 
@@ -43,6 +44,9 @@ export function SetPasswordForm() {
       </header>
 
       <form action={formAction} className="flex w-full flex-col gap-md">
+        {/* Where the action lands on success. Sanitised on the server (page +
+            action); this is just the client-side carrier of that value. */}
+        <input type="hidden" name="next" value={next} />
         <label className="flex flex-col gap-2xs">
           <span className="type-label text-muted">{t("setPassword.password")}</span>
           <input
@@ -103,6 +107,17 @@ export function SetPasswordForm() {
           {pending ? t("setPassword.saving") : t("setPassword.submit")}
         </button>
       </form>
+
+      {/* QUIET SKIP — the session is already live (confirm's verifyOtp wrote it),
+          so going straight to `next` keeps the existing (temporary) password and
+          drops the candidate onto the tool they were invited to. A plain, muted
+          secondary action, never competing with the primary submit. */}
+      <Link
+        href={next}
+        className="text-center type-label text-muted underline-offset-4 hover:text-ink hover:underline"
+      >
+        {t("setPassword.skipToAccount")}
+      </Link>
     </div>
   );
 }

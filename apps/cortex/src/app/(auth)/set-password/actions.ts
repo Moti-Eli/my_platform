@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@platform/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { safeRelativePath } from "@/lib/safe-next";
 import type { MessageKey } from "@/i18n";
 
 export interface SetPasswordState {
@@ -29,6 +30,9 @@ export async function setPasswordAction(
 ): Promise<SetPasswordState> {
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  // Re-sanitise the form's `next` — NEVER trust the hidden field; the same rule and
+  // default the page used. Absent/off-site → "/".
+  const next = safeRelativePath(String(formData.get("next") ?? ""), "/");
 
   // Defence in depth — the form validates these too, but never trust the client.
   if (password.length < 6) return { error: "setPassword.tooShort" };
@@ -44,6 +48,7 @@ export async function setPasswordAction(
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: "setPassword.failed" };
 
-  // Password set; the session is live. Land on Home like the sign-in flows do.
-  redirect("/");
+  // Password set; the session is live. Land on `next` (the invite chain points it at
+  // the questionnaire); default "/" behaves exactly as the old sign-in flows did.
+  redirect(next);
 }

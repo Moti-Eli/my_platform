@@ -62,6 +62,7 @@ const he = {
     mismatch: "הסיסמאות אינן תואמות",
     notConfigured: "המערכת אינה מחוברת לשרת",
     failed: "שמירת הסיסמה נכשלה, נסה שוב",
+    skipToAccount: "יש לי חשבון, דלג לחשבון",
   },
   // Self-service signup. Error keys ONLY for now (UI labels come later). Each maps
   // 1:1 from a `signUpWithNewOrganization` error key in @platform/auth, plus
@@ -317,6 +318,7 @@ const en: Messages = {
     mismatch: "The passwords don't match",
     notConfigured: "The app is not connected to a server",
     failed: "Saving the password failed, please try again",
+    skipToAccount: "I already have an account — skip",
   },
   signup: {
     title: "Sign up for Cortex",

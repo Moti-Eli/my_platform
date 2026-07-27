@@ -15,19 +15,25 @@
  *       action, so a second invite just re-issues a fresh link, creating nothing.
  *   (c) provision the isolated child org + candidate user (createChildOrgWithMember).
  *   (d) snapshot the questionnaire into the child org, owned by the candidate user.
+ *   (d.5) INSTALL the questionnaire tool for the new user in the child org (one
+ *       app_instances row) so it appears — and opens — the moment they land.
  *   (e) THE COMMIT POINT, deliberately LAST: link the record to its new user. A
- *       failure at (d) or (e) compensates (best-effort) and reports provisionFailed,
- *       so a failed invite never leaves an orphan org/user/answers behind.
+ *       failure at (d), (d.5) or (e) compensates (best-effort) and reports
+ *       provisionFailed, so a failed invite never leaves an orphan org / user /
+ *       answers / install behind.
  *   (f) mint OUR OWN portal link from the recovery `hashed_token` — never GoTrue's
  *       action_link (which points at /auth/v1/verify, not our /set-password flow).
+ *       The link's `next` nests the onward target: /set-password?next=/tools/questionnaire.
  *
  * COMPENSATION ORDER — org FIRST, then user — AND WHY IT DIFFERS FROM @platform/auth.
  * The auth package's own rollback deletes the auth user THEN the org, because in its
  * flows nothing else references the new user. Here it would BREAK: once (d) has run,
  * `candidate_answers.owner_id -> public.users` (NO ACTION) references the candidate
  * user, and deleting the auth user cascades to `public.users`, which those answer
- * rows would BLOCK. Deleting the child org first (org_id ON DELETE CASCADE) clears
- * the answers (and the child memberships/roles), leaving the user safe to delete.
+ * rows would BLOCK. Deleting the child org first clears the answers (and the child
+ * memberships/roles) via `org_id ON DELETE CASCADE`, leaving the user safe to delete.
+ * The app_instances row (d.5) is cleaned by the SAME cascade — app_instances.org_id
+ * is also ON DELETE CASCADE (20260716000002) — so it needs no extra compensation delete.
  */
 import { randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@platform/db";
@@ -99,9 +105,14 @@ export async function inviteCandidateCore(
     const gen = await serviceDb.auth.admin.generateLink({ type: "recovery", email });
     const hashed = gen.data?.properties?.hashed_token;
     if (gen.error || !hashed) return { error: "linkFailed" };
+    // Nested onward target: /confirm verifies the OTP then forwards to
+    // /set-password, which after the password (or a skip) forwards to the
+    // questionnaire — so a fresh candidate lands straight on the tool they were
+    // invited to fill. The inner value is urlencoded as ONE `next` param.
+    const innerNext = "/set-password?next=/tools/questionnaire";
     const link =
       `${baseUrl}/confirm?token_hash=${encodeURIComponent(hashed)}` +
-      `&type=recovery&next=${encodeURIComponent("/set-password")}`;
+      `&type=recovery&next=${encodeURIComponent(innerNext)}`;
     return { link };
   };
 
@@ -152,6 +163,33 @@ export async function inviteCandidateCore(
   }));
   const answersRes = await serviceDb.from("candidate_answers").insert(answerRows);
   if (answersRes.error) {
+    await compensate();
+    return { error: "provisionFailed" };
+  }
+
+  // (d.5) INSTALL the questionnaire tool for the new user in the child org — ONE
+  //       app_instances row, so the tool is present and openable the instant they
+  //       land. Service client (app_instances has no client write policy). Resolve
+  //       the definition by its SEEDED key (20260727000002): a MISSING seed row is a
+  //       hard configuration error — compensate and fail rather than half-provision.
+  //       No extra compensation delete: app_instances.org_id ON DELETE CASCADE means
+  //       deleting the child org (compensate does, first) removes this row too.
+  const defRes = await serviceDb
+    .from("app_definitions")
+    .select("id")
+    .eq("key", "questionnaire")
+    .maybeSingle();
+  const definitionId = (defRes.data as { id: string } | null)?.id;
+  if (defRes.error || !definitionId) {
+    await compensate();
+    return { error: "provisionFailed" };
+  }
+  const instRes = await serviceDb.from("app_instances").insert({
+    definition_id: definitionId,
+    owner_id: userId,
+    org_id: childOrgId,
+  });
+  if (instRes.error) {
     await compensate();
     return { error: "provisionFailed" };
   }
