@@ -1014,9 +1014,32 @@ the recruiter copies+sends it from the card.
 
 **Template, don't copy.** This shape — isolated child org + user, rows in their
 own org, tool installed, the parent-side link written LAST, a self-built recovery
-door — is the reference for every future end-user flow (e.g. an employee logging
-their own hours). When the second one lands, **extract** the shared mechanism;
-don't fork `invite-core.ts`.
+door — is the reference for every future OUTSIDER persona (e.g. clients). When the
+second one lands, **extract** the shared mechanism; don't fork `invite-core.ts`.
+
+## 32. Persona Placement — Members vs. Child Orgs
+
+**Decision:** Every provisioned person answers one question — insider or outsider.
+An EMPLOYEE is an insider: a member of the business org itself. Their isolation
+rides the two existing axes, no third mechanism. Per-role tool gating
+(`auth_user_has_permission` / the `*.access` keys) decides which tools they can
+enter; born-private rows (`auth_user_can_read`, owner-or-tree-admin) decide which
+rows they see inside those tools. A CANDIDATE — and future clients — is an
+outsider: a child org per person, where the isolation IS the org boundary itself
+(#31). The persona picks the boundary; the boundary is never bespoke.
+
+**Consequence for provisioning.** The generic core extracted from `invite-core`
+must take the org step as a **strategy parameter** — "create child org" for an
+outsider vs. "join existing org" for an insider (`createUser` → `addMemberToOrg`,
+with simpler compensation because there is no org to delete). The door, the link
+building, and the idempotency guard are shared across both; only the org step
+differs.
+
+**Why it splits here.** An employee must appear in staff, receive a role, and
+report INTO the business org — the manager's team table reads same-org rows, so an
+employee outside the org is invisible to their own manager. A candidate must never
+be a member: their whole point is a fenced org of one. Same pipeline, opposite
+placement.
 
 ---
 
