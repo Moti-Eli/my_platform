@@ -30,6 +30,10 @@ export const TIME_ENTRIES_TABLE = "time_entries";
 
 export interface TimeEntry {
   id: string;
+  /** Row owner. Needed by the upcoming admin (manager) view to group entries per
+   * employee; RLS already scopes which rows arrive (member: own only; tree-admin:
+   * everyone's), so this is a grouping key, never an access decision. */
+  ownerId: string;
   workDate: string;
   hours: number;
   note: string;
@@ -68,6 +72,7 @@ type Emit = (type: string, payload: unknown, ctx: Ctx) => Promise<void>;
 function toEntry(row: DbRow): TimeEntry {
   return {
     id: String(row.id),
+    ownerId: String(row.owner_id),
     workDate: String(row.work_date).slice(0, 10),
     hours: Number(row.hours),
     note: row.note == null ? "" : String(row.note),
