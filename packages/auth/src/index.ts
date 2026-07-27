@@ -1446,3 +1446,161 @@ export async function hideOrganizationForCurrentUser(
 
   return { error: null };
 }
+
+export interface LeaveOrganizationInput {
+  organizationId: string;
+}
+export interface LeaveOrganizationResult {
+  error: string | null;
+}
+
+/**
+ * LEAVE an organization the current user belongs to: soft-delete THE CALLER'S OWN
+ * MEMBERSHIP (`memberships.deleted_at = now()`), so the caller loses access while
+ * the org survives untouched for everyone else. This is the complement of
+ * `hideOrganizationForCurrentUser`: hide soft-deletes the ORG (solo orgs only);
+ * leave soft-deletes just the caller's MEMBERSHIP row. Reversible, NO cascade —
+ * the membership's role rows are left physically in place, so clearing
+ * `deleted_at` would fully restore the caller (see step (e)).
+ *
+ * WHY THE CALLER VANISHES FROM THE ORG WITH NO CLIENT-SIDE HIDING: the memberships
+ * SELECT policy is `deleted_at IS NULL AND private.org_is_active(...) AND (own row
+ * OR member)` (20260610000001), and the membership helpers are deleted_at-aware,
+ * so a soft-deleted membership drops out of every RLS read — the org disappears
+ * from the caller's switcher (getUserOrganizations reads THROUGH RLS) and the
+ * caller stops appearing as an active member to the others. Nothing filters it in
+ * the client.
+ *
+ * TWO GUARDS, both refusals rather than damage:
+ *  - NOT THE LAST ORG (`cannotLeaveLastOrg`): leaving one's only remaining active
+ *    org would strand the caller with no active context, so we refuse when this is
+ *    their sole active membership.
+ *  - NOT THE LAST ACTIVE ADMIN (`lastAdminMustHandOff`): if the org still has OTHER
+ *    active members and the caller is its only remaining active admin, leaving
+ *    would strand real members with no admin — so we refuse until they hand off.
+ *
+ * WHY THE SEAM MUST ENFORCE THE ADMIN GUARD ITSELF — the DB guard cannot help:
+ * `private.enforce_org_keeps_admin` (20260609000005) fires only on membership_roles
+ * DELETE/UPDATE. A membership soft-delete (this function) sets memberships.deleted_at
+ * and NEVER TOUCHES membership_roles — the caller's admin-role rows survive the
+ * leave — so the DB guard never fires and cannot catch a last admin walking out.
+ * The `lastAdminMustHandOff` check below is the only thing standing between the org
+ * and a state where a still-present member has no admin.
+ *
+ * "ACTIVE" throughout means the MEMBERSHIP is active (deleted_at IS NULL). Because
+ * a soft-leave leaves membership_roles rows intact, a surviving admin-role row does
+ * NOT mean an active admin — so the admin check joins membership_roles back to its
+ * membership and only counts assignments whose membership is still active.
+ *
+ * TWO CLIENTS, same split as the sibling functions:
+ *  - `actingClient` (actor's JWT, RLS-scoped): the "logged in" gate, the
+ *    membership check (RLS guarantees a non-member cannot even see the org), and
+ *    the last-org guard (getUserOrganizations returns only active orgs through it).
+ *  - `serviceClient` (service-role, bypasses RLS): the AUTHORITATIVE admin-count
+ *    checks and the single soft-delete UPDATE. Because it bypasses RLS, every query
+ *    on it filters `deleted_at IS NULL` explicitly — RLS is not doing it here.
+ *
+ * NOTE — solo orgs: if the caller is the ONLY active member, leaving is allowed
+ * even though they are (trivially) the last admin, PROVIDED the last-org guard
+ * passed; an empty org left behind is acceptable. `hide` is the better path for a
+ * solo org (it removes the org too), and the UI routes solo orgs to hide.
+ */
+export async function leaveOrganizationForCurrentUser(
+  actingClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+  input: LeaveOrganizationInput
+): Promise<LeaveOrganizationResult> {
+  const fail = (error: string): LeaveOrganizationResult => ({ error });
+
+  // (a) --- Authorization: must be logged in ---------------------------------
+  const actingUser = await getCurrentUser(actingClient);
+  if (!actingUser) return fail("notAllowed");
+
+  // (b) --- ACTIVE membership check THROUGH RLS. The caller must be an active
+  //     member of the target org. RLS scopes this — a non-member cannot see the
+  //     org's memberships at all — so a zero-row read IS the "not a member"
+  //     answer. `.is("deleted_at", null)` is belt-and-suspenders over the policy.
+  const membershipRes = await actingClient
+    .from("memberships")
+    .select("id")
+    .eq("organization_id", input.organizationId)
+    .eq("user_id", actingUser.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (membershipRes.error || !membershipRes.data) return fail("notAllowed");
+
+  // (c) --- GUARD: NOT THE LAST ORG. getUserOrganizations runs through the acting
+  //     client, so RLS returns only orgs the caller is an ACTIVE member of. If the
+  //     target is their ONLY remaining active org, leaving would leave them with no
+  //     active context — refuse.
+  const activeOrgs = await getUserOrganizations(actingClient, actingUser.id);
+  if (activeOrgs.length <= 1) return fail("cannotLeaveLastOrg");
+
+  // (d) --- GUARD: NOT THE LAST ACTIVE ADMIN. Authoritative, via the service client
+  //     (bypasses RLS), so every read below filters deleted_at IS NULL explicitly.
+  const activeMembersRes = await serviceClient
+    .from("memberships")
+    .select("id, user_id")
+    .eq("organization_id", input.organizationId)
+    .is("deleted_at", null);
+  if (activeMembersRes.error) return fail("leaveFailed");
+  const activeMembers = (activeMembersRes.data ?? []) as Array<{ id: string; user_id: string }>;
+  const callerMembership = activeMembers.find((m) => m.user_id === actingUser.id);
+  // Guard (b) already proved the caller is active; this is the service-side view.
+  if (!callerMembership) return fail("notAllowed");
+
+  // The hand-off guard only applies when OTHER active members remain. If the caller
+  // is the SOLE active member, leaving is allowed (guard c ensured this isn't their
+  // last org) even though they are trivially the last admin — an empty org left
+  // behind is acceptable. hide is the better path for solo orgs; the UI routes
+  // solo orgs there.
+  if (activeMembers.length > 1) {
+    const activeMembershipIds = activeMembers.map((m) => m.id);
+
+    // membership_roles for the ACTIVE memberships only. Role rows survive a
+    // soft-leave, so restricting to the active-membership set is exactly what makes
+    // "active admin" correct — a surviving admin-role row on a soft-deleted
+    // membership must NOT count.
+    const mrRes = await serviceClient
+      .from("membership_roles")
+      .select("membership_id, role_id")
+      .in("membership_id", activeMembershipIds);
+    if (mrRes.error) return fail("leaveFailed");
+    const mrRows = (mrRes.data ?? []) as Array<{ membership_id: string; role_id: string }>;
+
+    const roleIds = Array.from(new Set(mrRows.map((r) => r.role_id)));
+    const adminRoleIds = new Set<string>();
+    if (roleIds.length > 0) {
+      const rolesRes = await serviceClient.from("roles").select("id, is_admin").in("id", roleIds);
+      if (rolesRes.error) return fail("leaveFailed");
+      for (const r of (rolesRes.data ?? []) as Array<{ id: string; is_admin: boolean }>) {
+        if (r.is_admin) adminRoleIds.add(r.id);
+      }
+    }
+    const adminMembershipIds = new Set(
+      mrRows.filter((r) => adminRoleIds.has(r.role_id)).map((r) => r.membership_id)
+    );
+    const callerIsAdmin = adminMembershipIds.has(callerMembership.id);
+    const otherActiveAdminExists = [...adminMembershipIds].some(
+      (id) => id !== callerMembership.id
+    );
+    if (callerIsAdmin && !otherActiveAdminExists) return fail("lastAdminMustHandOff");
+  }
+
+  // (e) --- THE LEAVE. Soft-delete the caller's membership, stamping deleted_at only
+  //     if it is still NULL (idempotent — a double-submit cannot re-stamp). We do
+  //     NOT touch membership_roles: leaving the role rows in place keeps the leave
+  //     REVERSIBLE — clearing deleted_at revives the membership with its roles
+  //     intact, exactly like the soft-delete harness proves for offboarding.
+  const nowIso = new Date().toISOString();
+  const updateRes = await serviceClient
+    .from("memberships")
+    .update({ deleted_at: nowIso })
+    .eq("id", callerMembership.id)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+  if (updateRes.error || !updateRes.data) return fail("leaveFailed");
+
+  return { error: null };
+}
