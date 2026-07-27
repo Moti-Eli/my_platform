@@ -12,7 +12,6 @@
  * rows. The active org is a non-interactive row marked with a check; every other
  * org is a button that switches to it.
  */
-import { useRouter } from "next/navigation";
 import { Screen } from "@/components/profile/Screen";
 import { CheckIcon } from "@/components/icons";
 import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
@@ -34,14 +33,15 @@ export function OrganizationsScreen({
   activeOrgId: string;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
 
   const switchTo = (id: string) => {
     setPreferenceCookie(ORG_COOKIE, id);
-    // Navigate home and re-run the server: requireSession reads the new cookie
-    // and every screen re-renders against the chosen org.
-    router.push("/");
-    router.refresh();
+    // FULL document load is DELIBERATE — NOT router.push/refresh. The react-query
+    // cache is root-mounted and its keys are flat literals (["tasks","list"] …),
+    // not org-scoped, so a soft navigation would keep the PREVIOUS org's cached
+    // rows on screen (and with staleTime often never refetch them). A full load
+    // discards the client cache entirely, so every tool re-reads the chosen org.
+    window.location.assign("/");
   };
 
   return (
