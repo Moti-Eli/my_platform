@@ -10,14 +10,14 @@
  * `coming_soon` stubs are installable and open a placeholder screen;
  * `unavailable` stubs appear in the catalog but cannot be installed yet.
  */
-import type { AppManifest } from "@platform/cortex-core";
+import type { AppManifest, ToolCategory } from "@platform/cortex-core";
 
 /** Build a stub manifest with sensible contract defaults (no intents/roles). */
 function stub(
   id: string,
   icon: string,
   color: string,
-  category: string,
+  category: ToolCategory,
   status: "coming_soon" | "unavailable",
 ): AppManifest {
   return {
@@ -43,21 +43,21 @@ function stub(
 export const STUB_APPS: AppManifest[] = [
   // --- Installable: open a working placeholder screen -----------------------
   stub("calendar", "grid", "indigo", "productivity", "coming_soon"),
-  stub("contacts", "user", "coral", "crm", "coming_soon"),
+  stub("contacts", "user", "coral", "people", "coming_soon"),
 
   // --- Not yet available: shown in the catalog, disabled --------------------
   stub("invoices", "box", "teal", "finance", "unavailable"),
-  stub("crm", "user", "indigo", "crm", "unavailable"),
-  stub("employees", "user", "teal", "hr", "unavailable"),
-  stub("shifts", "grid", "coral", "hr", "unavailable"),
+  stub("crm", "user", "indigo", "people", "unavailable"),
+  stub("employees", "user", "teal", "people", "unavailable"),
+  stub("shifts", "grid", "coral", "people", "unavailable"),
   stub("payroll", "box", "indigo", "finance", "unavailable"),
   stub("suppliers", "box", "coral", "operations", "unavailable"),
   stub("orders", "check", "amber", "operations", "unavailable"),
   stub("bookings", "bell", "teal", "operations", "unavailable"),
   stub("projects", "grid", "amber", "productivity", "unavailable"),
   stub("documents", "pin", "coral", "productivity", "unavailable"),
-  stub("analytics", "spark", "indigo", "business", "unavailable"),
-  stub("marketing", "spark", "coral", "business", "unavailable"),
-  stub("support", "chat", "teal", "business", "unavailable"),
+  stub("analytics", "spark", "indigo", "operations", "unavailable"),
+  stub("marketing", "spark", "coral", "operations", "unavailable"),
+  stub("support", "chat", "teal", "operations", "unavailable"),
   stub("fitness", "spark", "amber", "personal", "unavailable"),
 ];

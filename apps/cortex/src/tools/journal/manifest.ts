@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "journal",
   version: "1.0.0",
   name: { key: "journal.name" }, // i18n key, not text
-  category: "business",
+  category: "personal",
   icon: "book", // resolves to BookIcon in the shell's icon registry
   color: "blue", // a palette token distinct from inventory's amber / tasks' indigo / staff's teal / notes' coral / expenses' green
 

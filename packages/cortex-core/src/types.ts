@@ -94,6 +94,13 @@ export interface LocalizedKey {
 export type AppStatus = "ready" | "coming_soon" | "unavailable";
 
 /**
+ * The fixed set of catalog groupings a tool can belong to. A closed union, not a
+ * free string: the upcoming roles-management screen groups tools by category, so
+ * the set must be enumerable and every manifest must name one of these exactly.
+ */
+export type ToolCategory = "people" | "productivity" | "finance" | "operations" | "personal";
+
+/**
  * A tool's manifest — its self-description and the contract surface it declares.
  * Persisted as the `manifest` JSONB on `app_definitions` and registered in the
  * in-memory {@link registerApp | registry} at startup.
@@ -105,8 +112,8 @@ export interface AppManifest {
   version: string;
   /** Display name as an i18n key (§1 law 6). */
   name: LocalizedKey;
-  /** Catalog grouping, e.g. "operations", "finance". */
-  category: string;
+  /** Catalog grouping — a fixed, typed set (see {@link ToolCategory}). */
+  category: ToolCategory;
   /** Icon identifier from the central design-system (§1 law 6). */
   icon: string;
   /** Color token from the central palette (§1 law 6). */

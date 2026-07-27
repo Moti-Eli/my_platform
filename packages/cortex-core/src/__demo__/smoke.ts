@@ -50,7 +50,7 @@ async function main(): Promise<void> {
     id: "ping",
     version: "0.1.0",
     name: { key: "ping.name" },
-    category: "demo",
+    category: "productivity",
     icon: "activity",
     color: "primary",
     permissions: [],

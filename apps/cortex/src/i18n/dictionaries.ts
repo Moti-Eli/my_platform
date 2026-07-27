@@ -184,6 +184,15 @@ const he = {
     pin: "נעץ",
     unpin: "בטל נעיצה",
   },
+  // Tool catalog category labels — one per ToolCategory (packages/cortex-core).
+  // Keys only for now; consumed by the upcoming roles-management screen.
+  categories: {
+    people: "צוות וכוח אדם",
+    productivity: "פרודוקטיביות",
+    finance: "כספים",
+    operations: "תפעול",
+    personal: "אישי",
+  },
   home: {
     appTabsLabel: "לשוניות כלים",
     allTab: "הכל",
@@ -423,6 +432,15 @@ const en: Messages = {
     remove: "Remove",
     pin: "Pin",
     unpin: "Unpin",
+  },
+  // Tool catalog category labels — one per ToolCategory (packages/cortex-core).
+  // Keys only for now; consumed by the upcoming roles-management screen.
+  categories: {
+    people: "People",
+    productivity: "Productivity",
+    finance: "Finance",
+    operations: "Operations",
+    personal: "Personal",
   },
   home: {
     appTabsLabel: "Tool tabs",

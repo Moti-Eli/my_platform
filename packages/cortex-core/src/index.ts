@@ -20,6 +20,7 @@ export type {
   Ctx,
   LocalizedKey,
   AppManifest,
+  ToolCategory,
   AppStatus,
   Intent,
   Listener,

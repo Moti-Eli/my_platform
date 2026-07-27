@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "staff",
   version: "1.0.0",
   name: { key: "staff.name" }, // i18n key, not text
-  category: "business",
+  category: "people",
   icon: "user", // resolves to UserIcon in the shell's icon registry
   color: "teal", // a palette token distinct from inventory's amber / tasks' indigo
 

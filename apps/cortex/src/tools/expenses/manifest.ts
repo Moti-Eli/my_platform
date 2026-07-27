@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "expenses",
   version: "1.0.0",
   name: { key: "expenses.name" }, // i18n key, not text
-  category: "business",
+  category: "finance",
   icon: "wallet", // resolves to WalletIcon in the shell's icon registry
   color: "green", // a palette token distinct from inventory's amber / tasks' indigo / staff's teal / notes' coral
 

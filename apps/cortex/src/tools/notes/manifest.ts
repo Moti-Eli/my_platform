@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "notes",
   version: "1.0.0",
   name: { key: "notes.name" }, // i18n key, not text
-  category: "business",
+  category: "productivity",
   icon: "document", // resolves to DocumentIcon in the shell's icon registry
   color: "coral", // a palette token distinct from inventory's amber / tasks' indigo / staff's teal
 

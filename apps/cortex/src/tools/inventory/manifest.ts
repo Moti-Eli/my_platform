@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "inventory",
   version: "1.0.0",
   name: { key: "inventory.name" }, // i18n key, not text
-  category: "business",
+  category: "operations",
   icon: "box",
   color: "amber", // from the design-system palette only
 

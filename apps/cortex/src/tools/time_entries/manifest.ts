@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "time_entries",
   version: "1.0.0",
   name: { key: "time_entries.name" }, // i18n key, not text
-  category: "business",
+  category: "people",
   icon: "clock", // resolves to ClockIcon in the shell's icon registry
   color: "teal", // a palette token; time entries read on the app-teal accent
 

@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "tasks",
   version: "1.0.0",
   name: { key: "tasks.name" }, // i18n key, not text
-  category: "business",
+  category: "productivity",
   icon: "check", // resolves to CheckIcon in the shell's icon registry
   color: "indigo", // a palette token distinct from inventory's amber
 

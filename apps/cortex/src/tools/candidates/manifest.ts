@@ -11,7 +11,7 @@ export const manifest: AppManifest = {
   id: "candidates",
   version: "1.0.0",
   name: { key: "candidates.name" }, // i18n key, not text
-  category: "business",
+  category: "people",
   icon: "idcard", // resolves to IdCardIcon in the shell's icon registry
   color: "blue", // a palette token distinct from notes' coral / tasks' indigo / inventory's amber
 
