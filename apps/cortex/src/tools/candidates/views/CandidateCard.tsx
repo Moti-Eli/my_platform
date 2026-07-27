@@ -971,25 +971,35 @@ export function CandidateCard({
       >
         {acceptanceLocked ? (
           <LockedHint />
-        ) : editing && draft !== null ? (
-          <label className="flex flex-col gap-2xs type-label text-muted">
-            {t("candidates.acceptanceNoteLabel")}
-            <textarea
-              className={`${inputClass} min-h-24 resize-y`}
-              value={draft.acceptanceNote}
-              placeholder={t("candidates.acceptanceNotePlaceholder")}
-              rows={3}
-              onChange={(e) => patchDraft({ acceptanceNote: e.target.value })}
-            />
-          </label>
-        ) : candidate.acceptanceNote !== "" ? (
-          <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
-            {candidate.acceptanceNote}
-          </p>
         ) : (
-          <span aria-hidden="true" className="type-body text-muted">
-            —
-          </span>
+          <>
+            {/* THE CANDIDATE'S QUESTIONNAIRE ANSWERS — only once they are LINKED
+                (candidateUserId set); nothing extra otherwise. Lazily fetched when
+                this bubble renders (see CandidateAnswers). Sits ABOVE the note. */}
+            {candidate.candidateUserId ? <CandidateAnswers candidateId={candidate.id} /> : null}
+
+            {/* The acceptance note field — UNCHANGED (edit textarea / prose / em-dash). */}
+            {editing && draft !== null ? (
+              <label className="flex flex-col gap-2xs type-label text-muted">
+                {t("candidates.acceptanceNoteLabel")}
+                <textarea
+                  className={`${inputClass} min-h-24 resize-y`}
+                  value={draft.acceptanceNote}
+                  placeholder={t("candidates.acceptanceNotePlaceholder")}
+                  rows={3}
+                  onChange={(e) => patchDraft({ acceptanceNote: e.target.value })}
+                />
+              </label>
+            ) : candidate.acceptanceNote !== "" ? (
+              <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+                {candidate.acceptanceNote}
+              </p>
+            ) : (
+              <span aria-hidden="true" className="type-body text-muted">
+                —
+              </span>
+            )}
+          </>
         )}
       </StageSection>
 
@@ -1004,45 +1014,35 @@ export function CandidateCard({
       >
         {intakeLocked ? (
           <LockedHint />
+        ) : editing && draft !== null ? (
+          <label className="flex flex-col gap-2xs type-label text-muted">
+            {t("candidates.intakeNoteLabel")}
+            <textarea
+              className={`${inputClass} min-h-24 resize-y`}
+              value={draft.intakeNote}
+              placeholder={t("candidates.intakeNotePlaceholder")}
+              rows={3}
+              onChange={(e) => patchDraft({ intakeNote: e.target.value })}
+            />
+          </label>
+        ) : candidate.intakeNote !== "" ? (
+          <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+            {candidate.intakeNote}
+          </p>
         ) : (
-          <>
-            {/* The intake note field — UNCHANGED (edit textarea / prose / em-dash). */}
-            {editing && draft !== null ? (
-              <label className="flex flex-col gap-2xs type-label text-muted">
-                {t("candidates.intakeNoteLabel")}
-                <textarea
-                  className={`${inputClass} min-h-24 resize-y`}
-                  value={draft.intakeNote}
-                  placeholder={t("candidates.intakeNotePlaceholder")}
-                  rows={3}
-                  onChange={(e) => patchDraft({ intakeNote: e.target.value })}
-                />
-              </label>
-            ) : candidate.intakeNote !== "" ? (
-              <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
-                {candidate.intakeNote}
-              </p>
-            ) : (
-              <span aria-hidden="true" className="type-body text-muted">
-                —
-              </span>
-            )}
-
-            {/* THE CANDIDATE'S QUESTIONNAIRE ANSWERS — only once they are LINKED
-                (candidateUserId set); nothing extra otherwise. Lazily fetched when
-                this bubble renders (see CandidateAnswers). */}
-            {candidate.candidateUserId ? <CandidateAnswers candidateId={candidate.id} /> : null}
-          </>
+          <span aria-hidden="true" className="type-body text-muted">
+            —
+          </span>
         )}
       </StageSection>
     </div>
   );
 }
 
-/** The candidate's questionnaire answers, READ-ONLY, inside the intake bubble.
+/** The candidate's questionnaire answers, READ-ONLY, inside the acceptance bubble.
  * Rendered only for a LINKED candidate (the parent gates on candidateUserId). It
- * LAZILY runs `candidates.answers` when it mounts — i.e. when the intake bubble is
- * shown — so the read costs nothing for candidates who were never invited.
+ * LAZILY runs `candidates.answers` when it mounts — i.e. when the acceptance bubble
+ * is shown — so the read costs nothing for candidates who were never invited.
  *
  * Each answer is a muted question label above the answer as body text; an
  * unanswered question shows the em-dash placeholder, exactly like the card's empty
