@@ -24,5 +24,11 @@
   "errorFailed": "Something went wrong. Please try again.",
   "delete": "Delete",
   "confirmDelete": "Delete?",
-  "deleteFailed": "Couldn't delete. Please try again."
+  "deleteFailed": "Couldn't delete. Please try again.",
+  "tabMine": "My entries",
+  "tabTeam": "Team",
+  "addEmployee": "Add employee",
+  "totalHours": "Total hours",
+  "teamEmptyTitle": "No entries yet",
+  "teamEmptyHint": "When your team reports hours, they'll appear here."
 }

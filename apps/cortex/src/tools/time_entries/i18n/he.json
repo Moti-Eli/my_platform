@@ -24,5 +24,11 @@
   "errorFailed": "משהו השתבש. נסה שוב.",
   "delete": "מחיקה",
   "confirmDelete": "למחוק?",
-  "deleteFailed": "המחיקה נכשלה. נסה שוב."
+  "deleteFailed": "המחיקה נכשלה. נסה שוב.",
+  "tabMine": "הרשומות שלי",
+  "tabTeam": "צוות",
+  "addEmployee": "הוספת עובד",
+  "totalHours": "סה״כ שעות",
+  "teamEmptyTitle": "אין רשומות עדיין",
+  "teamEmptyHint": "כשעובדים ידווחו שעות, הן יופיעו כאן."
 }

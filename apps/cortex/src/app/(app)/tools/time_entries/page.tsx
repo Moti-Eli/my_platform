@@ -15,6 +15,6 @@ import { requireSession } from "@/lib/session";
 import { FullScreen } from "@/tools/time_entries/views/FullScreen";
 
 export default async function TimeEntriesToolPage() {
-  const { userId, orgId } = await requireSession();
-  return <FullScreen userId={userId} orgId={orgId} />;
+  const { userId, orgId, isAdmin } = await requireSession();
+  return <FullScreen userId={userId} orgId={orgId} isAdmin={isAdmin} />;
 }

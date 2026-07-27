@@ -26,6 +26,7 @@
  * Built from design-system utilities + i18n only.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
@@ -34,6 +35,7 @@ import { useI18n } from "@/i18n";
 import { ChevronIcon, CloseIcon, InfoIcon } from "@/components/icons";
 import type { TimeEntry } from "../logic";
 import { useTimeEntriesList, TIME_ENTRIES_LIST_KEY } from "@/lib/query/useTimeEntriesList";
+import { useStaffMembers } from "@/lib/query/useStaffMembers";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -47,11 +49,19 @@ interface EntryDraft {
   note: string;
 }
 
-// userId/orgId arrive as props (the page called requireSession()) but are NOT
-// sent to the action — the server derives identity from the session cookie. They
-// stay in the prop type only because the page provides them; `_props` marks them
-// deliberately unused.
-export function FullScreen(_props: ToolViewProps) {
+// userId/orgId arrive as props (the page called requireSession()). Neither is
+// sent to the action — the server derives identity from the session cookie. But
+// `userId` IS used locally now: it stamps the owner on the optimistic create row
+// (the fresh row's owner is, by definition, the current user), so a manager view
+// grouping by ownerId sees the correct owner before react-query revalidates.
+// `orgId` remains deliberately unused (the page provides it; the server owns it).
+//
+// `isAdmin` ONLY branches the UI (it reveals the "team" tab) — it is NOT a security
+// boundary. RLS is: a non-admin's query returns only THEIR OWN rows regardless of
+// this flag, so the team grouping could never show anyone else's hours even if the
+// flag were forced true. The prop is widened LOCALLY here (ToolViewProps &
+// { isAdmin }); the shared ToolViewProps type is deliberately left untouched.
+export function FullScreen({ userId, isAdmin }: ToolViewProps & { isAdmin: boolean }) {
   const { t, dir } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -62,6 +72,10 @@ export function FullScreen(_props: ToolViewProps) {
   // list paints instantly; react-query revalidates in the background.
   const { entries } = useTimeEntriesList();
   const [adding, setAdding] = useState(false);
+  // Which view an ADMIN is looking at: their OWN entries (default — identical to the
+  // non-admin screen) or the TEAM overview. Non-admins never see the toggle, so this
+  // stays "mine" for them and the screen is byte-for-byte today's.
+  const [tab, setTab] = useState<"mine" | "team">("mine");
   // Which entry is being edited inline (null = none). Only one row edits at a time.
   const [editingId, setEditingId] = useState<string | null>(null);
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
@@ -215,13 +229,16 @@ export function FullScreen(_props: ToolViewProps) {
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
         </button>
         <h1 className="flex-1 type-title text-ink">{t("time_entries.name")}</h1>
-        <button
-          type="button"
-          onClick={() => setAdding((v) => !v)}
-          className="rounded-pill bg-app-teal px-md py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-        >
-          {t("time_entries.addEntry")}
-        </button>
+        {/* Adding is a "my entries" affordance — hidden in the read-only team view. */}
+        {tab === "mine" ? (
+          <button
+            type="button"
+            onClick={() => setAdding((v) => !v)}
+            className="rounded-pill bg-app-teal px-md py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
+          >
+            {t("time_entries.addEntry")}
+          </button>
+        ) : null}
       </div>
 
       {writeError ? (
@@ -236,8 +253,37 @@ export function FullScreen(_props: ToolViewProps) {
         </p>
       ) : null}
 
-      {adding ? (
+      {/* ADMIN-ONLY view toggle — sits above the list. "My entries" is the exact
+          non-admin screen; "Team" is the grouped overview. Non-admins never see it. */}
+      {isAdmin ? (
+        <div
+          role="tablist"
+          aria-label={t("time_entries.name")}
+          className="flex w-fit items-center gap-2xs rounded-pill bg-card p-2xs"
+        >
+          {(["mine", "team"] as const).map((key) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(key)}
+                className={`rounded-pill px-md py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
+                  active ? "bg-app-teal text-on-fill" : "text-muted"
+                }`}
+              >
+                {t(key === "mine" ? "time_entries.tabMine" : "time_entries.tabTeam")}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {tab === "mine" && adding ? (
         <AddEntryForm
+          userId={userId}
           onCreated={(entry) => {
             // create_entry returns { id }; the rest of the row is exactly what we
             // submitted, so prepend it straight into the SHARED cache — no refetch,
@@ -254,7 +300,9 @@ export function FullScreen(_props: ToolViewProps) {
         />
       ) : null}
 
-      {entries.length === 0 ? (
+      {tab === "team" ? (
+        <TeamView entries={entries} />
+      ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
           <p className="type-heading text-ink">{t("time_entries.emptyTitle")}</p>
           <p className="max-w-[24ch] type-label text-muted">{t("time_entries.emptyHint")}</p>
@@ -360,9 +408,11 @@ function hoursErrorOf(raw: string): "required" | "range" | null {
 }
 
 function AddEntryForm({
+  userId,
   onCreated,
   onError,
 }: {
+  userId: string;
   onCreated: (entry: TimeEntry) => void;
   onError: (code: WriteErrorCode) => void;
 }) {
@@ -418,7 +468,7 @@ function AddEntryForm({
         // create_entry returns only { id }; the rest of the TimeEntry is the values
         // we just submitted, so we can hand a complete row up to prepend.
         const { id } = res.data as { id: string };
-        onCreated({ id, hours: nextHours, workDate: nextDate, note: nextNote });
+        onCreated({ id, ownerId: userId, hours: nextHours, workDate: nextDate, note: nextNote });
       } else {
         onError(res.code);
       }
@@ -601,5 +651,98 @@ function EditEntryForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * ADMIN-ONLY team overview (read-only). Reuses the SAME cache entries — an admin's
+ * query already returns everyone's rows via the tree-admin read path, so there is
+ * NO new query — grouped by `ownerId`. Names resolve through `useStaffMembers`
+ * (displayName ?? email); an unknown owner falls back to a dash. No add/edit/delete
+ * here: those stay in the "my entries" view. RLS is the boundary; this is
+ * presentation only. RTL-first, design tokens only, like the rest of the file.
+ */
+function TeamView({ entries }: { entries: TimeEntry[] }) {
+  const { t } = useI18n();
+  const { members } = useStaffMembers();
+  // userId -> display name (displayName preferred, email as the fallback label).
+  const nameById = new Map(
+    members.map((m): [string, string] => [m.userId, m.displayName ?? m.email]),
+  );
+
+  // Group by owner, PRESERVING the source order (the list is pre-sorted newest-first
+  // by work_date), so each employee's entries stay newest-first with no re-sort.
+  const groups = new Map<string, TimeEntry[]>();
+  for (const entry of entries) {
+    const list = groups.get(entry.ownerId) ?? [];
+    list.push(entry);
+    groups.set(entry.ownerId, list);
+  }
+  // One row per employee, sorted by resolved name. Round the total so float addition
+  // (e.g. 0.25 steps) never shows a drifting tail.
+  const employees = [...groups.entries()]
+    .map(([ownerId, list]) => ({
+      ownerId,
+      name: nameById.get(ownerId) ?? "—",
+      list,
+      totalHours: Math.round(list.reduce((sum, e) => sum + e.hours, 0) * 100) / 100,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div className="flex flex-col gap-md">
+      {/* A small, plain link to add an employee — the staff tool owns that flow. */}
+      <Link
+        href="/tools/staff"
+        className="self-start type-label text-app-teal interactive motion-safe:active:scale-[0.99]"
+      >
+        {t("time_entries.addEmployee")}
+      </Link>
+
+      {entries.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
+          <p className="type-heading text-ink">{t("time_entries.teamEmptyTitle")}</p>
+          <p className="max-w-[24ch] type-label text-muted">{t("time_entries.teamEmptyHint")}</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-md">
+          {employees.map((emp) => (
+            <section key={emp.ownerId} className="flex flex-col gap-sm rounded-lg bg-card p-md">
+              {/* Employee header: name at the start; total hours + entry count at the end. */}
+              <div className="flex items-start justify-between gap-sm">
+                <span className="min-w-0 truncate type-heading text-ink">{emp.name}</span>
+                <div className="flex shrink-0 flex-col items-end gap-2xs text-end">
+                  <span className="type-caption text-muted">{t("time_entries.totalHours")}</span>
+                  <span dir="ltr" className="type-heading text-app-teal">
+                    {emp.totalHours} {t("time_entries.hoursUnit")}
+                  </span>
+                  <span className="type-caption text-muted">
+                    {emp.list.length} {t("time_entries.entryCount")}
+                  </span>
+                </div>
+              </div>
+
+              <ul className="flex flex-col divide-y divide-hairline">
+                {emp.list.map((entry) => (
+                  <li key={entry.id} className="flex flex-col gap-2xs py-sm">
+                    <span className="flex w-full items-center justify-between gap-sm">
+                      <span className="truncate type-body text-ink" dir="ltr">
+                        {entry.hours} {t("time_entries.hoursUnit")}
+                      </span>
+                      <span className="shrink-0 type-label text-muted" dir="ltr">
+                        {entry.workDate}
+                      </span>
+                    </span>
+                    {entry.note ? (
+                      <span className="w-full truncate type-label text-muted">{entry.note}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
