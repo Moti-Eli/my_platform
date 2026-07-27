@@ -959,6 +959,67 @@ second tool + the first cross-tool `inventory.low` listener.
 
 ---
 
+## 31. Candidate Portal — Isolated End-User Provisioning
+
+**Decision:** Provisioning an end-user who is NOT an org member (a candidate given
+a login to answer a questionnaire) is a fixed pipeline in
+`apps/cortex/src/tools/candidates/invite-core.ts` — framework-free, so the exact
+function runs both behind the `candidates.invite` intent and in the verification
+harness. The order IS the design. (a) Read the parent-side record through the
+RLS client — the candidates permission gate authorizes it for free. (b) If the
+record is already linked, re-issue a link ONLY and stop — invite is **idempotent**
+("invite" and "resend" are one action). Otherwise: (c) `createChildOrgWithMember`
+(`@platform/auth`) mints an isolated **child org** plus a login **user** under it
+with a random, never-disclosed password; (d) **materialize** the end-user's rows
+(the questionnaire snapshot) in THEIR child org, owned by THEIR user; (d.5)
+**install** their tool by inserting one `app_instances` row (definition resolved by
+key; a missing seed is a hard error → compensate); (e) THE COMMIT POINT, last on
+purpose — write the link column (`candidates.candidate_user_id`) on the parent-side
+record; (f) mint OUR OWN recovery link from `generateLink`'s `hashed_token`, never
+GoTrue's `action_link`. **Compensation is org-then-user:** on any failure delete
+the child org FIRST (its `org_id ON DELETE CASCADE` clears the answers and the
+install), THEN the auth user — because `candidate_answers.owner_id → public.users`
+is `NO ACTION`, so a user-first delete would be blocked. A failed invite never
+leaves an orphan org / user / rows / install.
+
+**Geography is the security.** The end-user's rows live in the child org (migration
+`20260727000001`); a recruiter in the PARENT reads and writes them by DOWNWARD tree
+inheritance (a member of an ancestor is a member of any descendant's tree), a
+sibling child org sees nothing (inheritance only flows down), and losing membership
+loses access. There are **no bespoke candidate policies** — the ordinary org-tree
+`auth_user_can_read` / `can_write` say exactly the right thing purely because of
+WHERE the rows sit. `question_text` is a denormalized snapshot (the question bank
+lives in tool code) so re-wording it later never rewrites what a candidate was asked.
+
+**The door.** The self-built link is
+`/confirm?token_hash=…&type=recovery&next=<encoded onward target>`, and the onward
+target nests one hop: `next=/set-password?next=/tools/questionnaire`. `/confirm`
+(a route handler) exchanges the hash via `verifyOtp` — the SSR client writes the
+session cookies as a side effect — then redirects to `next` (default
+`/set-password`). `/set-password` guards on `getCurrentUser`, NOT `requireSession`
+(which would bounce an org-less recovering user to `/no-organization`), then either
+sets the password or **skips** (the session is already live, so skip keeps the temp
+password and just navigates on) and redirects to its own `next`. Both hops sanitise
+through the single `apps/cortex/src/lib/safe-next.ts` `safeRelativePath(raw,
+fallback)` — a same-origin relative path only (query strings allowed; `//` and
+`/\` off-site tricks rejected) — never trusting a URL param or a form field.
+
+**Known deliberate gaps.** `candidate_answers` is gated by org-tree membership
+alone, NOT the `candidates.access` permission that fences the `candidates` table —
+so any parent-tree member can currently read answers; this closes when a real
+non-admin recruiter role lands and the check is composed on. Recovery links expire
+~1h (GoTrue `otp_expiry`); the idempotent resend covers a stale one. Email delivery
+is manual until SMTP is wired — `generateLink` returns the link in the response and
+the recruiter copies+sends it from the card.
+
+**Template, don't copy.** This shape — isolated child org + user, rows in their
+own org, tool installed, the parent-side link written LAST, a self-built recovery
+door — is the reference for every future end-user flow (e.g. an employee logging
+their own hours). When the second one lands, **extract** the shared mechanism;
+don't fork `invite-core.ts`.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
