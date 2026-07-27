@@ -132,7 +132,18 @@ function build(): Runtime {
       createJournalListeners(journalLogic),
     );
   }
-  const candidatesLogic = createCandidatesLogic({ db, emit: eventBus.emit });
+  // `invite` is SERVER-SIDE ONLY (through runIntentAction → the server data-layer).
+  // This client runtime registers the tool so the catalog/chips can LIST it, but
+  // never invokes candidates.invite — so `invite` is a throwing stub, exactly like
+  // staff's server-only getRls/service. Importing the real invite (which pulls the
+  // service client + node crypto) into the client bundle is what this avoids.
+  const candidatesLogic = createCandidatesLogic({
+    db,
+    emit: eventBus.emit,
+    invite: () => {
+      throw new Error("candidates.invite runs server-side only");
+    },
+  });
   if (!getApp(candidatesManifest.id)) {
     // Listeners close over candidatesLogic (see events.ts); candidates has none
     // today, so this registers an empty listener set, same shape as the other tools.

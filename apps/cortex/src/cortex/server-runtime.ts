@@ -38,11 +38,13 @@ import { manifest as candidatesManifest } from "@/tools/candidates/manifest";
 import { createCandidatesLogic } from "@/tools/candidates/logic";
 import { createCandidatesIntents } from "@/tools/candidates/intents";
 import { createCandidatesListeners } from "@/tools/candidates/events";
+import { createCandidatesInvite } from "@/tools/candidates/invite-logic";
 import { manifest as timeEntriesManifest } from "@/tools/time_entries/manifest";
 import { createTimeEntriesLogic } from "@/tools/time_entries/logic";
 import { createTimeEntriesIntents } from "@/tools/time_entries/intents";
 import { createTimeEntriesListeners } from "@/tools/time_entries/events";
 import { STUB_APPS } from "@/tools/stub-apps";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseCortexDb } from "./supabase-db";
@@ -104,6 +106,19 @@ function build(): DataLayer {
     return rls;
   };
 
+  // Resolved PER OPERATION (never frozen into the process-wide memo), because it
+  // reads request headers. The env override wins when set (e.g. a canonical public
+  // URL behind a proxy); otherwise we reconstruct the request origin. Used only by
+  // candidates.invite, to build the candidate's portal link.
+  const getBaseUrl = async (): Promise<string> => {
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+    if (envUrl) return envUrl.replace(/\/+$/, "");
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    return `${proto}://${host}`;
+  };
+
   const db = createSupabaseCortexDb({ getRls, service });
 
   const dataLayer = createDataLayer({ db });
@@ -151,7 +166,15 @@ function build(): DataLayer {
       createJournalListeners(journalLogic),
     );
   }
-  const candidatesLogic = createCandidatesLogic({ db, emit: eventBus.emit });
+  // candidates.invite is the privileged, server-only seam: it takes the per-user RLS
+  // client (the actor — the parent-org members.manage gate + the commit UPDATE run
+  // on it) and the service client (child-org/user/answers provisioning), plus the
+  // per-call base-URL resolver for the portal link. Same injection shape as staff.
+  const candidatesLogic = createCandidatesLogic({
+    db,
+    emit: eventBus.emit,
+    invite: createCandidatesInvite({ getRls, service, getBaseUrl }),
+  });
   if (!getApp(candidatesManifest.id)) {
     registerApp(
       candidatesManifest,
