@@ -1,43 +1,44 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n";
 import { InfoIcon } from "@/components/icons";
+import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
 import { createOrgAction, type CreateOrgState } from "./create-org.actions";
 
 const initialState: CreateOrgState = { error: null, createdOrgId: null };
 
 /**
  * Create a new ROOT organization, sitting next to the switcher — creating an org
- * belongs where switching org already is. A plain input + button: no auto-switch,
- * no onboarding, no confirmation dialog, no icon (all deliberately out of scope).
+ * belongs where switching org already is. A plain input + button: no onboarding,
+ * no confirmation dialog, no icon (all deliberately out of scope).
  *
  * Mirrors {@link SignupForm}'s design-system usage exactly — the closed `.type-*`
  * set, `.interactive` on the input/button, colour/radius/spacing tokens only, and
  * the same `useActionState` + translated-error shape. `pending` disables the
  * in-flight submit so a double-tap cannot create two orgs; the trimmed-empty guard
- * blocks an empty (or whitespace-only) name. On success the action returns the new
- * org id and we `router.refresh()`, re-running requireSession + the server wrapper
- * so the new org appears in the list above.
+ * blocks an empty (or whitespace-only) name. On success creation ACTIVATES the new
+ * org: we write the active-org cookie and do a FULL page load to "/", using the
+ * SAME mechanics as OrganizationsScreen.switchTo. The full load (not router.refresh)
+ * is deliberate — the react-query cache is not org-scoped, so a soft refresh would
+ * leave the previous org's cached data in place; a full navigation drops it.
  */
 export function CreateOrganization() {
   const { t } = useI18n();
-  const router = useRouter();
   const [state, formAction, pending] = useActionState(createOrgAction, initialState);
   const [name, setName] = useState("");
 
-  // Refresh once per successful create. The id is fresh each time, so back-to-back
-  // creates each trigger exactly one refresh; the ref guards against re-refreshing
+  // Activate the new org once per successful create. The id is fresh each time, so
+  // back-to-back creates each switch exactly once; the ref guards against re-running
   // for the same result on unrelated re-renders.
   const lastCreated = useRef<string | null>(null);
   useEffect(() => {
     if (state.createdOrgId && state.createdOrgId !== lastCreated.current) {
       lastCreated.current = state.createdOrgId;
-      setName("");
-      router.refresh();
+      setPreferenceCookie(ORG_COOKIE, state.createdOrgId);
+      window.location.assign("/");
     }
-  }, [state.createdOrgId, router]);
+  }, [state.createdOrgId]);
 
   const fieldClass =
     "min-h-11 w-full rounded-md bg-card px-sm py-xs type-body text-ink outline-none placeholder:text-muted interactive";
