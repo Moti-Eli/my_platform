@@ -71,5 +71,7 @@
   "inviteErrorArchived": "לא ניתן להזמין מועמד/ת שבארכיון.",
   "inviteErrorEmailExists": "כתובת האימייל כבר רשומה במערכת.",
   "inviteErrorProvisionFailed": "יצירת הגישה למועמד/ת נכשלה. נסו שוב.",
-  "inviteErrorFailed": "ההזמנה נכשלה. נסו שוב."
+  "inviteErrorFailed": "ההזמנה נכשלה. נסו שוב.",
+  "answersTitle": "תשובות לשאלון",
+  "answersLoadFailed": "טעינת התשובות נכשלה"
 }

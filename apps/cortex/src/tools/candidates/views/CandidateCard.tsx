@@ -51,7 +51,7 @@ import {
   SendIcon,
   ShareIcon,
 } from "@/components/icons";
-import type { Candidate } from "../logic";
+import type { Candidate, QuestionnaireAnswer } from "../logic";
 
 /** The stages the tool SHOWS, in pipeline order. `archived` is deliberately
  * absent: it exists in the DB and intents, it just has no tab and no segment.
@@ -1004,27 +1004,103 @@ export function CandidateCard({
       >
         {intakeLocked ? (
           <LockedHint />
-        ) : editing && draft !== null ? (
-          <label className="flex flex-col gap-2xs type-label text-muted">
-            {t("candidates.intakeNoteLabel")}
-            <textarea
-              className={`${inputClass} min-h-24 resize-y`}
-              value={draft.intakeNote}
-              placeholder={t("candidates.intakeNotePlaceholder")}
-              rows={3}
-              onChange={(e) => patchDraft({ intakeNote: e.target.value })}
-            />
-          </label>
-        ) : candidate.intakeNote !== "" ? (
-          <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
-            {candidate.intakeNote}
-          </p>
         ) : (
-          <span aria-hidden="true" className="type-body text-muted">
-            —
-          </span>
+          <>
+            {/* The intake note field — UNCHANGED (edit textarea / prose / em-dash). */}
+            {editing && draft !== null ? (
+              <label className="flex flex-col gap-2xs type-label text-muted">
+                {t("candidates.intakeNoteLabel")}
+                <textarea
+                  className={`${inputClass} min-h-24 resize-y`}
+                  value={draft.intakeNote}
+                  placeholder={t("candidates.intakeNotePlaceholder")}
+                  rows={3}
+                  onChange={(e) => patchDraft({ intakeNote: e.target.value })}
+                />
+              </label>
+            ) : candidate.intakeNote !== "" ? (
+              <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">
+                {candidate.intakeNote}
+              </p>
+            ) : (
+              <span aria-hidden="true" className="type-body text-muted">
+                —
+              </span>
+            )}
+
+            {/* THE CANDIDATE'S QUESTIONNAIRE ANSWERS — only once they are LINKED
+                (candidateUserId set); nothing extra otherwise. Lazily fetched when
+                this bubble renders (see CandidateAnswers). */}
+            {candidate.candidateUserId ? <CandidateAnswers candidateId={candidate.id} /> : null}
+          </>
         )}
       </StageSection>
+    </div>
+  );
+}
+
+/** The candidate's questionnaire answers, READ-ONLY, inside the intake bubble.
+ * Rendered only for a LINKED candidate (the parent gates on candidateUserId). It
+ * LAZILY runs `candidates.answers` when it mounts — i.e. when the intake bubble is
+ * shown — so the read costs nothing for candidates who were never invited.
+ *
+ * Each answer is a muted question label above the answer as body text; an
+ * unanswered question shows the em-dash placeholder, exactly like the card's empty
+ * fields. A non-privileged caller gets zero rows (correct, not an error) and this
+ * renders nothing. */
+function CandidateAnswers({ candidateId }: { candidateId: string }) {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [answers, setAnswers] = useState<QuestionnaireAnswer[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    setStatus("loading");
+    void (async () => {
+      const res = await runIntentAction("candidates.answers", { candidateId });
+      if (!active) return;
+      if (res.ok) {
+        setAnswers((res.data as { answers: QuestionnaireAnswer[] }).answers);
+        setStatus("ready");
+      } else {
+        setStatus("error");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [candidateId]);
+
+  // Ready with nothing to show (a caller who may not read the rows) → render nothing,
+  // so no empty titled block appears.
+  if (status === "ready" && answers.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-sm border-t border-hairline pt-sm">
+      <span className="type-caption text-muted">{t("candidates.answersTitle")}</span>
+      {status === "loading" ? (
+        <div className="flex flex-col gap-xs" aria-hidden="true">
+          <span className="h-4 w-full rounded-md bg-hairline motion-safe:animate-pulse" />
+          <span className="h-4 w-3/4 rounded-md bg-hairline motion-safe:animate-pulse" />
+        </div>
+      ) : status === "error" ? (
+        <p className="type-caption text-muted">{t("candidates.answersLoadFailed")}</p>
+      ) : (
+        <ul className="flex flex-col gap-sm">
+          {answers.map((a) => (
+            <li key={a.questionKey} className="flex min-w-0 flex-col gap-2xs">
+              <span className="type-caption text-muted">{a.questionText}</span>
+              {a.answer.trim() !== "" ? (
+                <p className="whitespace-pre-wrap type-body leading-relaxed text-ink">{a.answer}</p>
+              ) : (
+                <span aria-hidden="true" className="type-body text-muted">
+                  —
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

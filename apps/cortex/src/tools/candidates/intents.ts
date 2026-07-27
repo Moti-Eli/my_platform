@@ -59,6 +59,14 @@ const candidate = z.object({
   candidateUserId: z.string().nullable(),
 });
 
+/** One questionnaire answer as returned to the recruiter's card (read-only). */
+const answer = z.object({
+  questionKey: z.string(),
+  questionText: z.string(),
+  answer: z.string(),
+  position: z.number(),
+});
+
 export function createCandidatesIntents(logic: CandidatesLogic) {
   return [
     defineIntent({
@@ -151,6 +159,19 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
       input: z.object({ candidateId: z.string() }),
       output: z.object({ link: z.string() }),
       handler: (input, ctx) => logic.invite(input, ctx),
+    }),
+
+    // READ-ONLY. The candidate's questionnaire answers, for the recruiter's card.
+    // `available` is false (empty) until the candidate is linked; the answer rows are
+    // authorized by RLS (the recruiter's downward-tree read), so a non-privileged
+    // caller correctly gets an empty list rather than an error.
+    defineIntent({
+      name: "candidates.answers",
+      description:
+        "Read a candidate's questionnaire answers (empty + available:false until they are invited and linked)",
+      input: z.object({ candidateId: z.string() }),
+      output: z.object({ answers: z.array(answer), available: z.boolean() }),
+      handler: (input, ctx) => logic.answers(input, ctx),
     }),
   ];
 }

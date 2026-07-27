@@ -22,6 +22,10 @@
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
 export const CANDIDATES_TABLE = "candidates";
+/** The candidate's questionnaire answers (20260727000001) live in their CHILD ORG,
+ * owned by their linked user. `candidates.answers` reads this table by owner_id, and
+ * the recruiter's DOWNWARD-TREE RLS is the authorization. */
+export const CANDIDATE_ANSWERS_TABLE = "candidate_answers";
 
 /** Pipeline stages, in board order. Mirrors the table's CHECK constraint. */
 export const CANDIDATE_STAGES = ["contact", "interview", "intake", "archived"] as const;
@@ -107,6 +111,24 @@ export interface DeleteCandidateInput {
 export interface InviteCandidateInput {
   candidateId: string;
 }
+/** answers takes the candidate RECORD id; it resolves the linked user itself. */
+export interface AnswersInput {
+  candidateId: string;
+}
+/** One questionnaire answer as shown, read-only, in the recruiter's card. */
+export interface QuestionnaireAnswer {
+  questionKey: string;
+  questionText: string;
+  answer: string;
+  position: number;
+}
+/** `available` = the candidate is LINKED (has a portal), NOT whether the caller may
+ * read the rows: a non-privileged caller sees available:true with an empty list, and
+ * that is correct — RLS, not this flag, decides visibility. */
+export interface AnswersResult {
+  answers: QuestionnaireAnswer[];
+  available: boolean;
+}
 
 export interface CandidatesLogic {
   queryList(input: QueryListInput, ctx: Ctx): Promise<Candidate[]>;
@@ -119,6 +141,11 @@ export interface CandidatesLogic {
    *  throwing stub on the client), because it needs the service client + node crypto
    *  that must not reach the client bundle. Same shape as staff.add_member. */
   invite(input: InviteCandidateInput, ctx: Ctx): Promise<{ link: string }>;
+  /** Read a candidate's questionnaire answers for the recruiter's card. Returns
+   *  available:false (empty) until the candidate is linked; the answer rows are
+   *  authorized by RLS (the recruiter's downward-tree read), so zero rows for a
+   *  non-privileged caller is correct and never an error. */
+  answers(input: AnswersInput, ctx: Ctx): Promise<AnswersResult>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -332,6 +359,32 @@ export function createCandidatesLogic({
       // alone — org scope is enforced by RLS, not this filter, exactly like update.
       await db.delete(CANDIDATES_TABLE, { id: input.id });
       return { id: input.id };
+    },
+
+    async answers(input, _ctx) {
+      // 1) Read the candidate row (RLS-scoped). Not readable or not yet linked →
+      //    nothing to show, and NOT an error: `available` reflects whether a portal
+      //    exists, and a caller who can't see the candidate simply gets false.
+      const candRows = await db.select(CANDIDATES_TABLE, { id: input.candidateId });
+      const candidate = candRows[0] ? toCandidate(candRows[0]) : null;
+      const candidateUserId = candidate?.candidateUserId ?? null;
+      if (!candidateUserId) return { answers: [], available: false };
+
+      // 2) The answers live in the candidate's CHILD ORG, owned by their user. The
+      //    recruiter reads them by DOWNWARD-TREE inheritance — auth_user_can_read is
+      //    the authorization. A non-privileged caller sees zero rows here; that is
+      //    correct, not an error (db.select returns [] on zero rows, throws only on a
+      //    real DB fault). The where is by owner_id; RLS confines what comes back.
+      const rows = await db.select(CANDIDATE_ANSWERS_TABLE, { owner_id: candidateUserId });
+      const answers = [...rows]
+        .sort((a, b) => Number(a.position) - Number(b.position))
+        .map((r) => ({
+          questionKey: String(r.question_key),
+          questionText: String(r.question_text),
+          answer: r.answer == null ? "" : String(r.answer),
+          position: Number(r.position),
+        }));
+      return { answers, available: true };
     },
   };
 }

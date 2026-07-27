@@ -71,5 +71,7 @@
   "inviteErrorArchived": "You can't invite an archived candidate.",
   "inviteErrorEmailExists": "That email is already registered.",
   "inviteErrorProvisionFailed": "Setting up access failed. Please try again.",
-  "inviteErrorFailed": "The invite failed. Please try again."
+  "inviteErrorFailed": "The invite failed. Please try again.",
+  "answersTitle": "Questionnaire answers",
+  "answersLoadFailed": "Couldn't load the answers"
 }
