@@ -79,11 +79,16 @@ function toEntry(row: DbRow): TimeEntry {
   };
 }
 
-/** Today as an ISO date (YYYY-MM-DD) — the default `work_date` when the caller
- * omits it. Matches the column's `default current_date`, resolved here so the
- * returned row is deterministic rather than depending on a DB round-trip. */
+/** Today as an ISO date (YYYY-MM-DD) built from the LOCAL device date —
+ * deliberately NOT UTC and NOT the DB's `current_date`. An attendance entry
+ * belongs to the REPORTER'S OWN day: for a UTC+ user (e.g. Israel), the window
+ * between local midnight and UTC midnight is still "today" locally, but
+ * `toISOString()` (UTC) would stamp it as YESTERDAY. The DB column default
+ * (`current_date`, server-side) is only a fallback this code never relies on —
+ * the create path always passes `work_date` explicitly. */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** The hours domain: strictly greater than 0, at most 24 — the SAME bound as the
