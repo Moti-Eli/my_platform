@@ -53,29 +53,38 @@ if (DB_URL === "") {
   process.exit(1);
 }
 
-/** The target tool tables — one closed list, used by every section. */
-const TABLES = [
-  "inventory_items",
-  "tasks",
-  "notes",
-  "expenses",
-  "journal",
-  "candidates",
-  "time_entries",
-  "app_instances",
-  "record_grants",
-];
+/**
+ * Fixed infra tables that are ALWAYS audited even though they lack the tool-table
+ * column shape. Everything else is DISCOVERED at runtime (see `discoverTables`),
+ * so a tool table created in another workstream cannot silently escape the audit.
+ */
+const INFRA_TABLES = ["app_instances", "record_grants"];
 
-/** The private.* helper functions whose live bodies we want to read back. */
-const FUNCTIONS = [
-  "auth_user_can_read",
-  "auth_user_can_write",
-  "auth_user_can_grant",
-  "auth_user_is_member_of_tree",
-  "auth_user_is_admin_of_tree",
-  "auth_user_is_member_of",
-  "enforce_tool_row_immutability",
-];
+/**
+ * The tables this run audits. Populated once, inside the READ ONLY transaction,
+ * by dynamic discovery + INFRA_TABLES; every section iterates this list.
+ */
+let TABLES: string[] = [];
+
+/**
+ * Discover the target tables from the LIVE catalog: every `public` table that has
+ * ALL THREE of org_id, owner_id, visibility (the tool-table shape), plus the fixed
+ * infra tables. Returns a sorted, de-duplicated list. Runs inside the caller's
+ * read-only transaction.
+ */
+async function discoverTables(pg: Client): Promise<string[]> {
+  const res = await pg.query(
+    `select table_name
+       from information_schema.columns
+      where table_schema = 'public'
+        and column_name in ('org_id', 'owner_id', 'visibility')
+      group by table_name
+     having count(distinct column_name) = 3`
+  );
+  const found = new Set<string>(res.rows.map((r) => r.table_name as string));
+  for (const t of INFRA_TABLES) found.add(t);
+  return Array.from(found).sort();
+}
 
 /** Extract the hostname from a URL; null if it cannot be parsed (never echo creds). */
 function hostOf(url: string): string | null {
@@ -110,11 +119,25 @@ async function main(): Promise<void> {
     // One read-only transaction wraps the whole audit: any stray write errors out.
     await pg.query("begin transaction read only");
 
+    // Discover the audited tables BEFORE any section runs — every section below
+    // iterates this list, so discovery must happen first (still read-only).
+    TABLES = await discoverTables(pg);
+
     header("CORTEX LIVE-CATALOG AUDIT (READ ONLY)");
     console.log(`  Database host : ${host ?? "(unparseable)"}`);
-    console.log(`  Tables        : ${TABLES.join(", ")}`);
-    console.log(`  Functions     : private.{${FUNCTIONS.join(", ")}}`);
+    console.log(`  Tables        : ${TABLES.length} discovered (see section 0)`);
+    console.log("  Functions     : all in schema private (see section 5)");
     console.log("  Transaction   : BEGIN TRANSACTION READ ONLY (writes would error)");
+
+    // --- [0] AUDITED TABLES ---------------------------------------------------
+    header("0. AUDITED TABLES  (tool-table shape: org_id+owner_id+visibility, + infra)");
+    console.log("  Discovered dynamically so a new tool table cannot escape the audit.");
+    console.log(`  infra (always) : ${INFRA_TABLES.join(", ")}`);
+    console.log(`  total audited  : ${TABLES.length}`);
+    for (const t of TABLES) {
+      const infra = INFRA_TABLES.includes(t) ? "  (infra)" : "";
+      console.log(`    ${t}${infra}`);
+    }
 
     // --- [1] RLS STATUS -------------------------------------------------------
     header("1. RLS STATUS  (pg_class: relrowsecurity, relforcerowsecurity)");
@@ -223,29 +246,24 @@ async function main(): Promise<void> {
     }
 
     // --- [5] FUNCTION BODIES --------------------------------------------------
-    header("5. FUNCTION BODIES  (pg_get_functiondef — full live text)");
+    header("5. FUNCTION BODIES  (every function in schema private — pg_get_functiondef)");
     {
+      // Enumerate ALL of schema private, not a hardcoded list — so a helper added
+      // in another workstream (e.g. auth_user_has_permission) can never escape.
       const res = await pg.query(
-        `select n.nspname               as schema_name,
-                p.proname               as function_name,
+        `select p.proname                 as function_name,
                 pg_get_functiondef(p.oid) as definition
            from pg_proc p
            join pg_namespace n on n.oid = p.pronamespace
-          where n.nspname = 'private' and p.proname = any($1)
-          order by p.proname, p.oid`,
-        [FUNCTIONS]
+          where n.nspname = 'private'
+          order by p.proname, p.oid`
       );
-      const present = new Set<string>();
+      console.log(`  ${res.rowCount} function(s) in schema private.`);
+      if (res.rowCount === 0) console.log("  (schema private has no functions)");
       for (const r of res.rows) {
-        present.add(r.function_name);
         sub(`private.${r.function_name}`);
         console.log(r.definition);
       }
-      for (const f of FUNCTIONS)
-        if (!present.has(f)) {
-          sub(`private.${f}`);
-          console.log("  (function not found in schema private)");
-        }
     }
 
     // --- [6] COLUMN DEFAULTS + VISIBILITY CHECK CONSTRAINTS -------------------
