@@ -97,6 +97,10 @@ export interface SetStageInput {
 export interface DeleteCandidateInput {
   id: string;
 }
+/** invite takes only the candidate RECORD id; the active org comes from ctx. */
+export interface InviteCandidateInput {
+  candidateId: string;
+}
 
 export interface CandidatesLogic {
   queryList(input: QueryListInput, ctx: Ctx): Promise<Candidate[]>;
@@ -104,6 +108,11 @@ export interface CandidatesLogic {
   updateCandidate(input: UpdateCandidateInput, ctx: Ctx): Promise<{ id: string }>;
   setStage(input: SetStageInput, ctx: Ctx): Promise<{ id: string }>;
   deleteCandidate(input: DeleteCandidateInput, ctx: Ctx): Promise<{ id: string }>;
+  /** Provision (or re-issue a link for) a candidate's login portal. SERVER-SIDE
+   *  ONLY — the implementation is INJECTED (createCandidatesInvite on the server; a
+   *  throwing stub on the client), because it needs the service client + node crypto
+   *  that must not reach the client bundle. Same shape as staff.add_member. */
+  invite(input: InviteCandidateInput, ctx: Ctx): Promise<{ link: string }>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -168,11 +177,16 @@ function deriveStage(fields: {
 export function createCandidatesLogic({
   db,
   emit: _emit,
+  invite,
 }: {
   db: CortexDb;
   emit: Emit;
+  /** INJECTED — see CandidatesLogic.invite. The server passes the real
+   *  implementation; the client passes a throwing stub (invite never runs client-side). */
+  invite: (input: InviteCandidateInput, ctx: Ctx) => Promise<{ link: string }>;
 }): CandidatesLogic {
   return {
+    invite,
     async queryList(_input, ctx) {
       // A CONTEXT filter — "show me THIS org's candidates" — NOT a security filter.
       // Security lives in the DATABASE: `private.auth_user_can_read` behind the

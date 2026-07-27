@@ -134,5 +134,18 @@ export function createCandidatesIntents(logic: CandidatesLogic) {
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.deleteCandidate(input, ctx),
     }),
+
+    // PRIVILEGED, SERVER-SIDE ONLY (same shape as staff.add_member). Provisions the
+    // candidate's isolated login portal (child org + user + questionnaire snapshot)
+    // and returns a one-time link; idempotent — a second call just re-issues a link.
+    // The org is ctx, never the caller's; the heavy lifting is in invite-core.ts.
+    defineIntent({
+      name: "candidates.invite",
+      description:
+        "Invite a candidate to log in: provision their portal (or re-issue a link) and return a one-time set-password link",
+      input: z.object({ candidateId: z.string() }),
+      output: z.object({ link: z.string() }),
+      handler: (input, ctx) => logic.invite(input, ctx),
+    }),
   ];
 }
