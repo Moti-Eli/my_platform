@@ -391,9 +391,12 @@ const inputClass =
   "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
 const invalidRing = "ring-1 ring-danger";
 
-/** Today as an ISO date (YYYY-MM-DD) — the default for the date input. */
+/** Today as an ISO date (YYYY-MM-DD) built from the LOCAL device date — the
+ * default for the date input. This runs in the BROWSER, so it is truly the
+ * reporter's own day (not UTC). Keep in sync with logic.ts `today()`. */
 function todayInput(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** Validate a raw hours string against the (0, 24] domain (mirrors the DB CHECK
