@@ -20,6 +20,10 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
+// The row type. `Candidate` now carries `candidateUserId` (string | null — null
+// until the candidate is invited), so every row this hook returns includes it; the
+// column rides through query_list's zod output like every other field. The card
+// reads it only to label the invite control (invite vs. re-send link).
 import type { Candidate } from "@/tools/candidates/logic";
 
 /** The single queryKey both candidates views share. Exported so callers

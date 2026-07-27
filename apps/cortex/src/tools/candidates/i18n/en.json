@@ -61,5 +61,15 @@
   "restore": "Restore",
   "share": "Share",
   "uploadCv": "Upload CV",
-  "uploadDoc": "Upload another document"
+  "uploadDoc": "Upload another document",
+  "invite": "Invite",
+  "inviteResend": "Send a new link",
+  "inviteCopy": "Copy",
+  "inviteCopied": "Copied",
+  "inviteHint": "Copy and send it to the candidate",
+  "inviteErrorMissingEmail": "This candidate has no email address. Add one and try again.",
+  "inviteErrorArchived": "You can't invite an archived candidate.",
+  "inviteErrorEmailExists": "That email is already registered.",
+  "inviteErrorProvisionFailed": "Setting up access failed. Please try again.",
+  "inviteErrorFailed": "The invite failed. Please try again."
 }

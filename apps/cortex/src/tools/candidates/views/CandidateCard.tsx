@@ -36,17 +36,19 @@
  * ArchiveForm, the stage constants and the shared types) — never the reverse.
  */
 import { useEffect, useRef, useState } from "react";
-import type { IntentResult } from "@/cortex/actions";
+import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import { useI18n } from "@/i18n";
 import {
   CheckIcon,
   CloseIcon,
   ComposeIcon,
+  CopyIcon,
   InfoIcon,
   LockIcon,
   MailIcon,
   PaperclipIcon,
   PhoneIcon,
+  SendIcon,
   ShareIcon,
 } from "@/components/icons";
 import type { Candidate } from "../logic";
@@ -72,9 +74,12 @@ export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 
 /** Everything the card's EDIT MODE may save — the full editable field set.
  * `urgent` is deliberately absent (the flag lives on in the data layer but has
- * no UI for now), and stage/rejectReason go through set_stage, never through an
- * edit save. */
-export type CandidatePatch = Omit<Candidate, "id" | "stage" | "urgent" | "rejectReason">;
+ * no UI for now), stage/rejectReason go through set_stage, and `candidateUserId`
+ * is read-only (written only by the invite sequence) — none are edit-savable. */
+export type CandidatePatch = Omit<
+  Candidate,
+  "id" | "stage" | "urgent" | "rejectReason" | "candidateUserId"
+>;
 
 /** Parse the comma-separated tags input into a clean string[] — trimmed, empties
  * dropped. */
@@ -374,6 +379,17 @@ export function CandidateCard({
   // guard backs this up (belt-and-suspenders).
   const [submitting, setSubmitting] = useState(false);
 
+  // INVITE (candidates.invite) — the card's OWN server action, independent of the
+  // edit/save flow. `invitePending` disables the button while it runs; on success
+  // we hold the returned link to show the copy panel; on failure a code we map to a
+  // specific line. `linkRef` lets the copy fallback (non-secure origins with no
+  // navigator.clipboard) select the text for a manual/legacy copy.
+  const [invitePending, setInvitePending] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<WriteErrorCode | null>(null);
+  const [copied, setCopied] = useState(false);
+  const linkRef = useRef<HTMLTextAreaElement>(null);
+
   // Guard the post-await setState: the overlay can unmount this card mid-save.
   const mounted = useRef(true);
   useEffect(() => {
@@ -461,6 +477,52 @@ export function CandidateCard({
     }
   }
 
+  // Run candidates.invite for THIS candidate. Idempotent server-side: "invite" and
+  // "re-send link" are the SAME call — the button label differs only by whether a
+  // user is already linked. Success holds the returned link; failure holds the code.
+  async function handleInvite() {
+    if (invitePending) return;
+    setInvitePending(true);
+    setInviteError(null);
+    try {
+      const res = await runIntentAction("candidates.invite", { candidateId: candidate.id });
+      if (!mounted.current) return;
+      if (res.ok) {
+        setInviteLink((res.data as { link: string }).link);
+        setInviteError(null);
+        setCopied(false);
+      } else {
+        setInviteError(res.code);
+        setInviteLink(null);
+      }
+    } finally {
+      if (mounted.current) setInvitePending(false);
+    }
+  }
+
+  // Copy the link. Prefer the async Clipboard API; on a NON-SECURE origin it is
+  // absent, so fall back to selecting the text + the legacy execCommand copy, and
+  // if even that throws, leave the text selected so the user can copy by hand.
+  async function copyLink() {
+    if (inviteLink === null) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        linkRef.current?.select();
+        document.execCommand("copy");
+      }
+      if (mounted.current) {
+        setCopied(true);
+        window.setTimeout(() => {
+          if (mounted.current) setCopied(false);
+        }, 2000);
+      }
+    } catch {
+      linkRef.current?.select();
+    }
+  }
+
   // Effective values for the completeness gates: the LIVE draft while editing,
   // the saved candidate otherwise — so the stage tiers unlock (and the accent
   // moves) as you type, and reflect what's stored when viewing.
@@ -523,6 +585,29 @@ export function CandidateCard({
           <ShareIcon width={16} height={16} />
         </button>
 
+        {/* INVITE — provision (or re-send a link for) the candidate's login
+            portal. Shown ONLY for a SAVED, non-archived candidate: hidden in
+            create mode (no id yet, nothing to invite) and for archived rows (the
+            server refuses them anyway). Idempotent, so the SAME control both
+            invites and re-sends — only the label changes with candidateUserId.
+            Bare glyph like the other header controls; pulses while pending. */}
+        {candidate.id !== "" && candidate.stage !== "archived" ? (
+          <button
+            type="button"
+            title={t(candidate.candidateUserId ? "candidates.inviteResend" : "candidates.invite")}
+            aria-label={t(candidate.candidateUserId ? "candidates.inviteResend" : "candidates.invite")}
+            disabled={invitePending}
+            onClick={() => void handleInvite()}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive hover:bg-hairline active:bg-hairline disabled:opacity-50 motion-safe:active:scale-[0.97]"
+          >
+            <SendIcon
+              width={16}
+              height={16}
+              className={invitePending ? "motion-safe:animate-pulse" : undefined}
+            />
+          </button>
+        ) : null}
+
         {/* THE EDIT/SAVE TOGGLE — one control, two states. A BARE glyph in
             view mode (no disc; rounded-full only shapes the faint hover/press
             tint); in edit mode it is the ONE loud element on the card: solid
@@ -561,6 +646,54 @@ export function CandidateCard({
       {/* The archive-reason form, when open — slotted directly under the header
           row (FullScreen-owned; see archivePanel). */}
       {archivePanel}
+
+      {/* INVITE RESULT — quiet panel directly under the header: either the issued
+          link (readonly, LTR, break-all, with a copy button + a one-line hint to
+          send it on) or a mapped error line in the shared bg-danger/10 style. */}
+      {inviteLink !== null ? (
+        <div className="flex flex-col gap-xs rounded-lg bg-card p-md">
+          <div className="flex items-start gap-xs">
+            <textarea
+              ref={linkRef}
+              readOnly
+              dir="ltr"
+              value={inviteLink}
+              rows={2}
+              onFocus={(e) => e.currentTarget.select()}
+              className="min-w-0 flex-1 resize-none break-all rounded-md bg-screen px-sm py-xs type-caption text-ink outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => void copyLink()}
+              className="flex shrink-0 items-center gap-2xs rounded-md bg-app-blue/10 px-sm py-xs type-label text-app-blue interactive motion-safe:active:scale-[0.97]"
+            >
+              <CopyIcon width={14} height={14} />
+              {t(copied ? "candidates.inviteCopied" : "candidates.inviteCopy")}
+            </button>
+          </div>
+          <p className="type-caption text-muted">{t("candidates.inviteHint")}</p>
+        </div>
+      ) : inviteError !== null ? (
+        <p
+          role="alert"
+          className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
+        >
+          <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
+          <span>
+            {t(
+              inviteError === "missingEmail"
+                ? "candidates.inviteErrorMissingEmail"
+                : inviteError === "archived"
+                  ? "candidates.inviteErrorArchived"
+                  : inviteError === "emailExists"
+                    ? "candidates.inviteErrorEmailExists"
+                    : inviteError === "provisionFailed"
+                      ? "candidates.inviteErrorProvisionFailed"
+                      : "candidates.inviteErrorFailed",
+            )}
+          </span>
+        </p>
+      ) : null}
 
       {/* 3 · DETAILS SECTION (פרטי קשר) — the first of the three equal stage
           sections; holds every existing field (and, in edit mode, the document

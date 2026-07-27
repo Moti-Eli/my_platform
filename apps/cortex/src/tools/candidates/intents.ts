@@ -52,6 +52,11 @@ const candidate = z.object({
   // קליטה fields (next prompt).
   acceptanceNote: z.string(),
   intakeNote: z.string(),
+  // The linked candidate user account, or null until invited (20260723000007).
+  // Declared for the SAME zod-strip reason: without it, query_list would drop the
+  // field and the card could never tell "invite" from "re-send link". Read-only —
+  // it appears in NO write intent's input.
+  candidateUserId: z.string().nullable(),
 });
 
 export function createCandidatesIntents(logic: CandidatesLogic) {

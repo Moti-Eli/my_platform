@@ -91,6 +91,8 @@ const BLANK_CANDIDATE: Candidate = {
   salaryExpectation: "",
   acceptanceNote: "",
   intakeNote: "",
+  // Unsaved + never invited — the invite control is hidden in create mode anyway.
+  candidateUserId: null,
 };
 
 // userId/orgId arrive as props (the page called requireSession()) but are NOT
@@ -261,6 +263,8 @@ export function FullScreen(_props: ToolViewProps) {
           stage: "contact",
           urgent: false,
           rejectReason: "",
+          // A brand-new candidate has no linked user yet — invited later, if at all.
+          candidateUserId: null,
         };
         queryClient.setQueryData<Candidate[]>(CANDIDATES_LIST_KEY, (prev) => [
           ...(prev ?? []),

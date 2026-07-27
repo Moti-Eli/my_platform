@@ -379,6 +379,17 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** Paper plane — SEND: dispatch something to someone (e.g. issue/send a
+ * candidate an invite link). Distinct from ShareIcon's node graph. */
+export function SendIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22 11 13 2 9 22 2Z" />
+    </svg>
+  );
+}
+
 /** A closed padlock — the locked/gated affordance (e.g. a stage section not yet
  * unlocked by the previous stage's completeness). */
 export function LockIcon(props: IconProps) {

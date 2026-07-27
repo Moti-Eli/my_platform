@@ -51,6 +51,12 @@ export interface Candidate {
   // 'intake' (see deriveStage).
   acceptanceNote: string;
   intakeNote: string;
+  // The linked candidate USER account (20260723000007), or null until the
+  // candidate is invited to log in. Read-only here — set only by the invite
+  // sequence, never by create/update — so it is absent from every write path and
+  // from CandidatePatch. The card reads it only to choose the invite button's
+  // label (invite vs. re-send link).
+  candidateUserId: string | null;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -146,6 +152,9 @@ function toCandidate(row: DbRow): Candidate {
     salaryExpectation: row.salary_expectation == null ? "" : String(row.salary_expectation),
     acceptanceNote: row.acceptance_note == null ? "" : String(row.acceptance_note),
     intakeNote: row.intake_note == null ? "" : String(row.intake_note),
+    // null until invited — the column is nullable and stays null for almost every
+    // row (written only by the invite sequence).
+    candidateUserId: row.candidate_user_id == null ? null : String(row.candidate_user_id),
   };
 }
 

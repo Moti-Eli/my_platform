@@ -10,7 +10,21 @@ import { getServerRuntime } from "@/cortex/server-runtime";
  */
 export type IntentResult<T = unknown> =
   | { ok: true; data: T }
-  | { ok: false; code: "unavailable" | "denied" | "failed" | "emailExists" | "alreadyMember" };
+  | {
+      ok: false;
+      code:
+        | "unavailable"
+        | "denied"
+        | "failed"
+        | "emailExists"
+        | "alreadyMember"
+        // candidates.invite outcomes the card maps to distinct lines. Surfaced as
+        // their own codes (not collapsed to "failed") so the invite panel can say
+        // exactly what happened; see the mapping in runIntentAction.
+        | "missingEmail"
+        | "archived"
+        | "provisionFailed";
+    };
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -68,6 +82,20 @@ export async function runIntentAction(
     // Same treatment as emailExists — a dedicated code, mapped BEFORE the heuristics.
     if (/alreadyMember/.test(message)) {
       return { ok: false, code: "alreadyMember" };
+    }
+
+    // Expected outcomes of candidates.invite (inviteCandidateCore throws its stable
+    // key; invite-logic re-throws it). Each is a dedicated code so the invite panel
+    // can render a specific line — mapped BEFORE the generic RLS/permission
+    // heuristics, which would otherwise swallow them into "unavailable"/"failed".
+    if (/missingEmail/.test(message)) {
+      return { ok: false, code: "missingEmail" };
+    }
+    if (/archived/.test(message)) {
+      return { ok: false, code: "archived" };
+    }
+    if (/provisionFailed/.test(message)) {
+      return { ok: false, code: "provisionFailed" };
     }
 
     // A write to a tool table is denied by grants until the write step lands —

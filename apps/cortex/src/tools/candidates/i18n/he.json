@@ -61,5 +61,15 @@
   "restore": "שחזור",
   "share": "שיתוף",
   "uploadCv": "העלאת קורות חיים",
-  "uploadDoc": "העלאת מסמך נוסף"
+  "uploadDoc": "העלאת מסמך נוסף",
+  "invite": "הזמנה",
+  "inviteResend": "שליחת קישור חדש",
+  "inviteCopy": "העתקה",
+  "inviteCopied": "הועתק",
+  "inviteHint": "העתק ושלח למועמד/ת",
+  "inviteErrorMissingEmail": "למועמד/ת אין כתובת אימייל. הוסיפו אימייל ונסו שוב.",
+  "inviteErrorArchived": "לא ניתן להזמין מועמד/ת שבארכיון.",
+  "inviteErrorEmailExists": "כתובת האימייל כבר רשומה במערכת.",
+  "inviteErrorProvisionFailed": "יצירת הגישה למועמד/ת נכשלה. נסו שוב.",
+  "inviteErrorFailed": "ההזמנה נכשלה. נסו שוב."
 }
