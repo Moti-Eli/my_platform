@@ -43,6 +43,10 @@ import { manifest as timeEntriesManifest } from "@/tools/time_entries/manifest";
 import { createTimeEntriesLogic } from "@/tools/time_entries/logic";
 import { createTimeEntriesIntents } from "@/tools/time_entries/intents";
 import { createTimeEntriesListeners } from "@/tools/time_entries/events";
+import { manifest as questionnaireManifest } from "@/tools/questionnaire/manifest";
+import { createQuestionnaireLogic } from "@/tools/questionnaire/logic";
+import { createQuestionnaireIntents } from "@/tools/questionnaire/intents";
+import { createQuestionnaireListeners } from "@/tools/questionnaire/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -188,6 +192,17 @@ function build(): DataLayer {
       timeEntriesManifest,
       createTimeEntriesIntents(timeEntriesLogic),
       createTimeEntriesListeners(timeEntriesLogic),
+    );
+  }
+  // Questionnaire — thin CRUD over candidate_answers through the injected db (which
+  // routes that table to the RLS client), so no service client and no special
+  // wiring: same registration as the client runtime.
+  const questionnaireLogic = createQuestionnaireLogic({ db, emit: eventBus.emit });
+  if (!getApp(questionnaireManifest.id)) {
+    registerApp(
+      questionnaireManifest,
+      createQuestionnaireIntents(questionnaireLogic),
+      createQuestionnaireListeners(questionnaireLogic),
     );
   }
   for (const stub of STUB_APPS) {

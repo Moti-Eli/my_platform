@@ -60,6 +60,10 @@ import { manifest as timeEntriesManifest } from "@/tools/time_entries/manifest";
 import { createTimeEntriesLogic } from "@/tools/time_entries/logic";
 import { createTimeEntriesIntents } from "@/tools/time_entries/intents";
 import { createTimeEntriesListeners } from "@/tools/time_entries/events";
+import { manifest as questionnaireManifest } from "@/tools/questionnaire/manifest";
+import { createQuestionnaireLogic } from "@/tools/questionnaire/logic";
+import { createQuestionnaireIntents } from "@/tools/questionnaire/intents";
+import { createQuestionnaireListeners } from "@/tools/questionnaire/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -161,6 +165,16 @@ function build(): Runtime {
       timeEntriesManifest,
       createTimeEntriesIntents(timeEntriesLogic),
       createTimeEntriesListeners(timeEntriesLogic),
+    );
+  }
+  // Questionnaire has NO server-only deps (thin CRUD over candidate_answers through
+  // the injected db), so it registers identically here and in server-runtime.
+  const questionnaireLogic = createQuestionnaireLogic({ db, emit: eventBus.emit });
+  if (!getApp(questionnaireManifest.id)) {
+    registerApp(
+      questionnaireManifest,
+      createQuestionnaireIntents(questionnaireLogic),
+      createQuestionnaireListeners(questionnaireLogic),
     );
   }
 
