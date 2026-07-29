@@ -17,7 +17,7 @@ import { CheckIcon } from "@/components/icons";
 import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
 import { useI18n } from "@/i18n";
 import { CreateOrganization } from "./CreateOrganization";
-import { HideOrganization } from "./HideOrganization";
+import { RemoveOrganization } from "./RemoveOrganization";
 
 interface OrgRow {
   id: string;
@@ -71,7 +71,9 @@ export function OrganizationsScreen({
               {content}
             </div>
           ) : (
-            <div key={org.id} className="flex items-center gap-2xs rounded-lg pe-2xs">
+            // RemoveOrganization wraps the switch control so it can render the
+            // refusal error beneath the org name; the switch onClick is unchanged.
+            <RemoveOrganization key={org.id} orgId={org.id} orgName={org.name}>
               <button
                 type="button"
                 onClick={() => switchTo(org.id)}
@@ -79,8 +81,7 @@ export function OrganizationsScreen({
               >
                 {content}
               </button>
-              <HideOrganization orgId={org.id} orgName={org.name} />
-            </div>
+            </RemoveOrganization>
           );
         })}
       </div>

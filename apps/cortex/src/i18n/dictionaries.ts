@@ -254,6 +254,11 @@ const he = {
     hideOrgHasMembers: "אי אפשר להסיר ארגון שיש בו חברים נוספים",
     hideOrgFailed: "הסרת הארגון נכשלה, נסה שוב",
     hideOrgNotConfigured: "המערכת אינה מחוברת לשרת",
+    removeOrgConfirm:
+      "להסיר את הארגון מהרשימה שלך? אם אתה היחיד בו — הוא יוסתר וניתן לשחזור. אם יש בו חברים נוספים — תעזוב אותו: תאבד גישה, ומה שיצרת נשאר בארגון.",
+    leaveOrgLastOrg: "אי אפשר לעזוב את הארגון האחרון שלך",
+    leaveOrgLastAdmin: "מנה מנהל נוסף לפני שתעזוב",
+    leaveOrgFailed: "העזיבה נכשלה, נסה שוב",
   },
   settings: {
     title: "הגדרות",
@@ -505,6 +510,11 @@ const en: Messages = {
     hideOrgHasMembers: "You can't remove an organization that has other members",
     hideOrgFailed: "Removing the organization failed, please try again",
     hideOrgNotConfigured: "The app is not connected to a server",
+    removeOrgConfirm:
+      "Remove this organization from your list? If you're the only one in it, it will be hidden and can be restored. If it has other members, you'll leave it: you'll lose access, and what you created stays in the organization.",
+    leaveOrgLastOrg: "You can't leave your last organization",
+    leaveOrgLastAdmin: "Hand off to another admin before you leave",
+    leaveOrgFailed: "Leaving failed, please try again",
   },
   settings: {
     title: "Settings",
