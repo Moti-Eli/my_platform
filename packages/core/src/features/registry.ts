@@ -83,4 +83,13 @@ export const FEATURES: FeatureDefinition[] = [
     platforms: ["web", "mobile"],
     enabled: true,
   },
+  {
+    id: "quotes",
+    route: "dashboard/quotes",
+    labelKey: "quotes.navLabel",
+    icon: "file-text",
+    requiredPermission: null,
+    platforms: ["web"],
+    enabled: true,
+  },
 ];
