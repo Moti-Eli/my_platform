@@ -178,6 +178,10 @@
     "connectionError": "Connection lost",
     "loadError": "Couldn't load messages. Please try again."
   },
+  "quotes": {
+    "navLabel": "Quotes",
+    "title": "Quotes"
+  },
   "error": {
     "title": "Something went wrong",
     "description": "An unexpected error occurred on our side. You can try again — if it keeps happening, please come back a little later.",
