@@ -54,6 +54,9 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set when a long-press fired so the ensuing click doesn't also navigate.
   const suppressClick = useRef(false);
+  // Points at the currently-active tool chip so we can scroll it into view when the
+  // route changes — the highlighted chip can otherwise sit off-screen in the row.
+  const activeRef = useRef<HTMLAnchorElement>(null);
 
   const isActive = (route: string) => (route === "/" ? pathname === "/" : pathname === route);
 
@@ -88,6 +91,14 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
   useEffect(() => () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
   }, []);
+
+  // On every route change, scroll the active tool chip into view. `inline: "center"`
+  // centers it when possible (edge chips naturally stay near the edge); `block:
+  // "nearest"` avoids any vertical page scroll; `behavior: "auto"` is instant since
+  // this coincides with the screen transition.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ inline: "center", block: "nearest", behavior: "auto" });
+  }, [pathname]);
 
   // Flip above the chip if there isn't room below it in the viewport.
   const placeAbove =
@@ -124,6 +135,7 @@ export function AppTabsRow({ tools }: { tools: ToolTab[] }) {
         return (
           <Link
             key={tab.id}
+            ref={active ? activeRef : undefined}
             href={tab.route}
             prefetch={true}
             role="tab"
