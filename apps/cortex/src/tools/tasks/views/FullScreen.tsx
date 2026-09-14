@@ -25,13 +25,17 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
-import { useI18n } from "@/i18n";
-import { ChevronIcon, CheckIcon, CloseIcon, InfoIcon } from "@/components/icons";
+import { useI18n, type MessageKey } from "@/i18n";
+import { ChevronIcon, CheckIcon, CloseIcon, InfoIcon, MenuIcon } from "@/components/icons";
 import type { Task } from "../logic";
 import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
+
+/** Which subset of tasks the floating filter bar shows. Client-side only — it
+ * never re-queries; it filters the same list already in the shared cache. */
+type TaskFilter = "all" | "open" | "done";
 
 // userId/orgId arrive as props (the page called requireSession()) but are NOT
 // sent to the action — the server derives identity from the session cookie. They
@@ -48,6 +52,9 @@ export function FullScreen(_props: ToolViewProps) {
   // list paints instantly; react-query revalidates in the background.
   const { tasks } = useTasksList();
   const [adding, setAdding] = useState(false);
+  // The floating filter bar's current selection — filters the SAME shared list,
+  // no refetch.
+  const [filter, setFilter] = useState<TaskFilter>("all");
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
   // "unavailable" (the DB refused — you may not) vs "failed" (something broke).
   // Never a silent no-op, and never a pretend-success.
@@ -192,6 +199,20 @@ export function FullScreen(_props: ToolViewProps) {
     [queryClient],
   );
 
+  // Applied client-side against the same shared list — a display filter, not a
+  // different read. "open" mirrors the DashboardCard's own not-done definition.
+  const filteredTasks = tasks.filter((task) => {
+    if (filter === "open") return !task.done;
+    if (filter === "done") return task.done;
+    return true;
+  });
+
+  // "Nothing at all" and "nothing in THIS filter" are different situations and
+  // must not share a message: with a filter on, the list can be empty while the
+  // org has plenty of tasks. Distinguishing them is the difference between an
+  // honest empty state and a lie.
+  const filterHidesEverything = tasks.length > 0 && filteredTasks.length === 0;
+
   return (
     <>
       <div className="flex items-center gap-xs">
@@ -239,14 +260,18 @@ export function FullScreen(_props: ToolViewProps) {
         />
       ) : null}
 
-      {tasks.length === 0 ? (
+      {filteredTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
-          <p className="type-heading text-ink">{t("tasks.emptyTitle")}</p>
-          <p className="max-w-[24ch] type-label text-muted">{t("tasks.emptyHint")}</p>
+          <p className="type-heading text-ink">
+            {t(filterHidesEverything ? "tasks.filterEmptyTitle" : "tasks.emptyTitle")}
+          </p>
+          <p className="max-w-[24ch] type-label text-muted">
+            {t(filterHidesEverything ? "tasks.filterEmptyHint" : "tasks.emptyHint")}
+          </p>
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-hairline">
-          {tasks.map((task) => {
+          {filteredTasks.map((task) => {
             // This row has a toggle or a delete in flight — disable its controls so a
             // second tap can't double-apply. Other rows are unaffected.
             const rowPending = pending.has(task.id);
@@ -319,7 +344,70 @@ export function FullScreen(_props: ToolViewProps) {
           })}
         </ul>
       )}
+
+      <FilterBar filter={filter} onChange={setFilter} />
     </>
+  );
+}
+
+/**
+ * Floating filter segmented control (iOS-style), pinned just above the shell's
+ * TabBar. `sticky bottom-sm` (not `fixed`) so it rides the SAME scroll container
+ * as the task list — no shell/portal wiring, no z-index fight with the AI sheet
+ * (Standard §1: the tool never touches shell chrome). `mt-auto` is load-bearing
+ * alongside it: `main` is a flex column stretched to the full viewport height, so
+ * on a short/empty list `sticky` alone leaves this sitting right after the last
+ * item with empty space below it — `mt-auto` pushes it to the bottom of that flex
+ * column every time; `sticky` then takes over once the list is tall enough to
+ * scroll. Transparent card surface + backdrop blur so the list is visible moving
+ * underneath it.
+ *
+ * The leading hamburger button is a declared stub — no handler yet, matching the
+ * project's convention for shipped-but-not-wired affordances (see AiSheet's
+ * handleSubmit). Filtering itself is a pure client-side narrowing of the already
+ * shared task list — it never triggers a fetch.
+ */
+function FilterBar({
+  filter,
+  onChange,
+}: {
+  filter: TaskFilter;
+  onChange: (next: TaskFilter) => void;
+}) {
+  const { t } = useI18n();
+  const segments: Array<{ key: TaskFilter; labelKey: MessageKey }> = [
+    { key: "all", labelKey: "tasks.filterAll" },
+    { key: "open", labelKey: "tasks.filterOpen" },
+    { key: "done", labelKey: "tasks.filterDone" },
+  ];
+
+  return (
+    <div className="sticky bottom-sm z-40 mt-auto flex w-fit shrink-0 items-center gap-2xs self-center rounded-pill border border-hairline bg-card/70 p-2xs shadow-lifted backdrop-blur-md">
+      <button
+        type="button"
+        aria-label={t("tasks.filterMenu")}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive motion-safe:active:scale-[0.97]"
+      >
+        <MenuIcon width={18} height={18} />
+      </button>
+      <span className="h-5 w-px shrink-0 bg-hairline" aria-hidden="true" />
+      {segments.map((segment) => {
+        const active = filter === segment.key;
+        return (
+          <button
+            key={segment.key}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(segment.key)}
+            className={`rounded-pill px-sm py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
+              active ? "bg-app-violet text-on-fill" : "text-muted"
+            }`}
+          >
+            {t(segment.labelKey)}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

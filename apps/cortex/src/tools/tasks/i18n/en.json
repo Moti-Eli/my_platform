@@ -22,5 +22,11 @@
   "delete": "Delete",
   "confirmDelete": "Delete?",
   "deleteFailed": "Couldn't delete. Please try again.",
-  "autoReorderTitle": "Reorder: {product}"
+  "autoReorderTitle": "Reorder: {product}",
+  "filterAll": "All",
+  "filterOpen": "Open",
+  "filterDone": "Done",
+  "filterMenu": "Filter menu",
+  "filterEmptyTitle": "Nothing in this filter",
+  "filterEmptyHint": "You have other tasks — switch the filter to see them."
 }

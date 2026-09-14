@@ -22,5 +22,11 @@
   "delete": "מחיקה",
   "confirmDelete": "למחוק?",
   "deleteFailed": "המחיקה נכשלה. נסה שוב.",
-  "autoReorderTitle": "להזמין מלאי: {product}"
+  "autoReorderTitle": "להזמין מלאי: {product}",
+  "filterAll": "הכל",
+  "filterOpen": "פתוחות",
+  "filterDone": "בוצעו",
+  "filterMenu": "תפריט סינון",
+  "filterEmptyTitle": "אין משימות בסינון הזה",
+  "filterEmptyHint": "יש לך משימות אחרות — החלף סינון כדי לראות אותן."
 }
