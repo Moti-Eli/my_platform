@@ -20,12 +20,11 @@ export interface TaskCategory {
   key: string;
   /** i18n key for the display name. */
   labelKey: MessageKey;
-  /** Solid fill for the small dot shown on a task row. */
+  /** Solid fill — used for the row dot AND the picker's selected segment
+   * (paired with `text-on-fill` there, per Standard §8's "text on any
+   * saturated fill" rule). One class serves both, so a category's identity
+   * color can never drift between the two places it appears. */
   dotClassName: string;
-  /** Selected-state classes for the category picker: a tint + ring in the
-   * category's OWN color, so the chosen option reads by its own identity
-   * rather than a generic unrelated accent. */
-  selectedClassName: string;
 }
 
 export const CATEGORIES: TaskCategory[] = [
@@ -33,19 +32,16 @@ export const CATEGORIES: TaskCategory[] = [
     key: "daily",
     labelKey: "tasks.categoryDaily",
     dotClassName: "bg-app-green",
-    selectedClassName: "bg-app-green/15 ring-1 ring-app-green text-app-green",
   },
   {
     key: "work",
     labelKey: "tasks.categoryWork",
     dotClassName: "bg-app-blue",
-    selectedClassName: "bg-app-blue/15 ring-1 ring-app-blue text-app-blue",
   },
   {
     key: "business",
     labelKey: "tasks.categoryBusiness",
     dotClassName: "bg-app-coral",
-    selectedClassName: "bg-app-coral/15 ring-1 ring-app-coral text-app-coral",
   },
 ];
 

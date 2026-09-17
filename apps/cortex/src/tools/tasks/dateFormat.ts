@@ -10,41 +10,57 @@
  */
 import type { Locale } from "@/i18n";
 
-function toDatetimeLocalValue(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
+/** Today's date as the "YYYY-MM-DD" string <input type="date"> expects — the
+ * default for a NEW task's date field. Built from LOCAL calendar parts (see
+ * file header), never `toISOString()`. */
+export function todayDateValue(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Right now, as the "YYYY-MM-DDTHH:mm" string <input type="datetime-local">
- * expects — the default for a NEW task's due-date field. */
-export function nowInputValue(): string {
-  return toDatetimeLocalValue(new Date());
+/** A stored due-date (ISO/timestamptz, or null/undefined) split into the
+ * separate "YYYY-MM-DD" / "HH:mm" values the date and time inputs each
+ * expect.
+ *
+ * EXACT LOCAL MIDNIGHT comes back with an EMPTY `time` — by convention
+ * (matching `formatDueDate`'s own display rule below) midnight means "no time
+ * was ever chosen for this date", not "due at 00:00". A task saved with a
+ * date but no time (see `dateAndTimeToIso`) round-trips back to an empty time
+ * field here, not a fabricated 00:00 that looks like a real, chosen time. */
+export function isoToDateAndTime(iso: string | null | undefined): { date: string; time: string } {
+  if (!iso) return { date: "", time: "" };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: "", time: "" };
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  const isMidnight = hours === 0 && minutes === 0;
+  return {
+    date: `${d.getFullYear()}-${month}-${day}`,
+    time: isMidnight ? "" : `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`,
+  };
 }
 
-/** A stored due-date (ISO/timestamptz string, or null/undefined) as the
- * "YYYY-MM-DDTHH:mm" string <input type="datetime-local"> expects, so the
- * EDIT form actually shows the task's existing date/time instead of an empty
- * field (a plain ISO string like "2026-07-16T00:00:00+00:00" is NOT a valid
- * datetime-local value — the browser silently blanks the field on it). */
-export function isoToDatetimeLocalValue(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return toDatetimeLocalValue(date);
-}
-
-/** The reverse of {@link nowInputValue}/{@link isoToDatetimeLocalValue}: a
- * "YYYY-MM-DDTHH:mm" value straight out of <input type="datetime-local"> (which
- * carries NO timezone designator) becomes a real ISO instant to send to the
- * server. `new Date(...)` treats a timezone-less date-TIME string as LOCAL time
- * per spec (unlike a bare date, which it treats as UTC), so this round-trips
+/** The reverse of {@link isoToDateAndTime}: a date input's "YYYY-MM-DD" value
+ * (required) plus a time input's "HH:mm" value (OPTIONAL — an empty time is a
+ * real "no time chosen", not a missing field) becomes one ISO instant to send
+ * to the server.
+ *
+ * An empty time defaults to midnight: `due_date` is a single timestamptz, so
+ * a date-only task still needs SOME instant to store, and midnight of that
+ * day is exactly what "no time" already means everywhere else in this file
+ * (`isoToDateAndTime`, `formatDueDate`'s display rule) — so a task saved
+ * date-only today still reads as date-only (no "00:00") everywhere it's
+ * shown, and round-trips back to an empty time field if reopened for editing.
+ *
+ * `new Date(...)` treats a timezone-less date-TIME string as LOCAL time per
+ * spec (unlike a bare date, which it treats as UTC), so this round-trips
  * correctly through whatever timezone the browser is actually in. */
-export function datetimeLocalValueToIso(value: string): string {
-  return new Date(value).toISOString();
+export function dateAndTimeToIso(date: string, time: string): string {
+  return new Date(`${date}T${time.trim() === "" ? "00:00" : time}`).toISOString();
 }
 
 /** Midnight (local time) on the SUNDAY of `date`'s week — the week view's

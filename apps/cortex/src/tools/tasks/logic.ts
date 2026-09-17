@@ -20,6 +20,12 @@ import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/c
 
 export const TASKS_TABLE = "tasks";
 
+/** The two allowed `scheduling` values (DB CHECK-constrained to exactly
+ * these). "general" means "something to do someday, no time attached" — a
+ * deliberate choice, not the same thing as "scheduled but nobody picked a
+ * date yet". */
+export type TaskScheduling = "scheduled" | "general";
+
 export interface Task {
   id: string;
   title: string;
@@ -30,6 +36,7 @@ export interface Task {
    * back to "no category" wherever it's displayed (see `categoryOf`). */
   category: string | null;
   urgent: boolean;
+  scheduling: TaskScheduling;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -39,6 +46,7 @@ export interface CreateTaskInput {
   dueDate?: string;
   category?: string;
   urgent?: boolean;
+  scheduling?: TaskScheduling;
 }
 export interface ToggleTaskInput {
   id: string;
@@ -47,13 +55,17 @@ export interface ToggleTaskInput {
 /** All OPTIONAL: `undefined` means "leave this column alone", while
  * `dueDate: null` / `category: null` are real values — "clear the due date" /
  * "no category". `urgent` has no null state (the column is boolean NOT NULL) —
- * `undefined` skips it, `true`/`false` sets it, same as `title`. */
+ * `undefined` skips it, `true`/`false` sets it, same as `title`. Same for
+ * `scheduling` — but setting it to "general" ALSO forces `due_date` to null in
+ * this same call (see createTask/updateTask): a general task cannot hold a
+ * due date, by construction, not just by convention. */
 export interface UpdateTaskInput {
   id: string;
   title?: string;
   dueDate?: string | null;
   category?: string | null;
   urgent?: boolean;
+  scheduling?: TaskScheduling;
 }
 export interface DeleteTaskInput {
   id: string;
@@ -79,6 +91,7 @@ function toTask(row: DbRow): Task {
     dueDate: row.due_date == null ? null : String(row.due_date),
     category: row.category == null ? null : String(row.category),
     urgent: Boolean(row.urgent),
+    scheduling: row.scheduling === "general" ? "general" : "scheduled",
   };
 }
 
@@ -109,6 +122,7 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
     async createTask(input, ctx) {
       const id = safeRandomUUID();
       const now = new Date().toISOString();
+      const scheduling = input.scheduling ?? "scheduled";
       await db.insert(TASKS_TABLE, {
         id,
         // The mandatory fields (§6). Both are NOT NULL on the table. `visibility`
@@ -117,9 +131,13 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         org_id: ctx.orgId,
         // tool columns
         title: input.title,
-        due_date: input.dueDate ?? null,
+        // A general task cannot hold a due date — enforced HERE, not just by
+        // the picker disabling the field client-side, so no caller (including
+        // a future AI/API caller) can create an inconsistent row.
+        due_date: scheduling === "general" ? null : (input.dueDate ?? null),
         category: input.category ?? null,
         urgent: input.urgent ?? false,
+        scheduling,
         created_at: now,
         updated_at: now,
       });
@@ -147,14 +165,24 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
       // (auth_user_can_write), not by this filter, exactly like toggleTask.
       // Only the fields actually provided are sent: a missing field must
       // never overwrite a column the caller didn't mention.
+      //
+      // Switching TO "general" in this same call forces due_date to null —
+      // even if a dueDate was ALSO provided in this call — enforced here so
+      // "a general task never holds a due date" holds regardless of caller.
+      const switchingToGeneral = input.scheduling === "general";
       await db.update(
         TASKS_TABLE,
         { id: input.id },
         {
           ...(input.title !== undefined ? { title: input.title } : {}),
-          ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+          ...(switchingToGeneral
+            ? { due_date: null }
+            : input.dueDate !== undefined
+              ? { due_date: input.dueDate }
+              : {}),
           ...(input.category !== undefined ? { category: input.category } : {}),
           ...(input.urgent !== undefined ? { urgent: input.urgent } : {}),
+          ...(input.scheduling !== undefined ? { scheduling: input.scheduling } : {}),
           updated_at: new Date().toISOString(),
         },
       );

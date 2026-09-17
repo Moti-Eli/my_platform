@@ -118,6 +118,9 @@ export function DashboardCard(_props: ToolViewProps) {
           dueDate: null,
           category: null,
           urgent: false,
+          // Quick-add never sends `scheduling` — the server defaults it to
+          // "scheduled" (logic.ts), so this mirrors that exactly.
+          scheduling: "scheduled",
         };
         queryClient.setQueryData<Task[]>(TASKS_LIST_KEY, (prev) => [...(prev ?? []), created]);
         setTitle("");

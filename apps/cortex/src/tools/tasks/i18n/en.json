@@ -32,7 +32,6 @@
   "edit": "Edit",
   "save": "Save",
   "editTask": "Edit task",
-  "scheduling": "General",
   "category": "Type",
   "viewList": "List",
   "viewWeek": "Week",
@@ -44,5 +43,9 @@
   "categoryBusiness": "Business",
   "urgent": "Urgent",
   "normal": "Normal",
-  "urgencyLabel": "Urgency"
+  "urgencyLabel": "Urgency",
+  "filterGeneral": "General",
+  "scheduledLabel": "Today",
+  "generalLabel": "General",
+  "whenLabel": "When"
 }

@@ -15,11 +15,17 @@ import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import type { TasksLogic } from "./logic";
 
+/** The two allowed `scheduling` values, mirroring `TaskScheduling` in
+ * logic.ts (a zod enum, not `z.string()`, so only these two ever validate). */
+const scheduling = z.enum(["scheduled", "general"]);
+
 /** One task as returned to the AI/views. `dueDate` is nullable (a task need not
  * have a due date); `done` drives the per-row toggle visual. `category` is a
  * free-form key (see `categories.ts`) — nullable, unvalidated here (an
  * unrecognized value just renders as "no category", never a schema error).
- * `urgent` drives query_list's sort (urgent first) and the urgency badge. */
+ * `urgent` drives query_list's sort (urgent first) and the urgency badge.
+ * `scheduling` — "general" tasks never carry a due date (enforced in
+ * logic.ts, not just here). */
 const task = z.object({
   id: z.string(),
   title: z.string(),
@@ -27,6 +33,7 @@ const task = z.object({
   dueDate: z.string().nullable(),
   category: z.string().nullable(),
   urgent: z.boolean(),
+  scheduling,
 });
 
 export function createTasksIntents(logic: TasksLogic) {
@@ -41,12 +48,14 @@ export function createTasksIntents(logic: TasksLogic) {
 
     defineIntent({
       name: "tasks.create_task",
-      description: "Create a new task, optionally with a due date, a category and urgency",
+      description:
+        "Create a new task, optionally with a due date, a category, urgency, and whether it's scheduled or general",
       input: z.object({
         title: z.string(),
         dueDate: z.string().optional(),
         category: z.string().optional(),
         urgent: z.boolean().optional(),
+        scheduling: scheduling.optional(),
       }),
       output: z.object({ id: z.string() }),
       // → emits tasks.created (see logic + events.ts)
@@ -67,13 +76,14 @@ export function createTasksIntents(logic: TasksLogic) {
 
     defineIntent({
       name: "tasks.update_task",
-      description: "Edit a task's title, due date, category and/or urgency",
+      description: "Edit a task's title, due date, category, urgency and/or scheduling",
       input: z.object({
         id: z.string(),
         title: z.string().optional(),
         dueDate: z.string().nullable().optional(),
         category: z.string().nullable().optional(),
         urgent: z.boolean().optional(),
+        scheduling: scheduling.optional(),
       }),
       output: z.object({ id: z.string() }),
       handler: (input, ctx) => logic.updateTask(input, ctx),

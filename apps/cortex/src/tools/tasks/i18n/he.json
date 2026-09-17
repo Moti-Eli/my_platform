@@ -32,7 +32,6 @@
   "edit": "עריכה",
   "save": "שמירה",
   "editTask": "עריכת משימה",
-  "scheduling": "כללית",
   "category": "סוג",
   "viewList": "רשימה",
   "viewWeek": "שבוע",
@@ -44,5 +43,9 @@
   "categoryBusiness": "עסק",
   "urgent": "דחוף",
   "normal": "רגיל",
-  "urgencyLabel": "דחיפות"
+  "urgencyLabel": "דחיפות",
+  "filterGeneral": "כללי",
+  "scheduledLabel": "היום",
+  "generalLabel": "כללי",
+  "whenLabel": "מתי"
 }

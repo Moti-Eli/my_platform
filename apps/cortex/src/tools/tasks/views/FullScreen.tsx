@@ -33,14 +33,13 @@ import {
   InfoIcon,
   MenuIcon,
   ComposeIcon,
-  ClockIcon,
 } from "@/components/icons";
-import type { Task } from "../logic";
+import type { Task, TaskScheduling } from "../logic";
 import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 import {
-  nowInputValue,
-  isoToDatetimeLocalValue,
-  datetimeLocalValueToIso,
+  todayDateValue,
+  isoToDateAndTime,
+  dateAndTimeToIso,
   formatDueDate,
   startOfWeek,
   addDays,
@@ -55,8 +54,11 @@ import { sortTasksByUrgency } from "../sortTasks";
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 
 /** Which subset of tasks the floating filter bar shows. Client-side only — it
- * never re-queries; it filters the same list already in the shared cache. */
-type TaskFilter = "all" | "open" | "done";
+ * never re-queries; it filters the same list already in the shared cache.
+ * "general" is scheduling-based (scheduling === "general"), a DIFFERENT axis
+ * from "open"/"done" (completion) — both live in the same single-select
+ * control by explicit design, not because they're the same kind of thing. */
+type TaskFilter = "all" | "open" | "done" | "general";
 
 /** HOW the (already-filtered) tasks are displayed — a second, independent axis
  * from {@link TaskFilter}: filter decides WHICH tasks, view decides how they're
@@ -193,25 +195,39 @@ export function FullScreen(_props: ToolViewProps) {
       dueDate: string | null,
       category: string | null,
       urgent: boolean,
+      scheduling: TaskScheduling,
     ) => {
       // Snapshot the row BEFORE the optimistic patch, so a failure can restore
-      // its exact prior title/dueDate/category/urgent — same shape as
-      // removeTask's snapshot.
+      // its exact prior title/dueDate/category/urgent/scheduling — same shape
+      // as removeTask's snapshot.
       const prevList = queryClient.getQueryData<Task[]>(TASKS_LIST_KEY) ?? [];
       const original = prevList.find((it) => it.id === id) ?? null;
+
+      // A general task cannot hold a due date — the SAME rule logic.ts
+      // enforces server-side, mirrored here so the optimistic cache write
+      // never shows a stale date next to "general".
+      const effectiveDue = scheduling === "general" ? null : dueDate;
 
       // 1. OPTIMISTIC: same pattern as toggleTask — write the new values into the
       //    SHARED cache before awaiting, so the row and the dashboard card update
       //    in lockstep.
       setWriteError(null);
-      patchTask(id, (it) => ({ ...it, title, dueDate, category, urgent }));
+      patchTask(id, (it) => ({
+        ...it,
+        title,
+        dueDate: effectiveDue,
+        category,
+        urgent,
+        scheduling,
+      }));
 
       const res = await runIntentAction("tasks.update_task", {
         id,
         title,
-        dueDate,
+        dueDate: effectiveDue,
         category,
         urgent,
+        scheduling,
       });
 
       if (res.ok) {
@@ -289,6 +305,7 @@ export function FullScreen(_props: ToolViewProps) {
     tasks.filter((task) => {
       if (filter === "open") return !task.done;
       if (filter === "done") return task.done;
+      if (filter === "general") return task.scheduling === "general";
       return true;
     }),
   );
@@ -298,6 +315,134 @@ export function FullScreen(_props: ToolViewProps) {
   // org has plenty of tasks. Distinguishing them is the difference between an
   // honest empty state and a lie.
   const filterHidesEverything = tasks.length > 0 && filteredTasks.length === 0;
+
+  // Scheduled/general split — ONLY rendered when filter === "all" (see below).
+  // Filtering an already urgent-first-sorted array preserves that relative
+  // order within each resulting subset, so no re-sort is needed here: the
+  // urgency ordering stays intact WITHIN each group for free.
+  const scheduledGroup = filteredTasks.filter((task) => task.scheduling === "scheduled");
+  const generalGroup = filteredTasks.filter((task) => task.scheduling === "general");
+
+  // One row's markup, shared by the flat list AND the two "all"-filter groups
+  // below — extracted so the two render paths can never drift apart. Nothing
+  // about the row itself changed; only WHERE it's called from did.
+  function renderTaskRow(task: Task) {
+    // This row has a toggle or a delete in flight — disable its controls so a
+    // second tap can't double-apply. Other rows are unaffected.
+    const rowPending = pending.has(task.id);
+    const rowDeleting = deleting.has(task.id);
+    const confirming = confirmId === task.id;
+    const editing = editingId === task.id;
+    const cat = categoryOf(task.category);
+    return (
+      <li key={task.id} className="flex items-center gap-sm py-sm">
+        {editing ? (
+          <EditTaskForm
+            task={task}
+            onSave={(title, dueDate, category, urgent, scheduling) =>
+              updateTask(task.id, title, dueDate, category, urgent, scheduling)
+            }
+            onCancel={() => setEditingId(null)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
+              aria-pressed={task.done}
+              onClick={() => toggleTask(task.id, !task.done)}
+              disabled={rowPending || rowDeleting}
+              className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
+            >
+              {/* Done/undone visual: a violet check circle when done, a muted
+                  empty circle otherwise. */}
+              <span
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                  task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
+                }`}
+              >
+                {task.done ? <CheckIcon width={16} height={16} /> : null}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className="flex min-w-0 items-center gap-2xs">
+                  <span
+                    className={`min-w-0 flex-1 truncate type-heading ${
+                      task.done ? "text-muted line-through" : "text-ink"
+                    }`}
+                  >
+                    {task.title}
+                  </span>
+                  {/* Urgency badge — same bg-danger/10 + text-danger
+                      combo as the writeError alert above, just sized
+                      down into a pill. A normal task gets nothing at
+                      all, not a "normal" label. */}
+                  {task.urgent ? (
+                    <span className="shrink-0 rounded-pill bg-danger/10 px-xs py-2xs type-caption text-danger">
+                      {t("tasks.urgent")}
+                    </span>
+                  ) : null}
+                </span>
+                {task.dueDate ? (
+                  <span className="type-label text-muted">
+                    {formatDueDate(task.dueDate, locale)}
+                  </span>
+                ) : null}
+              </span>
+              {/* Category dot — pushed to the end of the button via
+                  ms-auto (RTL/LTR-correct); absent entirely (not just
+                  hidden) when the task has no category, so no empty
+                  gap is left. */}
+              {cat ? (
+                <span
+                  aria-label={t(cat.labelKey)}
+                  className={`ms-auto h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`}
+                />
+              ) : null}
+            </button>
+
+            {/* Edit — swaps the row for EditTaskForm inline. */}
+            <button
+              type="button"
+              aria-label={t("tasks.edit")}
+              onClick={() => setEditingId(task.id)}
+              disabled={rowPending || rowDeleting}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+            >
+              <ComposeIcon width={16} height={16} />
+            </button>
+
+            {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
+                first tap arms "Delete?", a second tap commits. Tapping another
+                row's trash moves the confirm there. */}
+            {confirming ? (
+              <button
+                type="button"
+                aria-label={t("tasks.confirmDelete")}
+                onClick={() => {
+                  setConfirmId(null);
+                  void removeTask(task.id);
+                }}
+                disabled={rowDeleting}
+                className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+              >
+                {t("tasks.confirmDelete")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label={t("tasks.delete")}
+                onClick={() => setConfirmId(task.id)}
+                disabled={rowDeleting}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+              >
+                <CloseIcon width={16} height={16} />
+              </button>
+            )}
+          </>
+        )}
+      </li>
+    );
+  }
 
   return (
     <>
@@ -363,125 +508,38 @@ export function FullScreen(_props: ToolViewProps) {
             {t(filterHidesEverything ? "tasks.filterEmptyHint" : "tasks.emptyHint")}
           </p>
         </div>
+      ) : filter === "all" ? (
+        // Grouped by scheduling — ONLY for filter === "all" (scheduledGroup/
+        // generalGroup above). Every other filter stays the single flat list
+        // below, unchanged. An empty group renders NOTHING — no header sitting
+        // over an empty body.
+        <div className="flex flex-col gap-lg">
+          {scheduledGroup.length > 0 ? (
+            <div className="flex flex-col gap-xs">
+              <div className="flex items-baseline gap-2xs">
+                <span className="type-label text-muted">{t("tasks.scheduledLabel")}</span>
+                <span className="type-label text-muted">{scheduledGroup.length}</span>
+              </div>
+              <ul className="flex flex-col divide-y divide-hairline">
+                {scheduledGroup.map(renderTaskRow)}
+              </ul>
+            </div>
+          ) : null}
+          {generalGroup.length > 0 ? (
+            <div className="flex flex-col gap-xs">
+              <div className="flex items-baseline gap-2xs">
+                <span className="type-label text-muted">{t("tasks.generalLabel")}</span>
+                <span className="type-label text-muted">{generalGroup.length}</span>
+              </div>
+              <ul className="flex flex-col divide-y divide-hairline">
+                {generalGroup.map(renderTaskRow)}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       ) : (
         <ul className="flex flex-col divide-y divide-hairline">
-          {filteredTasks.map((task) => {
-            // This row has a toggle or a delete in flight — disable its controls so a
-            // second tap can't double-apply. Other rows are unaffected.
-            const rowPending = pending.has(task.id);
-            const rowDeleting = deleting.has(task.id);
-            const confirming = confirmId === task.id;
-            const editing = editingId === task.id;
-            const cat = categoryOf(task.category);
-            return (
-              <li key={task.id} className="flex items-center gap-sm py-sm">
-                {editing ? (
-                  <EditTaskForm
-                    task={task}
-                    onSave={(title, dueDate, category, urgent) =>
-                      updateTask(task.id, title, dueDate, category, urgent)
-                    }
-                    onCancel={() => setEditingId(null)}
-                  />
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
-                      aria-pressed={task.done}
-                      onClick={() => toggleTask(task.id, !task.done)}
-                      disabled={rowPending || rowDeleting}
-                      className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
-                    >
-                      {/* Done/undone visual: a violet check circle when done, a muted
-                          empty circle otherwise. */}
-                      <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                          task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
-                        }`}
-                      >
-                        {task.done ? <CheckIcon width={16} height={16} /> : null}
-                      </span>
-                      <span className="flex min-w-0 flex-col">
-                        <span className="flex min-w-0 items-center gap-2xs">
-                          <span
-                            className={`min-w-0 flex-1 truncate type-heading ${
-                              task.done ? "text-muted line-through" : "text-ink"
-                            }`}
-                          >
-                            {task.title}
-                          </span>
-                          {/* Urgency badge — same bg-danger/10 + text-danger
-                              combo as the writeError alert above, just sized
-                              down into a pill. A normal task gets nothing at
-                              all, not a "normal" label. */}
-                          {task.urgent ? (
-                            <span className="shrink-0 rounded-pill bg-danger/10 px-xs py-2xs type-caption text-danger">
-                              {t("tasks.urgent")}
-                            </span>
-                          ) : null}
-                        </span>
-                        {task.dueDate ? (
-                          <span className="type-label text-muted">
-                            {formatDueDate(task.dueDate, locale)}
-                          </span>
-                        ) : null}
-                      </span>
-                      {/* Category dot — pushed to the end of the button via
-                          ms-auto (RTL/LTR-correct); absent entirely (not just
-                          hidden) when the task has no category, so no empty
-                          gap is left. */}
-                      {cat ? (
-                        <span
-                          aria-label={t(cat.labelKey)}
-                          className={`ms-auto h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`}
-                        />
-                      ) : null}
-                    </button>
-
-                    {/* Edit — swaps the row for EditTaskForm inline. */}
-                    <button
-                      type="button"
-                      aria-label={t("tasks.edit")}
-                      onClick={() => setEditingId(task.id)}
-                      disabled={rowPending || rowDeleting}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-                    >
-                      <ComposeIcon width={16} height={16} />
-                    </button>
-
-                    {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
-                        first tap arms "Delete?", a second tap commits. Tapping another
-                        row's trash moves the confirm there. */}
-                    {confirming ? (
-                      <button
-                        type="button"
-                        aria-label={t("tasks.confirmDelete")}
-                        onClick={() => {
-                          setConfirmId(null);
-                          void removeTask(task.id);
-                        }}
-                        disabled={rowDeleting}
-                        className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
-                      >
-                        {t("tasks.confirmDelete")}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        aria-label={t("tasks.delete")}
-                        onClick={() => setConfirmId(task.id)}
-                        disabled={rowDeleting}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-                      >
-                        <CloseIcon width={16} height={16} />
-                      </button>
-                    )}
-                  </>
-                )}
-              </li>
-            );
-          })}
+          {filteredTasks.map(renderTaskRow)}
         </ul>
       )}
 
@@ -525,6 +583,7 @@ function FilterBar({
     { key: "all", labelKey: "tasks.filterAll" },
     { key: "open", labelKey: "tasks.filterOpen" },
     { key: "done", labelKey: "tasks.filterDone" },
+    { key: "general", labelKey: "tasks.filterGeneral" },
   ];
   const viewOptions: Array<{ key: TaskView; labelKey: MessageKey }> = [
     { key: "list", labelKey: "tasks.viewList" },
@@ -768,14 +827,22 @@ function AddTaskModal({
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState("");
-  // Defaults to right now — the common case. Clearing the field is still a real
-  // "no due date", so the escape hatch stays open.
-  const [dueDate, setDueDate] = useState(nowInputValue);
+  // Date defaults to today — the common case. Clearing it is still a real "no
+  // due date" (see handleSubmit), so the escape hatch stays open. Time
+  // defaults EMPTY, deliberately: an auto-filled "now" would silently give
+  // every task a time, which matters once a time-triggered reminder exists —
+  // a time is only ever set when someone actually chooses one.
+  const [date, setDate] = useState(todayDateValue);
+  const [time, setTime] = useState("");
   // No category selected by default — picking one is optional, and the picker
   // itself supports deselecting back to null (see CategoryPicker).
   const [category, setCategory] = useState<string | null>(null);
   // Defaults to normal — the common case.
   const [urgent, setUrgent] = useState(false);
+  // Defaults to "scheduled" — the common case. Switching to "general" disables
+  // (not hides) the date field below, and forces the submitted due date to
+  // null regardless of what's left in it (see handleSubmit).
+  const [scheduling, setScheduling] = useState<TaskScheduling>("scheduled");
   // Whether the required title is blank-on-submit. Drives the marking + message;
   // cleared as soon as the user edits it.
   const [invalid, setInvalid] = useState<{ title: boolean }>({ title: false });
@@ -829,10 +896,15 @@ function AddTaskModal({
     setInvalid(nextInvalid);
     if (nextInvalid.title) return;
 
-    // due_date is optional; an empty input is a real "no due date", not "".
-    // The picker's value has NO timezone designator — convert it to a real ISO
-    // instant (in the browser's actual timezone) before it leaves this form.
-    const nextDue = dueDate.trim() === "" ? null : datetimeLocalValueToIso(dueDate);
+    // due_date is optional; an empty DATE is a real "no due date", not "" —
+    // but an empty TIME is a real "no time", not a missing field (see
+    // dateAndTimeToIso: it becomes midnight, which formatDueDate already
+    // knows to display as date-only). A "general" task never carries a due
+    // date, regardless of what's still sitting in the (disabled) fields —
+    // the SAME rule logic.ts enforces server-side, mirrored here so the
+    // optimistic row is never wrong.
+    const nextDue =
+      scheduling === "general" ? null : date.trim() === "" ? null : dateAndTimeToIso(date, time);
 
     // Lock only AFTER validation passes, so a failed validation leaves the button
     // usable. Released in `finally`, whatever the outcome.
@@ -844,6 +916,7 @@ function AddTaskModal({
         dueDate: nextDue ?? undefined,
         category: category ?? undefined,
         urgent,
+        scheduling,
       });
       if (!mounted.current) return;
 
@@ -851,7 +924,15 @@ function AddTaskModal({
         // create_task returns only { id }; the rest of the Task is the values we
         // just submitted, so we can hand a complete row up to append.
         const { id } = res.data as { id: string };
-        onCreated({ id, title: nextTitle, done: false, dueDate: nextDue, category, urgent });
+        onCreated({
+          id,
+          title: nextTitle,
+          done: false,
+          dueDate: nextDue,
+          category,
+          urgent,
+          scheduling,
+        });
       } else {
         onError(res.code);
       }
@@ -906,46 +987,56 @@ function AddTaskModal({
           ) : null}
         </div>
 
-        {/* 2. When — styled as an already-made choice (ink-colored value, filled
-            row), not an empty field waiting to be filled: it always opens with
-            today's date and the current time already in it. */}
-        <label className="flex flex-col gap-2xs">
-          <span className="type-caption text-muted">{t("tasks.dueDate")}</span>
-          <div className="flex items-center gap-xs rounded-md bg-screen px-sm py-sm">
-            <ClockIcon width={18} height={18} className="shrink-0 text-muted" />
+        {/* 2. When — scheduling toggle + date + time, one row: the toggle is
+            fixed-width (sized to its own content), date/time split the rest.
+            Split into SEPARATE date/time inputs rather than one
+            datetime-local — a single datetime-local control doesn't leave
+            room for the toggle beside it in this modal's width. Both fields
+            disabled (not hidden) when scheduling is "general" — a general
+            task has nowhere to put a time, but stays visible so its purpose
+            reads clearly, same as the old placeholder rows did. */}
+        <div className="flex flex-col gap-2xs">
+          <span className="type-caption text-muted">{t("tasks.whenLabel")}</span>
+          <div className="flex items-center gap-xs">
+            <SchedulingPicker value={scheduling} onChange={setScheduling} />
             <input
-              type="datetime-local"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full bg-transparent type-body text-ink outline-none"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              disabled={scheduling === "general"}
+              className={`min-w-0 flex-1 rounded-md bg-screen px-xs py-sm type-body text-ink outline-none ${
+                scheduling === "general" ? "opacity-[var(--ds-disabled-opacity)]" : ""
+              }`}
+            />
+            {/* Empty by default (see the `time` state comment above) — an
+                unset time input just shows its placeholder glyphs, reading
+                as "no time chosen" rather than a fabricated value. */}
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              disabled={scheduling === "general"}
+              className={`min-w-0 flex-1 rounded-md bg-screen px-xs py-sm type-body text-ink outline-none ${
+                scheduling === "general" ? "opacity-[var(--ds-disabled-opacity)]" : ""
+              }`}
             />
           </div>
-        </label>
-
-        {/* 3a. Reserved row — disabled placeholder for later work (scheduled
-            vs general). Same shape as the "when" row above, dimmed and
-            unclickable, so its future purpose reads clearly. */}
-        <div
-          className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm opacity-[var(--ds-disabled-opacity)]"
-          aria-hidden="true"
-        >
-          <span className="type-body text-muted">{t("tasks.scheduling")}</span>
         </div>
 
-        {/* 3b. Category — the other placeholder, now real: optional,
+        {/* 4. Category — the other placeholder, now real: optional,
             deselectable (see CategoryPicker). */}
         <div className="flex flex-col gap-2xs">
           <span className="type-caption text-muted">{t("tasks.category")}</span>
           <CategoryPicker value={category} onChange={setCategory} />
         </div>
 
-        {/* 3c. Urgency — same picker style as category. */}
+        {/* 5. Urgency — same picker style as category. */}
         <div className="flex flex-col gap-2xs">
           <span className="type-caption text-muted">{t("tasks.urgencyLabel")}</span>
           <UrgencyPicker value={urgent} onChange={setUrgent} />
         </div>
 
-        {/* 4. Actions — Add is the confident, filled primary; Cancel is
+        {/* 6. Actions — Add is the confident, filled primary; Cancel is
             transparent/secondary so the hierarchy stays unambiguous. */}
         <div className="flex gap-sm">
           <button
@@ -987,21 +1078,28 @@ function EditTaskForm({
     dueDate: string | null,
     category: string | null,
     urgent: boolean,
+    scheduling: TaskScheduling,
   ) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState(task.title);
-  // BUG FIX: task.dueDate is a full timestamptz string (e.g.
-  // "2026-07-16T00:00:00+00:00") — not the "YYYY-MM-DDTHH:mm" a datetime-local
-  // input requires. Passing it through as-is left the field silently blank on
-  // a task that already had a due date. This converts it to the LOCAL value
-  // the input actually expects.
-  const [dueDate, setDueDate] = useState(isoToDatetimeLocalValue(task.dueDate));
+  // BUG FIX (still applies): task.dueDate is a full timestamptz string (e.g.
+  // "2026-07-16T14:30:00+00:00") — not the plain "YYYY-MM-DD"/"HH:mm" the date
+  // and time inputs each expect. isoToDateAndTime converts it to the LOCAL
+  // values they actually want — AND, per the same "midnight = no time"
+  // convention used everywhere else, a task whose stored time IS exactly
+  // local midnight opens with an EMPTY time field, not a fabricated "00:00"
+  // that would look like someone deliberately chose midnight.
+  const initialDateTime = isoToDateAndTime(task.dueDate);
+  const [date, setDate] = useState(initialDateTime.date);
+  const [time, setTime] = useState(initialDateTime.time);
   // Pre-selected from the task's current category (or none).
   const [category, setCategory] = useState<string | null>(task.category);
   // Pre-selected from the task's current urgency.
   const [urgent, setUrgent] = useState(task.urgent);
+  // Pre-selected from the task's current scheduling.
+  const [scheduling, setScheduling] = useState<TaskScheduling>(task.scheduling);
   const [invalid, setInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -1033,14 +1131,17 @@ function EditTaskForm({
       return;
     }
 
-    // An emptied field is a real "no due date", not the empty string. The
-    // picker's value has NO timezone designator — convert it to a real ISO
-    // instant (in the browser's actual timezone) before it leaves this form.
-    const nextDue = dueDate.trim() === "" ? null : datetimeLocalValueToIso(dueDate);
+    // An emptied DATE is a real "no due date", not "" — but an emptied TIME
+    // is a real "no time" (see dateAndTimeToIso: it becomes midnight, which
+    // formatDueDate already knows to display as date-only). A "general" task
+    // never carries a due date, regardless of what's still sitting in the
+    // (disabled) fields — mirrors logic.ts's server-side rule.
+    const nextDue =
+      scheduling === "general" ? null : date.trim() === "" ? null : dateAndTimeToIso(date, time);
 
     setSubmitting(true);
     try {
-      await onSave(nextTitle, nextDue, category, urgent);
+      await onSave(nextTitle, nextDue, category, urgent, scheduling);
     } finally {
       if (mounted.current) setSubmitting(false);
     }
@@ -1073,15 +1174,37 @@ function EditTaskForm({
           </span>
         ) : null}
       </label>
-      <label className="flex flex-col gap-2xs type-label text-muted">
-        {t("tasks.dueDate")}
-        <input
-          className={inputClass}
-          type="datetime-local"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-        />
-      </label>
+      {/* When — scheduling toggle + date + time, one row (see AddTaskModal's
+          matching section for why: the toggle is fixed-width, date/time
+          split the rest, and a single datetime-local doesn't leave room for
+          the toggle beside it). `date`/`time` are independent state, seeded
+          from isoToDateAndTime above — an empty `time` here means the task
+          genuinely has none (see that function's "midnight = no time"
+          convention), not that something failed to load. */}
+      <div className="flex flex-col gap-2xs">
+        <span className="type-label text-muted">{t("tasks.whenLabel")}</span>
+        <div className="flex items-center gap-xs">
+          <SchedulingPicker value={scheduling} onChange={setScheduling} />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            disabled={scheduling === "general"}
+            className={`min-w-0 flex-1 rounded-md bg-screen px-xs py-sm type-body text-ink outline-none ${
+              scheduling === "general" ? "opacity-[var(--ds-disabled-opacity)]" : ""
+            }`}
+          />
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            disabled={scheduling === "general"}
+            className={`min-w-0 flex-1 rounded-md bg-screen px-xs py-sm type-body text-ink outline-none ${
+              scheduling === "general" ? "opacity-[var(--ds-disabled-opacity)]" : ""
+            }`}
+          />
+        </div>
+      </div>
       <div className="flex flex-col gap-2xs">
         <span className="type-label text-muted">{t("tasks.category")}</span>
         <CategoryPicker value={category} onChange={setCategory} />
@@ -1112,13 +1235,30 @@ function EditTaskForm({
 }
 
 /**
- * Category picker — three toggle buttons, each carrying its own identity dot
- * (Standard §8: colors are the app-identity palette, never invented). Shared
- * by AddTaskModal and EditTaskForm so the interaction (select / re-tap the
- * SAME one to clear) and markup live in exactly one place.
+ * The shared "single segmented box" shell every picker below sits in: one
+ * bg-screen frame with rounded corners, segments touching (no gap, no
+ * border, no ring) so it reads as ONE control, not a row of separate
+ * buttons. Only a segment's OWN background (passed in per-option) marks it
+ * selected; unselected segments are fully transparent over the shared frame.
+ */
+const PICKER_FRAME = "flex items-stretch rounded-md bg-screen p-2xs";
+const PICKER_SEGMENT =
+  "flex-1 rounded-sm px-sm py-xs type-label interactive motion-safe:active:scale-[0.97]";
+
+/**
+ * Category picker — one segmented box, each segment carrying its own
+ * identity color (Standard §8: the app-identity palette, never invented).
+ * Shared by AddTaskModal and EditTaskForm so the interaction (select /
+ * re-tap the SAME one to clear) and markup live in exactly one place.
+ *
+ * Selected: SOLID fill in that category's own color + `text-on-fill` (never
+ * a generic accent — "the selected one gets the category's color"). The
+ * small identity dot shows only on UNSELECTED segments, as a color preview
+ * next to the muted label; on the selected segment the entire background
+ * already IS that color, so the same dot would sit invisibly on top of it.
  *
  * Optional and deselectable: tapping the already-selected category clears it
- * back to null — there is no separate "none" button, since these three ARE
+ * back to null — there is no separate "none" segment, since these three ARE
  * the whole set (Standard §1: a closed UI-side list, see categories.ts).
  */
 function CategoryPicker({
@@ -1130,7 +1270,7 @@ function CategoryPicker({
 }) {
   const { t } = useI18n();
   return (
-    <div className="flex gap-xs">
+    <div className={PICKER_FRAME}>
       {CATEGORIES.map((cat) => {
         const selected = value === cat.key;
         return (
@@ -1139,11 +1279,13 @@ function CategoryPicker({
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(selected ? null : cat.key)}
-            className={`flex flex-1 items-center justify-center gap-2xs rounded-md px-sm py-xs type-label interactive motion-safe:active:scale-[0.97] ${
-              selected ? cat.selectedClassName : "bg-screen text-muted"
+            className={`${PICKER_SEGMENT} flex items-center justify-center gap-2xs ${
+              selected ? `${cat.dotClassName} text-on-fill` : "bg-transparent text-muted"
             }`}
           >
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cat.dotClassName}`} />
+            {selected ? null : (
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cat.dotClassName}`} />
+            )}
             {t(cat.labelKey)}
           </button>
         );
@@ -1153,16 +1295,15 @@ function CategoryPicker({
 }
 
 /**
- * Urgency picker — a two-button segmented control, same shape/style family as
- * CategoryPicker (shared by AddTaskModal and EditTaskForm). Unlike category,
- * this is a plain boolean with no "clear" state: Normal IS the off state, so
- * there's nothing to deselect back to — tapping a button just selects it.
+ * Urgency picker — one segmented box, same shell as CategoryPicker (shared by
+ * AddTaskModal and EditTaskForm). A plain boolean with no "clear" state:
+ * Normal IS the off state, so there's nothing to deselect back to.
  *
- * Colors are deliberately NOT symmetric: "Urgent" uses `danger` — a SEMANTIC
- * role token, correct here because urgency is genuinely a meaning/severity
- * signal (Standard §8), unlike category's identity dots. "Normal" has no
- * comparable meaning to signal, so its selected state is a neutral
- * ink-on-hairline highlight rather than inventing an association.
+ * Colors are deliberately NOT symmetric: "Urgent" selected is a SOLID
+ * `danger` fill — a SEMANTIC role token, correct here because urgency is
+ * genuinely a meaning/severity signal (Standard §8), unlike category's
+ * identity colors. "Normal" selected has no comparable meaning to signal, so
+ * it uses this tool's own app-violet identity instead of inventing one.
  */
 function UrgencyPicker({
   value,
@@ -1177,7 +1318,7 @@ function UrgencyPicker({
     { key: true, labelKey: "tasks.urgent" },
   ];
   return (
-    <div className="flex gap-xs">
+    <div className={PICKER_FRAME}>
       {options.map((option) => {
         const selected = value === option.key;
         return (
@@ -1186,12 +1327,52 @@ function UrgencyPicker({
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(option.key)}
-            className={`flex-1 rounded-md px-sm py-xs type-label interactive motion-safe:active:scale-[0.97] ${
+            className={`${PICKER_SEGMENT} ${
               selected
                 ? option.key
-                  ? "bg-danger/15 text-danger ring-1 ring-danger"
-                  : "bg-hairline text-ink"
-                : "bg-screen text-muted"
+                  ? "bg-danger text-on-fill"
+                  : "bg-app-violet text-on-fill"
+                : "bg-transparent text-muted"
+            }`}
+          >
+            {t(option.labelKey)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Scheduling picker — Today (scheduled) vs General, same segmented-box shell
+ * and the SAME app-violet-for-either-selection treatment as UrgencyPicker's
+ * "Normal": neither state is more severe than the other, they're just two
+ * equal values of one axis, so one identity color marks whichever is picked.
+ */
+function SchedulingPicker({
+  value,
+  onChange,
+}: {
+  value: TaskScheduling;
+  onChange: (next: TaskScheduling) => void;
+}) {
+  const { t } = useI18n();
+  const options: Array<{ key: TaskScheduling; labelKey: MessageKey }> = [
+    { key: "scheduled", labelKey: "tasks.scheduledLabel" },
+    { key: "general", labelKey: "tasks.generalLabel" },
+  ];
+  return (
+    <div className={`${PICKER_FRAME} shrink-0`}>
+      {options.map((option) => {
+        const selected = value === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.key)}
+            className={`${PICKER_SEGMENT} ${
+              selected ? "bg-app-violet text-on-fill" : "bg-transparent text-muted"
             }`}
           >
             {t(option.labelKey)}
