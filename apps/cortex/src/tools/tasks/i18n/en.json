@@ -33,5 +33,10 @@
   "save": "Save",
   "editTask": "Edit task",
   "scheduling": "General",
-  "category": "Type"
+  "category": "Type",
+  "viewList": "List",
+  "viewWeek": "Week",
+  "dayEmpty": "No tasks",
+  "prevWeek": "Previous week",
+  "nextWeek": "Next week"
 }

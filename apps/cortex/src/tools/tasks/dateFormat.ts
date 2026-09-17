@@ -47,6 +47,49 @@ export function datetimeLocalValueToIso(value: string): string {
   return new Date(value).toISOString();
 }
 
+/** Midnight (local time) on the SUNDAY of `date`'s week — the week view's
+ * anchor. `getDay()` is 0 for Sunday, so subtracting it always lands on
+ * Sunday regardless of which day of the week `date` is. */
+export function startOfWeek(date: Date): Date {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  return start;
+}
+
+/** `date` shifted by `days` (negative goes backward) — used for both the
+ * week's 7 columns and the prev/next-week navigation. Never mutates `date`. */
+export function addDays(date: Date, days: number): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+/** Whether two Dates fall on the same LOCAL calendar day — the week view's
+ * "does this task belong in this column" test. Deliberately ignores time of
+ * day and never compares via UTC (see the file header). */
+export function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/** A day column's weekday label (e.g. "יום א׳" / "Sun"), via Intl — never a
+ * hard-coded day-name list, so it follows the language toggle and is
+ * correct for every locale's own week-day naming. */
+export function formatWeekday(date: Date, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date);
+}
+
+/** The week-nav header label spanning `weekStart`'s Sunday through Saturday
+ * (e.g. "16–22 ביולי" / "Jul 16 – 22"). */
+export function formatWeekRangeLabel(weekStart: Date, locale: Locale): string {
+  const weekEnd = addDays(weekStart, 6);
+  const format = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
+  return `${format.format(weekStart)} – ${format.format(weekEnd)}`;
+}
+
 /** A stored due-date formatted for READING, in the active UI locale — date and
  * time together (e.g. "16 ביולי 2026, 10:23" in he / "Jul 16, 2026, 10:23 AM"
  * in en). Uses Intl so the format follows the language toggle rather than a

@@ -42,6 +42,11 @@ import {
   isoToDatetimeLocalValue,
   datetimeLocalValueToIso,
   formatDueDate,
+  startOfWeek,
+  addDays,
+  isSameLocalDay,
+  formatWeekday,
+  formatWeekRangeLabel,
 } from "../dateFormat";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
@@ -50,6 +55,12 @@ type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
 /** Which subset of tasks the floating filter bar shows. Client-side only — it
  * never re-queries; it filters the same list already in the shared cache. */
 type TaskFilter = "all" | "open" | "done";
+
+/** HOW the (already-filtered) tasks are displayed — a second, independent axis
+ * from {@link TaskFilter}: filter decides WHICH tasks, view decides how they're
+ * laid out. "list" is the existing rows; "week" buckets by due-date into 7
+ * day columns (tasks with no due date never appear there). */
+type TaskView = "list" | "week";
 
 // userId/orgId arrive as props (the page called requireSession()) but are NOT
 // sent to the action — the server derives identity from the session cookie. They
@@ -69,6 +80,12 @@ export function FullScreen(_props: ToolViewProps) {
   // The floating filter bar's current selection — filters the SAME shared list,
   // no refetch.
   const [filter, setFilter] = useState<TaskFilter>("all");
+  // Which layout shows the (already-filtered) tasks — independent of `filter`
+  // (see TaskView). Toggled from the filter bar's hamburger menu.
+  const [view, setView] = useState<TaskView>("list");
+  // The Sunday that anchors the week view's 7 columns. Lazy initializer so
+  // `startOfWeek(new Date())` runs once, not on every render.
+  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()));
   // Set when a write actually FAILS. Distinguishes the honest cases: "denied" /
   // "unavailable" (the DB refused — you may not) vs "failed" (something broke).
   // Never a silent no-op, and never a pretend-success.
@@ -308,7 +325,14 @@ export function FullScreen(_props: ToolViewProps) {
         />
       ) : null}
 
-      {filteredTasks.length === 0 ? (
+      {view === "week" ? (
+        <WeekView
+          tasks={filteredTasks}
+          weekStart={weekStart}
+          onChangeWeekStart={setWeekStart}
+          onToggle={toggleTask}
+        />
+      ) : filteredTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
           <p className="type-heading text-ink">
             {t(filterHidesEverything ? "tasks.filterEmptyTitle" : "tasks.emptyTitle")}
@@ -415,7 +439,7 @@ export function FullScreen(_props: ToolViewProps) {
         </ul>
       )}
 
-      <FilterBar filter={filter} onChange={setFilter} />
+      <FilterBar filter={filter} onChange={setFilter} view={view} onViewChange={setView} />
     </>
   );
 }
@@ -432,17 +456,23 @@ export function FullScreen(_props: ToolViewProps) {
  * scroll. Transparent card surface + backdrop blur so the list is visible moving
  * underneath it.
  *
- * The leading hamburger button is a declared stub — no handler yet, matching the
- * project's convention for shipped-but-not-wired affordances (see AiSheet's
- * handleSubmit). Filtering itself is a pure client-side narrowing of the already
- * shared task list — it never triggers a fetch.
+ * The leading hamburger is now WIRED: it opens a small popover (list/week)
+ * ABOVE the button, own local `menuOpen` state (transient UI, unlike `view`
+ * which FullScreen owns since it decides what renders). Filtering itself is a
+ * pure client-side narrowing of the already shared task list — it never
+ * triggers a fetch; `view` is a SEPARATE axis (how the filtered set is laid
+ * out), never conflated with `filter` (which tasks are in that set).
  */
 function FilterBar({
   filter,
   onChange,
+  view,
+  onViewChange,
 }: {
   filter: TaskFilter;
   onChange: (next: TaskFilter) => void;
+  view: TaskView;
+  onViewChange: (next: TaskView) => void;
 }) {
   const { t } = useI18n();
   const segments: Array<{ key: TaskFilter; labelKey: MessageKey }> = [
@@ -450,16 +480,63 @@ function FilterBar({
     { key: "open", labelKey: "tasks.filterOpen" },
     { key: "done", labelKey: "tasks.filterDone" },
   ];
+  const viewOptions: Array<{ key: TaskView; labelKey: MessageKey }> = [
+    { key: "list", labelKey: "tasks.viewList" },
+    { key: "week", labelKey: "tasks.viewWeek" },
+  ];
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close on an outside click/tap — the popover doesn't have its own scrim,
+  // so this is what keeps it from staying open once attention moves elsewhere.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [menuOpen]);
 
   return (
     <div className="sticky bottom-sm z-40 mt-auto flex w-fit shrink-0 items-center gap-2xs self-center rounded-pill border border-hairline bg-card/70 p-2xs shadow-lifted backdrop-blur-md">
-      <button
-        type="button"
-        aria-label={t("tasks.filterMenu")}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive motion-safe:active:scale-[0.97]"
-      >
-        <MenuIcon width={18} height={18} />
-      </button>
+      <div ref={menuRef} className="relative">
+        <button
+          type="button"
+          aria-label={t("tasks.filterMenu")}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive motion-safe:active:scale-[0.97]"
+        >
+          <MenuIcon width={18} height={18} />
+        </button>
+        {menuOpen ? (
+          <div className="ds-panel absolute bottom-full start-0 z-50 mb-xs flex w-28 flex-col gap-2xs rounded-lg border border-hairline bg-card p-2xs shadow-lifted">
+            {viewOptions.map((option) => {
+              const active = view === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    onViewChange(option.key);
+                    setMenuOpen(false);
+                  }}
+                  className={`rounded-md px-sm py-2xs text-start type-label interactive motion-safe:active:scale-[0.97] ${
+                    active ? "bg-app-violet/15 text-app-violet" : "text-ink"
+                  }`}
+                >
+                  {t(option.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
       <span className="h-5 w-px shrink-0 bg-hairline" aria-hidden="true" />
       {segments.map((segment) => {
         const active = filter === segment.key;
@@ -477,6 +554,117 @@ function FilterBar({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Week view — buckets the (already-filtered) tasks into 7 day columns
+ * starting Sunday. A SEPARATE axis from the filter bar's `filter`: this
+ * component only decides layout, never which tasks are in `tasks`.
+ *
+ * Horizontal scroll + a fixed per-column minimum (`auto-cols-[minmax(...)]`)
+ * handles narrow phones; on anything wide enough for all 7 at that minimum,
+ * the `1fr` half of the `minmax()` lets them grow to fill the space evenly
+ * instead of scrolling. RTL: no direction-specific code — CSS Grid's
+ * `grid-auto-flow: column` places implicit columns along the inline axis,
+ * which already flows start→end per `dir` (Sunday lands on the RIGHT in
+ * Hebrew for free, since the day array itself is just Sunday→Saturday).
+ */
+function WeekView({
+  tasks,
+  weekStart,
+  onChangeWeekStart,
+  onToggle,
+}: {
+  tasks: Task[];
+  weekStart: Date;
+  onChangeWeekStart: (next: Date) => void;
+  onToggle: (id: string, done: boolean) => void;
+}) {
+  const { t, dir, locale } = useI18n();
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const today = new Date();
+
+  return (
+    <div className="flex flex-col gap-sm">
+      <div className="flex items-center justify-between gap-xs">
+        <button
+          type="button"
+          aria-label={t("tasks.prevWeek")}
+          onClick={() => onChangeWeekStart(addDays(weekStart, -7))}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
+        >
+          <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
+        </button>
+        <span className="type-label text-muted">{formatWeekRangeLabel(weekStart, locale)}</span>
+        <button
+          type="button"
+          aria-label={t("tasks.nextWeek")}
+          onClick={() => onChangeWeekStart(addDays(weekStart, 7))}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
+        >
+          <ChevronIcon style={{ transform: dir === "rtl" ? undefined : "scaleX(-1)" }} />
+        </button>
+      </div>
+
+      <div className="overflow-x-auto no-scrollbar">
+        <div className="grid grid-flow-col auto-cols-[minmax(6.5rem,1fr)] gap-xs">
+          {days.map((day) => {
+            // Tasks with NO due date never appear in the week view at all —
+            // there is no column for them to belong to.
+            const dayTasks = tasks.filter(
+              (task) => task.dueDate && isSameLocalDay(new Date(task.dueDate), day),
+            );
+            const isToday = isSameLocalDay(day, today);
+            return (
+              <div
+                key={day.toISOString()}
+                className={`flex flex-col gap-xs rounded-lg p-xs ${
+                  isToday ? "bg-app-violet/10" : "bg-card"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-2xs pb-2xs">
+                  <span className={`type-caption ${isToday ? "text-app-violet" : "text-muted"}`}>
+                    {formatWeekday(day, locale)}
+                  </span>
+                  <span
+                    className={`flex h-7 w-7 items-center justify-center rounded-full type-label ${
+                      isToday ? "bg-app-violet text-on-fill" : "text-ink"
+                    }`}
+                  >
+                    {day.getDate()}
+                  </span>
+                </div>
+
+                {dayTasks.length === 0 ? (
+                  <p className="text-center type-caption text-muted">{t("tasks.dayEmpty")}</p>
+                ) : (
+                  <ul className="flex flex-col gap-2xs">
+                    {dayTasks.map((task) => (
+                      <li key={task.id}>
+                        <button
+                          type="button"
+                          aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
+                          aria-pressed={task.done}
+                          onClick={() => onToggle(task.id, !task.done)}
+                          className={`w-full truncate rounded-md px-2xs py-2xs text-start type-caption interactive motion-safe:active:scale-[0.97] ${
+                            task.done
+                              ? "bg-hairline text-muted line-through"
+                              : "bg-app-violet/15 text-ink"
+                          }`}
+                        >
+                          {task.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

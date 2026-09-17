@@ -33,5 +33,10 @@
   "save": "שמירה",
   "editTask": "עריכת משימה",
   "scheduling": "כללית",
-  "category": "סוג"
+  "category": "סוג",
+  "viewList": "רשימה",
+  "viewWeek": "שבוע",
+  "dayEmpty": "אין משימות",
+  "prevWeek": "השבוע הקודם",
+  "nextWeek": "השבוע הבא"
 }
