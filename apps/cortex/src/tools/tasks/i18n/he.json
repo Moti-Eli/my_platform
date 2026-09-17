@@ -41,5 +41,8 @@
   "nextWeek": "השבוע הבא",
   "categoryDaily": "יומיום",
   "categoryWork": "עבודה",
-  "categoryBusiness": "עסק"
+  "categoryBusiness": "עסק",
+  "urgent": "דחוף",
+  "normal": "רגיל",
+  "urgencyLabel": "דחיפות"
 }

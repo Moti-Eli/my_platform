@@ -41,5 +41,8 @@
   "nextWeek": "Next week",
   "categoryDaily": "Daily",
   "categoryWork": "Work",
-  "categoryBusiness": "Business"
+  "categoryBusiness": "Business",
+  "urgent": "Urgent",
+  "normal": "Normal",
+  "urgencyLabel": "Urgency"
 }

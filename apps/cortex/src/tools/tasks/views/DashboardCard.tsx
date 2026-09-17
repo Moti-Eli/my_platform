@@ -46,6 +46,7 @@ import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 import type { Task } from "../logic";
 import { formatDueDate } from "../dateFormat";
 import { categoryOf } from "../categories";
+import { sortTasksByUrgency } from "../sortTasks";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -68,6 +69,10 @@ export function DashboardCard(_props: ToolViewProps) {
   const { tasks, isLoading: loading, isError: error } = useTasksList();
 
   const open = tasks.filter((task) => !task.done);
+  // Re-sorted urgent-first for the RENDER only (see sortTasks.ts) — writes
+  // patch the cache in place without re-sorting it, so this is what keeps
+  // urgent tasks on top after a quick-add/toggle, not just after a fresh load.
+  const sortedTasks = sortTasksByUrgency(tasks);
 
   // Quick-add: a single-title inline form, toggled by the "+" button. Deliberately
   // simpler than the full screen's add form (no due date) — this is the fast path.
@@ -106,7 +111,14 @@ export function DashboardCard(_props: ToolViewProps) {
         // was submitted, so append it straight into the SHARED cache — no
         // refetch, and the full screen sees it immediately if opened next.
         const { id } = res.data as { id: string };
-        const created: Task = { id, title: nextTitle, done: false, dueDate: null, category: null };
+        const created: Task = {
+          id,
+          title: nextTitle,
+          done: false,
+          dueDate: null,
+          category: null,
+          urgent: false,
+        };
         queryClient.setQueryData<Task[]>(TASKS_LIST_KEY, (prev) => [...(prev ?? []), created]);
         setTitle("");
         setQuickAdding(false);
@@ -281,9 +293,9 @@ export function DashboardCard(_props: ToolViewProps) {
           </ul>
         ) : error ? (
           <p className="type-label text-muted">{t("tasks.loadFailed")}</p>
-        ) : tasks.length > 0 ? (
+        ) : sortedTasks.length > 0 ? (
           <ul className="flex flex-col divide-y divide-hairline">
-            {tasks.map((task) => {
+            {sortedTasks.map((task) => {
               const cat = categoryOf(task.category);
               return (
                 <li key={task.id} className="flex items-center justify-between gap-sm py-sm">
@@ -310,9 +322,21 @@ export function DashboardCard(_props: ToolViewProps) {
                     >
                       {task.done ? <CheckIcon width={14} height={14} /> : null}
                     </button>
-                    <span className={`truncate ${task.done ? "text-muted line-through" : "text-ink"}`}>
+                    <span
+                      className={`min-w-0 flex-1 truncate ${
+                        task.done ? "text-muted line-through" : "text-ink"
+                      }`}
+                    >
                       {task.title}
                     </span>
+                    {/* Urgency badge — same bg-danger/10 + text-danger combo as
+                        the quick-add error line below; a normal task gets
+                        nothing. */}
+                    {task.urgent ? (
+                      <span className="shrink-0 rounded-pill bg-danger/10 px-xs py-2xs type-caption text-danger">
+                        {t("tasks.urgent")}
+                      </span>
+                    ) : null}
                   </span>
                   {/* Trailing: due date + category dot, whichever exist — never
                       an empty reserved slot for either. */}

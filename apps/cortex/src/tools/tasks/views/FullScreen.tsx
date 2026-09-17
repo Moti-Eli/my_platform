@@ -49,6 +49,7 @@ import {
   formatWeekRangeLabel,
 } from "../dateFormat";
 import { CATEGORIES, categoryOf } from "../categories";
+import { sortTasksByUrgency } from "../sortTasks";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -186,10 +187,16 @@ export function FullScreen(_props: ToolViewProps) {
   );
 
   const updateTask = useCallback(
-    async (id: string, title: string, dueDate: string | null, category: string | null) => {
+    async (
+      id: string,
+      title: string,
+      dueDate: string | null,
+      category: string | null,
+      urgent: boolean,
+    ) => {
       // Snapshot the row BEFORE the optimistic patch, so a failure can restore
-      // its exact prior title/dueDate/category — same shape as removeTask's
-      // snapshot.
+      // its exact prior title/dueDate/category/urgent — same shape as
+      // removeTask's snapshot.
       const prevList = queryClient.getQueryData<Task[]>(TASKS_LIST_KEY) ?? [];
       const original = prevList.find((it) => it.id === id) ?? null;
 
@@ -197,9 +204,15 @@ export function FullScreen(_props: ToolViewProps) {
       //    SHARED cache before awaiting, so the row and the dashboard card update
       //    in lockstep.
       setWriteError(null);
-      patchTask(id, (it) => ({ ...it, title, dueDate, category }));
+      patchTask(id, (it) => ({ ...it, title, dueDate, category, urgent }));
 
-      const res = await runIntentAction("tasks.update_task", { id, title, dueDate, category });
+      const res = await runIntentAction("tasks.update_task", {
+        id,
+        title,
+        dueDate,
+        category,
+        urgent,
+      });
 
       if (res.ok) {
         // 2. Success closes the inline form — nothing left to reconcile, the
@@ -267,11 +280,18 @@ export function FullScreen(_props: ToolViewProps) {
 
   // Applied client-side against the same shared list — a display filter, not a
   // different read. "open" mirrors the DashboardCard's own not-done definition.
-  const filteredTasks = tasks.filter((task) => {
-    if (filter === "open") return !task.done;
-    if (filter === "done") return task.done;
-    return true;
-  });
+  // Re-sorted urgent-first AFTER filtering (see sortTasks.ts) — writes patch
+  // the cache in place without re-sorting it, so this is what keeps urgent
+  // tasks on top after an add/edit, not just after a fresh load. Feeds BOTH
+  // the list render below AND WeekView (its per-day bucketing preserves this
+  // relative order).
+  const filteredTasks = sortTasksByUrgency(
+    tasks.filter((task) => {
+      if (filter === "open") return !task.done;
+      if (filter === "done") return task.done;
+      return true;
+    }),
+  );
 
   // "Nothing at all" and "nothing in THIS filter" are different situations and
   // must not share a message: with a filter on, the list can be empty while the
@@ -358,8 +378,8 @@ export function FullScreen(_props: ToolViewProps) {
                 {editing ? (
                   <EditTaskForm
                     task={task}
-                    onSave={(title, dueDate, category) =>
-                      updateTask(task.id, title, dueDate, category)
+                    onSave={(title, dueDate, category, urgent) =>
+                      updateTask(task.id, title, dueDate, category, urgent)
                     }
                     onCancel={() => setEditingId(null)}
                   />
@@ -383,12 +403,23 @@ export function FullScreen(_props: ToolViewProps) {
                         {task.done ? <CheckIcon width={16} height={16} /> : null}
                       </span>
                       <span className="flex min-w-0 flex-col">
-                        <span
-                          className={`truncate type-heading ${
-                            task.done ? "text-muted line-through" : "text-ink"
-                          }`}
-                        >
-                          {task.title}
+                        <span className="flex min-w-0 items-center gap-2xs">
+                          <span
+                            className={`min-w-0 flex-1 truncate type-heading ${
+                              task.done ? "text-muted line-through" : "text-ink"
+                            }`}
+                          >
+                            {task.title}
+                          </span>
+                          {/* Urgency badge — same bg-danger/10 + text-danger
+                              combo as the writeError alert above, just sized
+                              down into a pill. A normal task gets nothing at
+                              all, not a "normal" label. */}
+                          {task.urgent ? (
+                            <span className="shrink-0 rounded-pill bg-danger/10 px-xs py-2xs type-caption text-danger">
+                              {t("tasks.urgent")}
+                            </span>
+                          ) : null}
                         </span>
                         {task.dueDate ? (
                           <span className="type-label text-muted">
@@ -662,25 +693,33 @@ function WeekView({
                         <li key={task.id}>
                           <button
                             type="button"
-                            aria-label={
-                              cat
-                                ? `${task.done ? t("tasks.markUndone") : t("tasks.markDone")} — ${t(cat.labelKey)}`
-                                : task.done
-                                  ? t("tasks.markUndone")
-                                  : t("tasks.markDone")
-                            }
+                            aria-label={[
+                              task.done ? t("tasks.markUndone") : t("tasks.markDone"),
+                              cat ? t(cat.labelKey) : null,
+                              task.urgent ? t("tasks.urgent") : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" — ")}
                             aria-pressed={task.done}
                             onClick={() => onToggle(task.id, !task.done)}
                             className={`flex w-full min-w-0 items-center gap-2xs rounded-md px-2xs py-2xs text-start type-caption interactive motion-safe:active:scale-[0.97] ${
                               task.done
                                 ? "bg-hairline text-muted line-through"
-                                : "bg-app-violet/15 text-ink"
+                                : task.urgent
+                                  ? "bg-danger/10 text-danger"
+                                  : "bg-app-violet/15 text-ink"
                             }`}
                           >
                             {/* Column is too narrow for a trailing dot without
                                 crowding the already-truncated title — leads
                                 the row instead (same rule as the list view:
-                                present only when the task has a category). */}
+                                present only when the task has a category).
+                                Urgency has NO room for a separate label here —
+                                see the row's own background/text swapping to
+                                the danger token instead (chosen over a second
+                                badge/icon: one glance at the tint already
+                                reads "urgent" without adding more to parse in
+                                an already-tiny cell). */}
                             {cat ? (
                               <span className={`h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`} />
                             ) : null}
@@ -735,6 +774,8 @@ function AddTaskModal({
   // No category selected by default — picking one is optional, and the picker
   // itself supports deselecting back to null (see CategoryPicker).
   const [category, setCategory] = useState<string | null>(null);
+  // Defaults to normal — the common case.
+  const [urgent, setUrgent] = useState(false);
   // Whether the required title is blank-on-submit. Drives the marking + message;
   // cleared as soon as the user edits it.
   const [invalid, setInvalid] = useState<{ title: boolean }>({ title: false });
@@ -802,6 +843,7 @@ function AddTaskModal({
         title: nextTitle,
         dueDate: nextDue ?? undefined,
         category: category ?? undefined,
+        urgent,
       });
       if (!mounted.current) return;
 
@@ -809,7 +851,7 @@ function AddTaskModal({
         // create_task returns only { id }; the rest of the Task is the values we
         // just submitted, so we can hand a complete row up to append.
         const { id } = res.data as { id: string };
-        onCreated({ id, title: nextTitle, done: false, dueDate: nextDue, category });
+        onCreated({ id, title: nextTitle, done: false, dueDate: nextDue, category, urgent });
       } else {
         onError(res.code);
       }
@@ -897,6 +939,12 @@ function AddTaskModal({
           <CategoryPicker value={category} onChange={setCategory} />
         </div>
 
+        {/* 3c. Urgency — same picker style as category. */}
+        <div className="flex flex-col gap-2xs">
+          <span className="type-caption text-muted">{t("tasks.urgencyLabel")}</span>
+          <UrgencyPicker value={urgent} onChange={setUrgent} />
+        </div>
+
         {/* 4. Actions — Add is the confident, filled primary; Cancel is
             transparent/secondary so the hierarchy stays unambiguous. */}
         <div className="flex gap-sm">
@@ -934,7 +982,12 @@ function EditTaskForm({
   onCancel,
 }: {
   task: Task;
-  onSave: (title: string, dueDate: string | null, category: string | null) => Promise<void>;
+  onSave: (
+    title: string,
+    dueDate: string | null,
+    category: string | null,
+    urgent: boolean,
+  ) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
@@ -947,6 +1000,8 @@ function EditTaskForm({
   const [dueDate, setDueDate] = useState(isoToDatetimeLocalValue(task.dueDate));
   // Pre-selected from the task's current category (or none).
   const [category, setCategory] = useState<string | null>(task.category);
+  // Pre-selected from the task's current urgency.
+  const [urgent, setUrgent] = useState(task.urgent);
   const [invalid, setInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -985,7 +1040,7 @@ function EditTaskForm({
 
     setSubmitting(true);
     try {
-      await onSave(nextTitle, nextDue, category);
+      await onSave(nextTitle, nextDue, category, urgent);
     } finally {
       if (mounted.current) setSubmitting(false);
     }
@@ -1030,6 +1085,10 @@ function EditTaskForm({
       <div className="flex flex-col gap-2xs">
         <span className="type-label text-muted">{t("tasks.category")}</span>
         <CategoryPicker value={category} onChange={setCategory} />
+      </div>
+      <div className="flex flex-col gap-2xs">
+        <span className="type-label text-muted">{t("tasks.urgencyLabel")}</span>
+        <UrgencyPicker value={urgent} onChange={setUrgent} />
       </div>
       <div className="flex gap-xs">
         <button
@@ -1086,6 +1145,56 @@ function CategoryPicker({
           >
             <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cat.dotClassName}`} />
             {t(cat.labelKey)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Urgency picker — a two-button segmented control, same shape/style family as
+ * CategoryPicker (shared by AddTaskModal and EditTaskForm). Unlike category,
+ * this is a plain boolean with no "clear" state: Normal IS the off state, so
+ * there's nothing to deselect back to — tapping a button just selects it.
+ *
+ * Colors are deliberately NOT symmetric: "Urgent" uses `danger` — a SEMANTIC
+ * role token, correct here because urgency is genuinely a meaning/severity
+ * signal (Standard §8), unlike category's identity dots. "Normal" has no
+ * comparable meaning to signal, so its selected state is a neutral
+ * ink-on-hairline highlight rather than inventing an association.
+ */
+function UrgencyPicker({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const { t } = useI18n();
+  const options: Array<{ key: boolean; labelKey: MessageKey }> = [
+    { key: false, labelKey: "tasks.normal" },
+    { key: true, labelKey: "tasks.urgent" },
+  ];
+  return (
+    <div className="flex gap-xs">
+      {options.map((option) => {
+        const selected = value === option.key;
+        return (
+          <button
+            key={String(option.key)}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option.key)}
+            className={`flex-1 rounded-md px-sm py-xs type-label interactive motion-safe:active:scale-[0.97] ${
+              selected
+                ? option.key
+                  ? "bg-danger/15 text-danger ring-1 ring-danger"
+                  : "bg-hairline text-ink"
+                : "bg-screen text-muted"
+            }`}
+          >
+            {t(option.labelKey)}
           </button>
         );
       })}

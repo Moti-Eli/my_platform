@@ -29,6 +29,7 @@ export interface Task {
    * validated against that list here — an unrecognized/stale value just falls
    * back to "no category" wherever it's displayed (see `categoryOf`). */
   category: string | null;
+  urgent: boolean;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -37,19 +38,22 @@ export interface CreateTaskInput {
   title: string;
   dueDate?: string;
   category?: string;
+  urgent?: boolean;
 }
 export interface ToggleTaskInput {
   id: string;
   done: boolean;
 }
-/** All three OPTIONAL: `undefined` means "leave this column alone", while
+/** All OPTIONAL: `undefined` means "leave this column alone", while
  * `dueDate: null` / `category: null` are real values — "clear the due date" /
- * "no category". */
+ * "no category". `urgent` has no null state (the column is boolean NOT NULL) —
+ * `undefined` skips it, `true`/`false` sets it, same as `title`. */
 export interface UpdateTaskInput {
   id: string;
   title?: string;
   dueDate?: string | null;
   category?: string | null;
+  urgent?: boolean;
 }
 export interface DeleteTaskInput {
   id: string;
@@ -74,6 +78,7 @@ function toTask(row: DbRow): Task {
     done: Boolean(row.done),
     dueDate: row.due_date == null ? null : String(row.due_date),
     category: row.category == null ? null : String(row.category),
+    urgent: Boolean(row.urgent),
   };
 }
 
@@ -87,12 +92,17 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
       // other org's rows; the user would simply see every org they belong to at
       // once, mixed together, which is a UX bug, not a leak.
       const rows = await db.select(TASKS_TABLE, { org_id: ctx.orgId });
-      // Order by created_at. ISO timestamptz strings sort lexicographically in
-      // chronological order, so a plain string compare is the ordering — no
-      // dependency on the adapter's (deliberately tiny) select surface.
-      const ordered = [...rows].sort((a, b) =>
-        String(a.created_at).localeCompare(String(b.created_at)),
-      );
+      // Urgent first, THEN the existing created_at order within each group —
+      // additive, not a replacement: the tie-breaker (second comparison) is
+      // the exact same lexicographic compare as before. ISO timestamptz
+      // strings sort lexicographically in chronological order, so a plain
+      // string compare is the ordering — no dependency on the adapter's
+      // (deliberately tiny) select surface.
+      const ordered = [...rows].sort((a, b) => {
+        const urgencyDiff = Number(Boolean(b.urgent)) - Number(Boolean(a.urgent));
+        if (urgencyDiff !== 0) return urgencyDiff;
+        return String(a.created_at).localeCompare(String(b.created_at));
+      });
       return ordered.map(toTask);
     },
 
@@ -109,6 +119,7 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         title: input.title,
         due_date: input.dueDate ?? null,
         category: input.category ?? null,
+        urgent: input.urgent ?? false,
         created_at: now,
         updated_at: now,
       });
@@ -143,6 +154,7 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
           ...(input.category !== undefined ? { category: input.category } : {}),
+          ...(input.urgent !== undefined ? { urgent: input.urgent } : {}),
           updated_at: new Date().toISOString(),
         },
       );
