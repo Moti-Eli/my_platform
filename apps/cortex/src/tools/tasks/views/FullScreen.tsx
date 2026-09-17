@@ -20,7 +20,7 @@
  *
  * Built from design-system utilities + i18n only.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
@@ -497,7 +497,7 @@ export function FullScreen(_props: ToolViewProps) {
           tasks={filteredTasks}
           weekStart={weekStart}
           onChangeWeekStart={setWeekStart}
-          onToggle={toggleTask}
+          renderTaskRow={renderTaskRow}
         />
       ) : filteredTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-xs rounded-lg bg-card px-lg py-2xl text-center">
@@ -560,12 +560,17 @@ export function FullScreen(_props: ToolViewProps) {
  * scroll. Transparent card surface + backdrop blur so the list is visible moving
  * underneath it.
  *
- * The leading hamburger is now WIRED: it opens a small popover (list/week)
- * ABOVE the button, own local `menuOpen` state (transient UI, unlike `view`
- * which FullScreen owns since it decides what renders). Filtering itself is a
- * pure client-side narrowing of the already shared task list — it never
- * triggers a fetch; `view` is a SEPARATE axis (how the filtered set is laid
- * out), never conflated with `filter` (which tasks are in that set).
+ * The leading hamburger no longer opens a popover — it SWAPS the segments to
+ * its right between two independent axes, via local `barMode` ("filter" |
+ * "view", transient UI — unlike `filter`/`view` themselves, which FullScreen
+ * owns since it decides what renders). Switching `barMode` touches NEITHER
+ * `filter` nor `view`: each keeps its own last selection, so leaving "view"
+ * mode and coming back to "filter" mode still shows whichever filter was
+ * active before. Filtering itself is a pure client-side narrowing of the
+ * already shared task list — it never triggers a fetch; `view` is a SEPARATE
+ * axis (how the filtered set is laid out), never conflated with `filter`
+ * (which tasks are in that set) — `barMode` is a THIRD, independent thing on
+ * top of both: which of the two this control is currently showing.
  */
 function FilterBar({
   filter,
@@ -590,114 +595,121 @@ function FilterBar({
     { key: "week", labelKey: "tasks.viewWeek" },
   ];
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close on an outside click/tap — the popover doesn't have its own scrim,
-  // so this is what keeps it from staying open once attention moves elsewhere.
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onPointerDown(e: PointerEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [menuOpen]);
+  const [barMode, setBarMode] = useState<"filter" | "view">("filter");
 
   return (
     <div className="sticky bottom-sm z-40 mt-auto flex w-fit shrink-0 items-center gap-2xs self-center rounded-pill border border-hairline bg-card/70 p-2xs shadow-lifted backdrop-blur-md">
-      <div ref={menuRef} className="relative">
-        <button
-          type="button"
-          aria-label={t("tasks.filterMenu")}
-          aria-expanded={menuOpen}
-          onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted interactive motion-safe:active:scale-[0.97]"
-        >
-          <MenuIcon width={18} height={18} />
-        </button>
-        {menuOpen ? (
-          <div className="ds-panel absolute bottom-full start-0 z-50 mb-xs flex w-28 flex-col gap-2xs rounded-lg border border-hairline bg-card p-2xs shadow-lifted">
-            {viewOptions.map((option) => {
-              const active = view === option.key;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => {
-                    onViewChange(option.key);
-                    setMenuOpen(false);
-                  }}
-                  className={`rounded-md px-sm py-2xs text-start type-label interactive motion-safe:active:scale-[0.97] ${
-                    active ? "bg-app-violet/15 text-app-violet" : "text-ink"
-                  }`}
-                >
-                  {t(option.labelKey)}
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
+      {/* The mode switch itself marks where you are: a subtle accent fill +
+          icon while showing "view" segments, plain/muted (same as always)
+          while showing "filter" segments. */}
+      <button
+        type="button"
+        aria-label={t("tasks.filterMenu")}
+        aria-pressed={barMode === "view"}
+        onClick={() => setBarMode((m) => (m === "filter" ? "view" : "filter"))}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
+          barMode === "view" ? "bg-app-violet/15 text-app-violet" : "text-muted"
+        }`}
+      >
+        <MenuIcon width={18} height={18} />
+      </button>
       <span className="h-5 w-px shrink-0 bg-hairline" aria-hidden="true" />
-      {segments.map((segment) => {
-        const active = filter === segment.key;
-        return (
-          <button
-            key={segment.key}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(segment.key)}
-            className={`rounded-pill px-sm py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
-              active ? "bg-app-violet text-on-fill" : "text-muted"
-            }`}
-          >
-            {t(segment.labelKey)}
-          </button>
-        );
-      })}
+      {/* Same segment markup/style either way — only which array (and which
+          setter) is wired up changes with `barMode`. */}
+      {barMode === "filter"
+        ? segments.map((segment) => {
+            const active = filter === segment.key;
+            return (
+              <button
+                key={segment.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onChange(segment.key)}
+                className={`rounded-pill px-sm py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
+                  active ? "bg-app-violet text-on-fill" : "text-muted"
+                }`}
+              >
+                {t(segment.labelKey)}
+              </button>
+            );
+          })
+        : viewOptions.map((option) => {
+            const active = view === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onViewChange(option.key)}
+                className={`rounded-pill px-sm py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
+                  active ? "bg-app-violet text-on-fill" : "text-muted"
+                }`}
+              >
+                {t(option.labelKey)}
+              </button>
+            );
+          })}
     </div>
   );
 }
 
 /**
- * Week view — buckets the (already-filtered) tasks into 7 day columns
- * starting Sunday. A SEPARATE axis from the filter bar's `filter`: this
- * component only decides layout, never which tasks are in `tasks`.
+ * Week view — a compact 7-day strip up top (which day is SELECTED), and the
+ * selected day's tasks below it, in the FULL list-row format (`renderTaskRow`
+ * — the exact same function the flat/grouped list views use, so a row can
+ * never drift between the two places it appears). A SEPARATE axis from the
+ * filter bar's `filter`: this component only decides layout, never which
+ * tasks are in `tasks`.
  *
- * Horizontal scroll + a fixed per-column minimum (`auto-cols-[minmax(...)]`)
- * handles narrow phones; on anything wide enough for all 7 at that minimum,
- * the `1fr` half of the `minmax()` lets them grow to fill the space evenly
- * instead of scrolling. RTL: no direction-specific code — CSS Grid's
- * `grid-auto-flow: column` places implicit columns along the inline axis,
- * which already flows start→end per `dir` (Sunday lands on the RIGHT in
- * Hebrew for free, since the day array itself is just Sunday→Saturday).
+ * `grid-cols-7` (equal fractions, no per-column minimum) instead of the
+ * previous scrolling `auto-cols-[minmax(...)]` grid: each tile is now just a
+ * weekday name + day number + an optional count, so 7 of them fit the app
+ * column's width (~448px usable) without needing to scroll — no
+ * `overflow-x-auto` here anymore. RTL: no direction-specific code — CSS
+ * Grid's implicit column order already flows start→end per `dir` (Sunday
+ * lands on the RIGHT in Hebrew for free, since the day array itself is just
+ * Sunday→Saturday).
+ *
+ * `selectedDay` is OWNED here (not lifted to FullScreen — nothing outside
+ * this component needs it): defaults to today, and prev/next week ALSO
+ * moves it to that new week's Sunday (`weekStart`) in the SAME click handler
+ * that changes the week, rather than an effect watching `weekStart` — one
+ * place decides both, so they can't fall out of sync.
  */
 function WeekView({
   tasks,
   weekStart,
   onChangeWeekStart,
-  onToggle,
+  renderTaskRow,
 }: {
   tasks: Task[];
   weekStart: Date;
   onChangeWeekStart: (next: Date) => void;
-  onToggle: (id: string, done: boolean) => void;
+  renderTaskRow: (task: Task) => ReactNode;
 }) {
   const { t, dir, locale } = useI18n();
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
+  const [selectedDay, setSelectedDay] = useState<Date>(() => new Date());
+
+  function changeWeek(nextStart: Date) {
+    onChangeWeekStart(nextStart);
+    setSelectedDay(nextStart);
+  }
+
+  // Tasks with NO due date never appear in the week view at all — there is
+  // no day for them to belong to.
+  const selectedDayTasks = tasks.filter(
+    (task) => task.dueDate && isSameLocalDay(new Date(task.dueDate), selectedDay),
+  );
 
   return (
-    <div className="flex flex-col gap-sm">
+    <div className="flex flex-col gap-md">
       <div className="flex items-center justify-between gap-xs">
         <button
           type="button"
           aria-label={t("tasks.prevWeek")}
-          onClick={() => onChangeWeekStart(addDays(weekStart, -7))}
+          onClick={() => changeWeek(addDays(weekStart, -7))}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? "scaleX(-1)" : undefined }} />
@@ -706,94 +718,67 @@ function WeekView({
         <button
           type="button"
           aria-label={t("tasks.nextWeek")}
-          onClick={() => onChangeWeekStart(addDays(weekStart, 7))}
+          onClick={() => changeWeek(addDays(weekStart, 7))}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
         >
           <ChevronIcon style={{ transform: dir === "rtl" ? undefined : "scaleX(-1)" }} />
         </button>
       </div>
 
-      <div className="overflow-x-auto no-scrollbar">
-        <div className="grid grid-flow-col auto-cols-[minmax(6.5rem,1fr)] gap-xs">
-          {days.map((day) => {
-            // Tasks with NO due date never appear in the week view at all —
-            // there is no column for them to belong to.
-            const dayTasks = tasks.filter(
-              (task) => task.dueDate && isSameLocalDay(new Date(task.dueDate), day),
-            );
-            const isToday = isSameLocalDay(day, today);
-            return (
-              <div
-                key={day.toISOString()}
-                className={`flex flex-col gap-xs rounded-lg p-xs ${
-                  isToday ? "bg-app-violet/10" : "bg-card"
+      {/* The compact day strip — picks WHICH day is shown below, nothing more. */}
+      <div className="grid grid-cols-7 gap-2xs">
+        {days.map((day) => {
+          const count = tasks.filter(
+            (task) => task.dueDate && isSameLocalDay(new Date(task.dueDate), day),
+          ).length;
+          const isSelected = isSameLocalDay(day, selectedDay);
+          const isToday = isSameLocalDay(day, today);
+          return (
+            <button
+              key={day.toISOString()}
+              type="button"
+              aria-pressed={isSelected}
+              aria-label={`${formatWeekday(day, locale)} ${day.getDate()}`}
+              onClick={() => setSelectedDay(day)}
+              className={`flex flex-col items-center gap-2xs rounded-lg py-xs interactive motion-safe:active:scale-[0.97] ${
+                isSelected ? "bg-app-violet text-on-fill" : isToday ? "bg-app-violet/10" : ""
+              }`}
+            >
+              <span
+                className={`type-caption ${
+                  isSelected ? "text-on-fill" : isToday ? "text-app-violet" : "text-muted"
                 }`}
               >
-                <div className="flex flex-col items-center gap-2xs pb-2xs">
-                  <span className={`type-caption ${isToday ? "text-app-violet" : "text-muted"}`}>
-                    {formatWeekday(day, locale)}
-                  </span>
-                  <span
-                    className={`flex h-7 w-7 items-center justify-center rounded-full type-label ${
-                      isToday ? "bg-app-violet text-on-fill" : "text-ink"
-                    }`}
-                  >
-                    {day.getDate()}
-                  </span>
-                </div>
-
-                {dayTasks.length === 0 ? (
-                  <p className="text-center type-caption text-muted">{t("tasks.dayEmpty")}</p>
-                ) : (
-                  <ul className="flex flex-col gap-2xs">
-                    {dayTasks.map((task) => {
-                      const cat = categoryOf(task.category);
-                      return (
-                        <li key={task.id}>
-                          <button
-                            type="button"
-                            aria-label={[
-                              task.done ? t("tasks.markUndone") : t("tasks.markDone"),
-                              cat ? t(cat.labelKey) : null,
-                              task.urgent ? t("tasks.urgent") : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" — ")}
-                            aria-pressed={task.done}
-                            onClick={() => onToggle(task.id, !task.done)}
-                            className={`flex w-full min-w-0 items-center gap-2xs rounded-md px-2xs py-2xs text-start type-caption interactive motion-safe:active:scale-[0.97] ${
-                              task.done
-                                ? "bg-hairline text-muted line-through"
-                                : task.urgent
-                                  ? "bg-danger/10 text-danger"
-                                  : "bg-app-violet/15 text-ink"
-                            }`}
-                          >
-                            {/* Column is too narrow for a trailing dot without
-                                crowding the already-truncated title — leads
-                                the row instead (same rule as the list view:
-                                present only when the task has a category).
-                                Urgency has NO room for a separate label here —
-                                see the row's own background/text swapping to
-                                the danger token instead (chosen over a second
-                                badge/icon: one glance at the tint already
-                                reads "urgent" without adding more to parse in
-                                an already-tiny cell). */}
-                            {cat ? (
-                              <span className={`h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`} />
-                            ) : null}
-                            <span className="truncate">{task.title}</span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                {formatWeekday(day, locale)}
+              </span>
+              <span className={`type-label ${isSelected ? "text-on-fill" : "text-ink"}`}>
+                {day.getDate()}
+              </span>
+              {/* The count mark — present only when the day actually has
+                  tasks (same "absent, not empty" rule as everywhere else in
+                  this tool); a non-breaking space in its place keeps every
+                  tile the same height regardless. */}
+              <span
+                className={`type-caption ${isSelected ? "text-on-fill" : "text-app-violet"}`}
+              >
+                {count > 0 ? count : " "}
+              </span>
+            </button>
+          );
+        })}
       </div>
+
+      {/* The selected day's tasks — the SAME row format as the regular list
+          view (renderTaskRow), not a separate compact one. */}
+      {selectedDayTasks.length === 0 ? (
+        <p className="rounded-lg bg-card px-lg py-lg text-center type-label text-muted">
+          {t("tasks.dayEmpty")}
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-hairline">
+          {selectedDayTasks.map(renderTaskRow)}
+        </ul>
+      )}
     </div>
   );
 }
