@@ -28,5 +28,10 @@
   "filterDone": "בוצעו",
   "filterMenu": "תפריט סינון",
   "filterEmptyTitle": "אין משימות בסינון הזה",
-  "filterEmptyHint": "יש לך משימות אחרות — החלף סינון כדי לראות אותן."
+  "filterEmptyHint": "יש לך משימות אחרות — החלף סינון כדי לראות אותן.",
+  "edit": "עריכה",
+  "save": "שמירה",
+  "editTask": "עריכת משימה",
+  "scheduling": "כללית",
+  "category": "סוג"
 }

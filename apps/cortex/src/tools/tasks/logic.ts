@@ -37,6 +37,13 @@ export interface ToggleTaskInput {
   id: string;
   done: boolean;
 }
+/** Both fields OPTIONAL: `undefined` means "leave this column alone",
+ * while `dueDate: null` is a real value — "clear the due date". */
+export interface UpdateTaskInput {
+  id: string;
+  title?: string;
+  dueDate?: string | null;
+}
 export interface DeleteTaskInput {
   id: string;
 }
@@ -45,6 +52,7 @@ export interface TasksLogic {
   queryList(input: QueryListInput, ctx: Ctx): Promise<Task[]>;
   createTask(input: CreateTaskInput, ctx: Ctx): Promise<{ id: string }>;
   toggleTask(input: ToggleTaskInput, ctx: Ctx): Promise<{ id: string; done: boolean }>;
+  updateTask(input: UpdateTaskInput, ctx: Ctx): Promise<{ id: string }>;
   deleteTask(input: DeleteTaskInput, ctx: Ctx): Promise<{ id: string }>;
 }
 
@@ -112,6 +120,23 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         await emit("tasks.completed", { id: input.id }, ctx);
       }
       return { id: input.id, done: input.done };
+    },
+
+    async updateTask(input, _ctx) {
+      // Where by id alone — org scope is enforced by RLS
+      // (auth_user_can_write), not by this filter, exactly like toggleTask.
+      // Only the fields actually provided are sent: a missing field must
+      // never overwrite a column the caller didn't mention.
+      await db.update(
+        TASKS_TABLE,
+        { id: input.id },
+        {
+          ...(input.title !== undefined ? { title: input.title } : {}),
+          ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+          updated_at: new Date().toISOString(),
+        },
+      );
+      return { id: input.id };
     },
 
     async deleteTask(input, _ctx) {

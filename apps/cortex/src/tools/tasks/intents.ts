@@ -59,6 +59,18 @@ export function createTasksIntents(logic: TasksLogic) {
     }),
 
     defineIntent({
+      name: "tasks.update_task",
+      description: "Edit a task's title and/or due date",
+      input: z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        dueDate: z.string().nullable().optional(),
+      }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.updateTask(input, ctx),
+    }),
+
+    defineIntent({
       name: "tasks.delete_task",
       description: "Delete a task",
       input: z.object({ id: z.string() }),

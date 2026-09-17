@@ -28,5 +28,10 @@
   "filterDone": "Done",
   "filterMenu": "Filter menu",
   "filterEmptyTitle": "Nothing in this filter",
-  "filterEmptyHint": "You have other tasks — switch the filter to see them."
+  "filterEmptyHint": "You have other tasks — switch the filter to see them.",
+  "edit": "Edit",
+  "save": "Save",
+  "editTask": "Edit task",
+  "scheduling": "General",
+  "category": "Type"
 }

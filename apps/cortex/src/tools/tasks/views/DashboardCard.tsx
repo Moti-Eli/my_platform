@@ -44,6 +44,7 @@ import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 import type { Task } from "../logic";
+import { formatDueDate } from "../dateFormat";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -58,7 +59,7 @@ const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
 // stay in the prop TYPE only because the page provides them; `_props` marks them
 // deliberately unused here.
 export function DashboardCard(_props: ToolViewProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   // From the shared query cache. react-query's `isLoading` is "pending AND no cached
   // data yet", so the skeleton shows only on the very first load; arriving from the
@@ -311,8 +312,8 @@ export function DashboardCard(_props: ToolViewProps) {
                   </span>
                 </span>
                 {task.dueDate ? (
-                  <span className="shrink-0 type-label text-muted" dir="ltr">
-                    {task.dueDate.slice(0, 10)}
+                  <span className="shrink-0 type-label text-muted">
+                    {formatDueDate(task.dueDate, locale)}
                   </span>
                 ) : null}
               </li>

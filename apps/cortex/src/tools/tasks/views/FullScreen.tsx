@@ -26,9 +26,23 @@ import { useQueryClient } from "@tanstack/react-query";
 import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import type { ToolViewProps } from "@/tools";
 import { useI18n, type MessageKey } from "@/i18n";
-import { ChevronIcon, CheckIcon, CloseIcon, InfoIcon, MenuIcon } from "@/components/icons";
+import {
+  ChevronIcon,
+  CheckIcon,
+  CloseIcon,
+  InfoIcon,
+  MenuIcon,
+  ComposeIcon,
+  ClockIcon,
+} from "@/components/icons";
 import type { Task } from "../logic";
 import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
+import {
+  nowInputValue,
+  isoToDatetimeLocalValue,
+  datetimeLocalValueToIso,
+  formatDueDate,
+} from "../dateFormat";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -42,7 +56,7 @@ type TaskFilter = "all" | "open" | "done";
 // stay in the prop type only because the page provides them; `_props` marks them
 // deliberately unused.
 export function FullScreen(_props: ToolViewProps) {
-  const { t, dir } = useI18n();
+  const { t, dir, locale } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
   // The READ: straight from the shared query cache — this screen is a reader of the
@@ -92,6 +106,9 @@ export function FullScreen(_props: ToolViewProps) {
   // Which row is mid two-tap delete confirm (null = none). Tapping a different row's
   // trash moves the confirm there; a second tap on the SAME row commits the delete.
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  // Which row is mid inline edit (null = none). Tapping a different row's edit
+  // button moves editing there; the previous row's unsaved edits are discarded.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // Patch one row in the shared cache by id. Functional updater, so concurrent
   // in-flight writes compose instead of clobbering. `prev ?? []` because the cache
@@ -148,6 +165,36 @@ export function FullScreen(_props: ToolViewProps) {
       }
     },
     [patchTask],
+  );
+
+  const updateTask = useCallback(
+    async (id: string, title: string, dueDate: string | null) => {
+      // Snapshot the row BEFORE the optimistic patch, so a failure can restore
+      // its exact prior title/dueDate — same shape as removeTask's snapshot.
+      const prevList = queryClient.getQueryData<Task[]>(TASKS_LIST_KEY) ?? [];
+      const original = prevList.find((it) => it.id === id) ?? null;
+
+      // 1. OPTIMISTIC: same pattern as toggleTask — write the new values into the
+      //    SHARED cache before awaiting, so the row and the dashboard card update
+      //    in lockstep.
+      setWriteError(null);
+      patchTask(id, (it) => ({ ...it, title, dueDate }));
+
+      const res = await runIntentAction("tasks.update_task", { id, title, dueDate });
+
+      if (res.ok) {
+        // 2. Success closes the inline form — nothing left to reconcile, the
+        //    server accepted exactly what we already wrote.
+        if (mounted.current) setEditingId(null);
+      } else {
+        // 3. REVERT to the original title/dueDate and surface the error. Editing
+        //    stays open (unlike a failed toggle, the user's typed input is still
+        //    worth keeping so they can retry, not just their prior click).
+        if (original) patchTask(id, () => original);
+        if (mounted.current) setWriteError(res.code);
+      }
+    },
+    [patchTask, queryClient],
   );
 
   const removeTask = useCallback(
@@ -247,7 +294,7 @@ export function FullScreen(_props: ToolViewProps) {
       ) : null}
 
       {adding ? (
-        <AddTaskForm
+        <AddTaskModal
           onCreated={(task) => {
             // create_task returns { id }; the rest of the row is exactly what we
             // submitted, so append it straight into the SHARED cache — no refetch,
@@ -257,6 +304,7 @@ export function FullScreen(_props: ToolViewProps) {
             setWriteError(null);
           }}
           onError={(code) => setWriteError(code)}
+          onClose={() => setAdding(false)}
         />
       ) : null}
 
@@ -277,67 +325,89 @@ export function FullScreen(_props: ToolViewProps) {
             const rowPending = pending.has(task.id);
             const rowDeleting = deleting.has(task.id);
             const confirming = confirmId === task.id;
+            const editing = editingId === task.id;
             return (
               <li key={task.id} className="flex items-center gap-sm py-sm">
-                <button
-                  type="button"
-                  aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
-                  aria-pressed={task.done}
-                  onClick={() => toggleTask(task.id, !task.done)}
-                  disabled={rowPending || rowDeleting}
-                  className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
-                >
-                  {/* Done/undone visual: a violet check circle when done, a muted
-                      empty circle otherwise. */}
-                  <span
-                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                      task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
-                    }`}
-                  >
-                    {task.done ? <CheckIcon width={16} height={16} /> : null}
-                  </span>
-                  <span className="flex min-w-0 flex-col">
-                    <span
-                      className={`truncate type-heading ${
-                        task.done ? "text-muted line-through" : "text-ink"
-                      }`}
-                    >
-                      {task.title}
-                    </span>
-                    {task.dueDate ? (
-                      <span className="type-label text-muted" dir="ltr">
-                        {task.dueDate.slice(0, 10)}
-                      </span>
-                    ) : null}
-                  </span>
-                </button>
-
-                {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
-                    first tap arms "Delete?", a second tap commits. Tapping another
-                    row's trash moves the confirm there. */}
-                {confirming ? (
-                  <button
-                    type="button"
-                    aria-label={t("tasks.confirmDelete")}
-                    onClick={() => {
-                      setConfirmId(null);
-                      void removeTask(task.id);
-                    }}
-                    disabled={rowDeleting}
-                    className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
-                  >
-                    {t("tasks.confirmDelete")}
-                  </button>
+                {editing ? (
+                  <EditTaskForm
+                    task={task}
+                    onSave={(title, dueDate) => updateTask(task.id, title, dueDate)}
+                    onCancel={() => setEditingId(null)}
+                  />
                 ) : (
-                  <button
-                    type="button"
-                    aria-label={t("tasks.delete")}
-                    onClick={() => setConfirmId(task.id)}
-                    disabled={rowDeleting}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
-                  >
-                    <CloseIcon width={16} height={16} />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
+                      aria-pressed={task.done}
+                      onClick={() => toggleTask(task.id, !task.done)}
+                      disabled={rowPending || rowDeleting}
+                      className="flex min-w-0 flex-1 items-center gap-sm text-start interactive motion-safe:active:scale-[0.99]"
+                    >
+                      {/* Done/undone visual: a violet check circle when done, a muted
+                          empty circle otherwise. */}
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                          task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
+                        }`}
+                      >
+                        {task.done ? <CheckIcon width={16} height={16} /> : null}
+                      </span>
+                      <span className="flex min-w-0 flex-col">
+                        <span
+                          className={`truncate type-heading ${
+                            task.done ? "text-muted line-through" : "text-ink"
+                          }`}
+                        >
+                          {task.title}
+                        </span>
+                        {task.dueDate ? (
+                          <span className="type-label text-muted">
+                            {formatDueDate(task.dueDate, locale)}
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+
+                    {/* Edit — swaps the row for EditTaskForm inline. */}
+                    <button
+                      type="button"
+                      aria-label={t("tasks.edit")}
+                      onClick={() => setEditingId(task.id)}
+                      disabled={rowPending || rowDeleting}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+                    >
+                      <ComposeIcon width={16} height={16} />
+                    </button>
+
+                    {/* Delete — a two-tap inline confirm (no modal, no window.confirm):
+                        first tap arms "Delete?", a second tap commits. Tapping another
+                        row's trash moves the confirm there. */}
+                    {confirming ? (
+                      <button
+                        type="button"
+                        aria-label={t("tasks.confirmDelete")}
+                        onClick={() => {
+                          setConfirmId(null);
+                          void removeTask(task.id);
+                        }}
+                        disabled={rowDeleting}
+                        className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+                      >
+                        {t("tasks.confirmDelete")}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        aria-label={t("tasks.delete")}
+                        onClick={() => setConfirmId(task.id)}
+                        disabled={rowDeleting}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+                      >
+                        <CloseIcon width={16} height={16} />
+                      </button>
+                    )}
+                  </>
                 )}
               </li>
             );
@@ -411,22 +481,45 @@ function FilterBar({
   );
 }
 
-function AddTaskForm({
+/**
+ * Add-task MODAL (Standard §8: design-system + i18n only). A real overlay, not
+ * an inline-in-flow form — it does not push the list down. Rendered as a plain
+ * child of `FullScreen` (no portal, per instruction): `fixed inset-0` still
+ * escapes the scrolling list correctly because nothing between here and the
+ * document root sets a `transform`/`filter`/`will-change` (those are what
+ * would turn `fixed` into scoped-to-that-ancestor — see AiSheet's own comment
+ * on exactly this for why ITS nested popover needs a portal; this modal has no
+ * such ancestor, so it does not).
+ *
+ * z-[70] intentionally matches the z-index the shell's OWN top-layer overlays
+ * use (AiSheet's history popover: z-[60] backdrop / z-[70] panel) — TabBar sits
+ * at z-50, so this clears it the same way, using the SAME numbers already
+ * established for "must draw above everything," not a new convention.
+ *
+ * Submission/validation/error logic is UNCHANGED from the previous inline
+ * form — only the chrome around it moved.
+ */
+function AddTaskModal({
   onCreated,
   onError,
+  onClose,
 }: {
   onCreated: (task: Task) => void;
   onError: (code: WriteErrorCode) => void;
+  onClose: () => void;
 }) {
   const { t } = useI18n();
   const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  // Defaults to right now — the common case. Clearing the field is still a real
+  // "no due date", so the escape hatch stays open.
+  const [dueDate, setDueDate] = useState(nowInputValue);
   // Whether the required title is blank-on-submit. Drives the marking + message;
   // cleared as soon as the user edits it.
   const [invalid, setInvalid] = useState<{ title: boolean }>({ title: false });
   // True while an add is in flight. Disables the submit button and makes a second
   // submit a no-op, so a double-tap can't write a duplicate row.
   const [submitting, setSubmitting] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   // Guard: onCreated/onError setState in the PARENT after the await. If we unmount
   // mid-submit, this stops us from touching the parent's state.
@@ -442,8 +535,21 @@ function AddTaskForm({
     };
   }, []);
 
-  const inputClass =
-    "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
+  // Focus the title field the instant the modal opens — it's the hero, and the
+  // first thing typed.
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  // Escape closes the modal, same as tapping the scrim or Cancel.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const invalidRing = "ring-1 ring-danger";
 
   async function handleSubmit(e: React.FormEvent) {
@@ -461,7 +567,9 @@ function AddTaskForm({
     if (nextInvalid.title) return;
 
     // due_date is optional; an empty input is a real "no due date", not "".
-    const nextDue = dueDate.trim() === "" ? null : dueDate;
+    // The picker's value has NO timezone designator — convert it to a real ISO
+    // instant (in the browser's actual timezone) before it leaves this form.
+    const nextDue = dueDate.trim() === "" ? null : datetimeLocalValueToIso(dueDate);
 
     // Lock only AFTER validation passes, so a failed validation leaves the button
     // usable. Released in `finally`, whatever the outcome.
@@ -488,23 +596,193 @@ function AddTaskForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-sm rounded-lg bg-card p-md">
+    // The scrim: fills the viewport, dims what's behind, closes on tap. `p-md`
+    // keeps the card off the screen edges on small phones.
+    <div
+      className="ds-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-scrim p-md"
+      onClick={onClose}
+    >
+      {/* stopPropagation: a tap ANYWHERE inside the card must not bubble to the
+          scrim's onClose above. */}
+      <form
+        onSubmit={handleSubmit}
+        onClick={(e) => e.stopPropagation()}
+        // `w-[min(100%,24rem)]` (24rem = Tailwind's max-w-sm) instead of the
+        // separate `w-full max-w-sm` pair: as a flex child of the scrim, the
+        // card has no OTHER sibling competing for space, so `justify-center`
+        // gave it room to just shrink to its content instead of actually
+        // filling the row — `min()` computes one explicit width (the smaller
+        // of "100% of the scrim's padded box" or the cap) with no flex-basis
+        // ambiguity to fall into.
+        className="ds-panel flex w-[min(100%,24rem)] flex-col gap-lg rounded-xl bg-card p-lg shadow-lifted"
+      >
+        {/* 1. Title — the hero. No label; the placeholder carries it, and the
+            larger type size is what makes it the first thing the eye meets. */}
+        <div className="flex flex-col gap-2xs">
+          <input
+            ref={titleRef}
+            className={`w-full bg-transparent type-display text-ink outline-none placeholder:text-muted ${
+              invalid.title ? invalidRing : ""
+            }`}
+            value={title}
+            placeholder={t("tasks.titlePlaceholder")}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (invalid.title) setInvalid((v) => ({ ...v, title: false }));
+            }}
+            aria-label={t("tasks.taskTitle")}
+            aria-required="true"
+            aria-invalid={invalid.title}
+          />
+          {invalid.title ? (
+            <span role="alert" className="type-caption text-danger">
+              {t("tasks.fieldRequired")}
+            </span>
+          ) : null}
+        </div>
+
+        {/* 2. When — styled as an already-made choice (ink-colored value, filled
+            row), not an empty field waiting to be filled: it always opens with
+            today's date and the current time already in it. */}
+        <label className="flex flex-col gap-2xs">
+          <span className="type-caption text-muted">{t("tasks.dueDate")}</span>
+          <div className="flex items-center gap-xs rounded-md bg-screen px-sm py-sm">
+            <ClockIcon width={18} height={18} className="shrink-0 text-muted" />
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full bg-transparent type-body text-ink outline-none"
+            />
+          </div>
+        </label>
+
+        {/* 3. Reserved rows — disabled placeholders for later work. Visually
+            real rows (same shape as the "when" row above), dimmed and
+            unclickable, so their future purpose reads clearly. */}
+        <div className="flex flex-col gap-2xs opacity-[var(--ds-disabled-opacity)]" aria-hidden="true">
+          <div className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm">
+            <span className="type-body text-muted">{t("tasks.scheduling")}</span>
+          </div>
+          <div className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm">
+            <span className="type-body text-muted">{t("tasks.category")}</span>
+          </div>
+        </div>
+
+        {/* 4. Actions — Add is the confident, filled primary; Cancel is
+            transparent/secondary so the hierarchy stays unambiguous. */}
+        <div className="flex gap-sm">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 rounded-md bg-app-violet py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
+          >
+            {t("tasks.add")}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 rounded-md bg-transparent py-sm type-label text-muted interactive motion-safe:active:scale-[0.97]"
+          >
+            {t("tasks.cancel")}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * Inline edit form — replaces a row in place (Standard §8: design-system + i18n
+ * only). Owns its OWN local title/dueDate/validation/submitting state (mirrors
+ * AddTaskForm); the actual write is delegated up to `onSave` (FullScreen's
+ * `updateTask`), which is the one that touches the shared cache and `runIntentAction`
+ * — this component only decides WHAT to save and shows the in-flight/invalid state.
+ */
+function EditTaskForm({
+  task,
+  onSave,
+  onCancel,
+}: {
+  task: Task;
+  onSave: (title: string, dueDate: string | null) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+  const [title, setTitle] = useState(task.title);
+  // BUG FIX: task.dueDate is a full timestamptz string (e.g.
+  // "2026-07-16T00:00:00+00:00") — not the "YYYY-MM-DDTHH:mm" a datetime-local
+  // input requires. Passing it through as-is left the field silently blank on
+  // a task that already had a due date. This converts it to the LOCAL value
+  // the input actually expects.
+  const [dueDate, setDueDate] = useState(isoToDatetimeLocalValue(task.dueDate));
+  const [invalid, setInvalid] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Guard: setSubmitting(false) in `finally` after the await. If the parent
+  // closes/unmounts this form mid-save (e.g. success sets editingId to null),
+  // this stops a state update on an unmounted component.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const inputClass =
+    "w-full rounded-md bg-screen px-sm py-sm type-body text-ink outline-none placeholder:text-muted";
+  const invalidRing = "ring-1 ring-danger";
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+
+    const nextTitle = title.trim();
+
+    // Same visible-validation rule as AddTaskForm: a blank title marks itself
+    // instead of silently not saving.
+    if (nextTitle === "") {
+      setInvalid(true);
+      return;
+    }
+
+    // An emptied field is a real "no due date", not the empty string. The
+    // picker's value has NO timezone designator — convert it to a real ISO
+    // instant (in the browser's actual timezone) before it leaves this form.
+    const nextDue = dueDate.trim() === "" ? null : datetimeLocalValueToIso(dueDate);
+
+    setSubmitting(true);
+    try {
+      await onSave(nextTitle, nextDue);
+    } finally {
+      if (mounted.current) setSubmitting(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-label={t("tasks.editTask")}
+      className="flex flex-1 flex-col gap-sm rounded-lg bg-card p-md"
+    >
       <label className="flex flex-col gap-2xs type-label text-muted">
         <span>
           {t("tasks.taskTitle")} <span aria-hidden="true" className="text-danger">*</span>
         </span>
         <input
-          className={invalid.title ? `${inputClass} ${invalidRing}` : inputClass}
+          className={invalid ? `${inputClass} ${invalidRing}` : inputClass}
           value={title}
           placeholder={t("tasks.titlePlaceholder")}
           onChange={(e) => {
             setTitle(e.target.value);
-            if (invalid.title) setInvalid((v) => ({ ...v, title: false }));
+            if (invalid) setInvalid(false);
           }}
           aria-required="true"
-          aria-invalid={invalid.title}
+          aria-invalid={invalid}
         />
-        {invalid.title ? (
+        {invalid ? (
           <span role="alert" className="type-caption text-danger">
             {t("tasks.fieldRequired")}
           </span>
@@ -514,18 +792,28 @@ function AddTaskForm({
         {t("tasks.dueDate")}
         <input
           className={inputClass}
-          type="date"
+          type="datetime-local"
           value={dueDate}
           onChange={(e) => setDueDate(e.target.value)}
         />
       </label>
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded-md bg-app-violet py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-      >
-        {t("tasks.add")}
-      </button>
+      <div className="flex gap-xs">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex-1 rounded-md bg-app-violet py-sm type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
+        >
+          {t("tasks.save")}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+          className="flex-1 rounded-md bg-hairline py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
+        >
+          {t("tasks.cancel")}
+        </button>
+      </div>
     </form>
   );
 }
