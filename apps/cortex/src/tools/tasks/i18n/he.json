@@ -38,5 +38,8 @@
   "viewWeek": "שבוע",
   "dayEmpty": "אין משימות",
   "prevWeek": "השבוע הקודם",
-  "nextWeek": "השבוע הבא"
+  "nextWeek": "השבוע הבא",
+  "categoryDaily": "יומיום",
+  "categoryWork": "עבודה",
+  "categoryBusiness": "עסק"
 }

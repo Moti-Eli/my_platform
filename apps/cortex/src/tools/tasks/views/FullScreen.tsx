@@ -48,6 +48,7 @@ import {
   formatWeekday,
   formatWeekRangeLabel,
 } from "../dateFormat";
+import { CATEGORIES, categoryOf } from "../categories";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -185,9 +186,10 @@ export function FullScreen(_props: ToolViewProps) {
   );
 
   const updateTask = useCallback(
-    async (id: string, title: string, dueDate: string | null) => {
+    async (id: string, title: string, dueDate: string | null, category: string | null) => {
       // Snapshot the row BEFORE the optimistic patch, so a failure can restore
-      // its exact prior title/dueDate — same shape as removeTask's snapshot.
+      // its exact prior title/dueDate/category — same shape as removeTask's
+      // snapshot.
       const prevList = queryClient.getQueryData<Task[]>(TASKS_LIST_KEY) ?? [];
       const original = prevList.find((it) => it.id === id) ?? null;
 
@@ -195,9 +197,9 @@ export function FullScreen(_props: ToolViewProps) {
       //    SHARED cache before awaiting, so the row and the dashboard card update
       //    in lockstep.
       setWriteError(null);
-      patchTask(id, (it) => ({ ...it, title, dueDate }));
+      patchTask(id, (it) => ({ ...it, title, dueDate, category }));
 
-      const res = await runIntentAction("tasks.update_task", { id, title, dueDate });
+      const res = await runIntentAction("tasks.update_task", { id, title, dueDate, category });
 
       if (res.ok) {
         // 2. Success closes the inline form — nothing left to reconcile, the
@@ -350,12 +352,15 @@ export function FullScreen(_props: ToolViewProps) {
             const rowDeleting = deleting.has(task.id);
             const confirming = confirmId === task.id;
             const editing = editingId === task.id;
+            const cat = categoryOf(task.category);
             return (
               <li key={task.id} className="flex items-center gap-sm py-sm">
                 {editing ? (
                   <EditTaskForm
                     task={task}
-                    onSave={(title, dueDate) => updateTask(task.id, title, dueDate)}
+                    onSave={(title, dueDate, category) =>
+                      updateTask(task.id, title, dueDate, category)
+                    }
                     onCancel={() => setEditingId(null)}
                   />
                 ) : (
@@ -391,6 +396,16 @@ export function FullScreen(_props: ToolViewProps) {
                           </span>
                         ) : null}
                       </span>
+                      {/* Category dot — pushed to the end of the button via
+                          ms-auto (RTL/LTR-correct); absent entirely (not just
+                          hidden) when the task has no category, so no empty
+                          gap is left. */}
+                      {cat ? (
+                        <span
+                          aria-label={t(cat.labelKey)}
+                          className={`ms-auto h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`}
+                        />
+                      ) : null}
                     </button>
 
                     {/* Edit — swaps the row for EditTaskForm inline. */}
@@ -641,23 +656,39 @@ function WeekView({
                   <p className="text-center type-caption text-muted">{t("tasks.dayEmpty")}</p>
                 ) : (
                   <ul className="flex flex-col gap-2xs">
-                    {dayTasks.map((task) => (
-                      <li key={task.id}>
-                        <button
-                          type="button"
-                          aria-label={task.done ? t("tasks.markUndone") : t("tasks.markDone")}
-                          aria-pressed={task.done}
-                          onClick={() => onToggle(task.id, !task.done)}
-                          className={`w-full truncate rounded-md px-2xs py-2xs text-start type-caption interactive motion-safe:active:scale-[0.97] ${
-                            task.done
-                              ? "bg-hairline text-muted line-through"
-                              : "bg-app-violet/15 text-ink"
-                          }`}
-                        >
-                          {task.title}
-                        </button>
-                      </li>
-                    ))}
+                    {dayTasks.map((task) => {
+                      const cat = categoryOf(task.category);
+                      return (
+                        <li key={task.id}>
+                          <button
+                            type="button"
+                            aria-label={
+                              cat
+                                ? `${task.done ? t("tasks.markUndone") : t("tasks.markDone")} — ${t(cat.labelKey)}`
+                                : task.done
+                                  ? t("tasks.markUndone")
+                                  : t("tasks.markDone")
+                            }
+                            aria-pressed={task.done}
+                            onClick={() => onToggle(task.id, !task.done)}
+                            className={`flex w-full min-w-0 items-center gap-2xs rounded-md px-2xs py-2xs text-start type-caption interactive motion-safe:active:scale-[0.97] ${
+                              task.done
+                                ? "bg-hairline text-muted line-through"
+                                : "bg-app-violet/15 text-ink"
+                            }`}
+                          >
+                            {/* Column is too narrow for a trailing dot without
+                                crowding the already-truncated title — leads
+                                the row instead (same rule as the list view:
+                                present only when the task has a category). */}
+                            {cat ? (
+                              <span className={`h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`} />
+                            ) : null}
+                            <span className="truncate">{task.title}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -701,6 +732,9 @@ function AddTaskModal({
   // Defaults to right now — the common case. Clearing the field is still a real
   // "no due date", so the escape hatch stays open.
   const [dueDate, setDueDate] = useState(nowInputValue);
+  // No category selected by default — picking one is optional, and the picker
+  // itself supports deselecting back to null (see CategoryPicker).
+  const [category, setCategory] = useState<string | null>(null);
   // Whether the required title is blank-on-submit. Drives the marking + message;
   // cleared as soon as the user edits it.
   const [invalid, setInvalid] = useState<{ title: boolean }>({ title: false });
@@ -767,6 +801,7 @@ function AddTaskModal({
       const res = await runIntentAction("tasks.create_task", {
         title: nextTitle,
         dueDate: nextDue ?? undefined,
+        category: category ?? undefined,
       });
       if (!mounted.current) return;
 
@@ -774,7 +809,7 @@ function AddTaskModal({
         // create_task returns only { id }; the rest of the Task is the values we
         // just submitted, so we can hand a complete row up to append.
         const { id } = res.data as { id: string };
-        onCreated({ id, title: nextTitle, done: false, dueDate: nextDue });
+        onCreated({ id, title: nextTitle, done: false, dueDate: nextDue, category });
       } else {
         onError(res.code);
       }
@@ -845,16 +880,21 @@ function AddTaskModal({
           </div>
         </label>
 
-        {/* 3. Reserved rows — disabled placeholders for later work. Visually
-            real rows (same shape as the "when" row above), dimmed and
-            unclickable, so their future purpose reads clearly. */}
-        <div className="flex flex-col gap-2xs opacity-[var(--ds-disabled-opacity)]" aria-hidden="true">
-          <div className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm">
-            <span className="type-body text-muted">{t("tasks.scheduling")}</span>
-          </div>
-          <div className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm">
-            <span className="type-body text-muted">{t("tasks.category")}</span>
-          </div>
+        {/* 3a. Reserved row — disabled placeholder for later work (scheduled
+            vs general). Same shape as the "when" row above, dimmed and
+            unclickable, so its future purpose reads clearly. */}
+        <div
+          className="pointer-events-none flex items-center rounded-md bg-screen px-sm py-sm opacity-[var(--ds-disabled-opacity)]"
+          aria-hidden="true"
+        >
+          <span className="type-body text-muted">{t("tasks.scheduling")}</span>
+        </div>
+
+        {/* 3b. Category — the other placeholder, now real: optional,
+            deselectable (see CategoryPicker). */}
+        <div className="flex flex-col gap-2xs">
+          <span className="type-caption text-muted">{t("tasks.category")}</span>
+          <CategoryPicker value={category} onChange={setCategory} />
         </div>
 
         {/* 4. Actions — Add is the confident, filled primary; Cancel is
@@ -894,7 +934,7 @@ function EditTaskForm({
   onCancel,
 }: {
   task: Task;
-  onSave: (title: string, dueDate: string | null) => Promise<void>;
+  onSave: (title: string, dueDate: string | null, category: string | null) => Promise<void>;
   onCancel: () => void;
 }) {
   const { t } = useI18n();
@@ -905,6 +945,8 @@ function EditTaskForm({
   // a task that already had a due date. This converts it to the LOCAL value
   // the input actually expects.
   const [dueDate, setDueDate] = useState(isoToDatetimeLocalValue(task.dueDate));
+  // Pre-selected from the task's current category (or none).
+  const [category, setCategory] = useState<string | null>(task.category);
   const [invalid, setInvalid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -943,7 +985,7 @@ function EditTaskForm({
 
     setSubmitting(true);
     try {
-      await onSave(nextTitle, nextDue);
+      await onSave(nextTitle, nextDue, category);
     } finally {
       if (mounted.current) setSubmitting(false);
     }
@@ -985,6 +1027,10 @@ function EditTaskForm({
           onChange={(e) => setDueDate(e.target.value)}
         />
       </label>
+      <div className="flex flex-col gap-2xs">
+        <span className="type-label text-muted">{t("tasks.category")}</span>
+        <CategoryPicker value={category} onChange={setCategory} />
+      </div>
       <div className="flex gap-xs">
         <button
           type="submit"
@@ -1003,5 +1049,46 @@ function EditTaskForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Category picker — three toggle buttons, each carrying its own identity dot
+ * (Standard §8: colors are the app-identity palette, never invented). Shared
+ * by AddTaskModal and EditTaskForm so the interaction (select / re-tap the
+ * SAME one to clear) and markup live in exactly one place.
+ *
+ * Optional and deselectable: tapping the already-selected category clears it
+ * back to null — there is no separate "none" button, since these three ARE
+ * the whole set (Standard §1: a closed UI-side list, see categories.ts).
+ */
+function CategoryPicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (next: string | null) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="flex gap-xs">
+      {CATEGORIES.map((cat) => {
+        const selected = value === cat.key;
+        return (
+          <button
+            key={cat.key}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(selected ? null : cat.key)}
+            className={`flex flex-1 items-center justify-center gap-2xs rounded-md px-sm py-xs type-label interactive motion-safe:active:scale-[0.97] ${
+              selected ? cat.selectedClassName : "bg-screen text-muted"
+            }`}
+          >
+            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${cat.dotClassName}`} />
+            {t(cat.labelKey)}
+          </button>
+        );
+      })}
+    </div>
   );
 }

@@ -25,6 +25,10 @@ export interface Task {
   title: string;
   done: boolean;
   dueDate: string | null;
+  /** A key from `categories.ts` (`CATEGORIES`), or null for "no category". Not
+   * validated against that list here — an unrecognized/stale value just falls
+   * back to "no category" wherever it's displayed (see `categoryOf`). */
+  category: string | null;
 }
 
 /** query_list takes no input — the org comes from ctx, not the caller. */
@@ -32,17 +36,20 @@ export interface QueryListInput {}
 export interface CreateTaskInput {
   title: string;
   dueDate?: string;
+  category?: string;
 }
 export interface ToggleTaskInput {
   id: string;
   done: boolean;
 }
-/** Both fields OPTIONAL: `undefined` means "leave this column alone",
- * while `dueDate: null` is a real value — "clear the due date". */
+/** All three OPTIONAL: `undefined` means "leave this column alone", while
+ * `dueDate: null` / `category: null` are real values — "clear the due date" /
+ * "no category". */
 export interface UpdateTaskInput {
   id: string;
   title?: string;
   dueDate?: string | null;
+  category?: string | null;
 }
 export interface DeleteTaskInput {
   id: string;
@@ -66,6 +73,7 @@ function toTask(row: DbRow): Task {
     title: String(row.title),
     done: Boolean(row.done),
     dueDate: row.due_date == null ? null : String(row.due_date),
+    category: row.category == null ? null : String(row.category),
   };
 }
 
@@ -100,6 +108,7 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         // tool columns
         title: input.title,
         due_date: input.dueDate ?? null,
+        category: input.category ?? null,
         created_at: now,
         updated_at: now,
       });
@@ -133,6 +142,7 @@ export function createTasksLogic({ db, emit }: { db: CortexDb; emit: Emit }): Ta
         {
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.dueDate !== undefined ? { due_date: input.dueDate } : {}),
+          ...(input.category !== undefined ? { category: input.category } : {}),
           updated_at: new Date().toISOString(),
         },
       );

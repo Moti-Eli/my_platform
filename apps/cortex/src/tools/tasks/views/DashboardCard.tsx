@@ -45,6 +45,7 @@ import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useTasksList, TASKS_LIST_KEY } from "@/lib/query/useTasksList";
 import type { Task } from "../logic";
 import { formatDueDate } from "../dateFormat";
+import { categoryOf } from "../categories";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -105,7 +106,7 @@ export function DashboardCard(_props: ToolViewProps) {
         // was submitted, so append it straight into the SHARED cache — no
         // refetch, and the full screen sees it immediately if opened next.
         const { id } = res.data as { id: string };
-        const created: Task = { id, title: nextTitle, done: false, dueDate: null };
+        const created: Task = { id, title: nextTitle, done: false, dueDate: null, category: null };
         queryClient.setQueryData<Task[]>(TASKS_LIST_KEY, (prev) => [...(prev ?? []), created]);
         setTitle("");
         setQuickAdding(false);
@@ -282,42 +283,55 @@ export function DashboardCard(_props: ToolViewProps) {
           <p className="type-label text-muted">{t("tasks.loadFailed")}</p>
         ) : tasks.length > 0 ? (
           <ul className="flex flex-col divide-y divide-hairline">
-            {tasks.map((task) => (
-              <li key={task.id} className="flex items-center justify-between gap-sm py-sm">
-                <span className="flex min-w-0 items-center gap-xs type-body">
-                  {/* Done/undone toggle: a violet check circle when done, a muted
-                      empty circle otherwise. A real button (not the row) so
-                      tapping it flips the task instead of opening the full
-                      screen — see the file header on why BOTH preventDefault
-                      and stopPropagation are needed to stop the ancestor
-                      `<Link>` from navigating. */}
-                  <button
-                    type="button"
-                    aria-label={t(task.done ? "tasks.markUndone" : "tasks.markDone")}
-                    aria-pressed={task.done}
-                    disabled={pending.has(task.id)}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      void toggleTask(task.id, !task.done);
-                    }}
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.9] ${
-                      task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
-                    }`}
-                  >
-                    {task.done ? <CheckIcon width={14} height={14} /> : null}
-                  </button>
-                  <span className={`truncate ${task.done ? "text-muted line-through" : "text-ink"}`}>
-                    {task.title}
+            {tasks.map((task) => {
+              const cat = categoryOf(task.category);
+              return (
+                <li key={task.id} className="flex items-center justify-between gap-sm py-sm">
+                  <span className="flex min-w-0 items-center gap-xs type-body">
+                    {/* Done/undone toggle: a violet check circle when done, a muted
+                        empty circle otherwise. A real button (not the row) so
+                        tapping it flips the task instead of opening the full
+                        screen — see the file header on why BOTH preventDefault
+                        and stopPropagation are needed to stop the ancestor
+                        `<Link>` from navigating. */}
+                    <button
+                      type="button"
+                      aria-label={t(task.done ? "tasks.markUndone" : "tasks.markDone")}
+                      aria-pressed={task.done}
+                      disabled={pending.has(task.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void toggleTask(task.id, !task.done);
+                      }}
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.9] ${
+                        task.done ? "bg-app-violet text-on-fill" : "bg-hairline text-muted"
+                      }`}
+                    >
+                      {task.done ? <CheckIcon width={14} height={14} /> : null}
+                    </button>
+                    <span className={`truncate ${task.done ? "text-muted line-through" : "text-ink"}`}>
+                      {task.title}
+                    </span>
                   </span>
-                </span>
-                {task.dueDate ? (
-                  <span className="shrink-0 type-label text-muted">
-                    {formatDueDate(task.dueDate, locale)}
+                  {/* Trailing: due date + category dot, whichever exist — never
+                      an empty reserved slot for either. */}
+                  <span className="flex shrink-0 items-center gap-xs">
+                    {task.dueDate ? (
+                      <span className="type-label text-muted">
+                        {formatDueDate(task.dueDate, locale)}
+                      </span>
+                    ) : null}
+                    {cat ? (
+                      <span
+                        aria-label={t(cat.labelKey)}
+                        className={`h-2 w-2 shrink-0 rounded-full ${cat.dotClassName}`}
+                      />
+                    ) : null}
                   </span>
-                ) : null}
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="type-label text-muted">{t("tasks.allDoneBody")}</p>

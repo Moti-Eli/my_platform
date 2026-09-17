@@ -38,5 +38,8 @@
   "viewWeek": "Week",
   "dayEmpty": "No tasks",
   "prevWeek": "Previous week",
-  "nextWeek": "Next week"
+  "nextWeek": "Next week",
+  "categoryDaily": "Daily",
+  "categoryWork": "Work",
+  "categoryBusiness": "Business"
 }
