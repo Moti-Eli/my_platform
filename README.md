@@ -216,8 +216,15 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `apps/cortex/src/tools/orders/` with dashboard card, full screen (add / edit /
   two-tap delete) and a floating search + sort bar. Both migrations applied to
   the Supabase cloud project.
-- ⏳ Stage 2 — per-supplier product catalog (price, unit)
-- ⏳ Stage 3 — building an order (price snapshotted at order time)
+- 🚧 Stage 2 — catalog: `order_categories` + `supplier_products` (category sits
+  on the product; composite same-org FKs via `suppliers (id, org_id)`).
+  Migrations `20261005000003`–`05`. Prices are reserved columns only (NULL,
+  never shown). Navigation: categories → suppliers → products.
+- ⏳ Stage 3 — building an order + drafts (price snapshotted at order time).
+  **Agreed, must not be dropped:** `orders.supplier_id` → `ON DELETE RESTRICT`
+  (a supplier with orders cannot be deleted) + `suppliers.archived` column and
+  an "archive" action replacing delete. See the header of
+  `20261005000005_supplier_products_table.sql`.
 - ⏳ Stage 4 — sending the order to the supplier over WhatsApp
 
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
