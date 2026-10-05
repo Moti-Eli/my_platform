@@ -209,6 +209,17 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   add → update-below-threshold → `inventory.low` in `events` + `ai_log` rows.
   Typecheck/lint/build pass; version bumped **0.3.0**. See ARCHITECTURE.md #30.
 
+**Cortex — Orders tool (restaurant supplier ordering)** 🚧 (stage 1 of 4)
+- ✅ Stage 1 — **Suppliers**: `public.suppliers` table (migration
+  `20261005000001`) with RLS gated by the tool-wide `orders.access` permission
+  (admins only for now) + immutability trigger; catalog seed (`20261005000002`);
+  `apps/cortex/src/tools/orders/` with dashboard card, full screen (add / edit /
+  two-tap delete) and a floating search + sort bar. Both migrations applied to
+  the Supabase cloud project.
+- ⏳ Stage 2 — per-supplier product catalog (price, unit)
+- ⏳ Stage 3 — building an order (price snapshotted at order time)
+- ⏳ Stage 4 — sending the order to the supplier over WhatsApp
+
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client
   provider (`useI18n` → `{ locale, dir, t, setLocale }`); **not** next-intl (a

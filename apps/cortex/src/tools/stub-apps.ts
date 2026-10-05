@@ -51,8 +51,6 @@ export const STUB_APPS: AppManifest[] = [
   stub("employees", "user", "teal", "people", "unavailable"),
   stub("shifts", "grid", "coral", "people", "unavailable"),
   stub("payroll", "box", "indigo", "finance", "unavailable"),
-  stub("suppliers", "box", "coral", "operations", "unavailable"),
-  stub("orders", "check", "amber", "operations", "unavailable"),
   stub("bookings", "bell", "teal", "operations", "unavailable"),
   stub("projects", "grid", "amber", "productivity", "unavailable"),
   stub("documents", "pin", "coral", "productivity", "unavailable"),

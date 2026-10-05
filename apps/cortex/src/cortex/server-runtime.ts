@@ -47,6 +47,10 @@ import { manifest as questionnaireManifest } from "@/tools/questionnaire/manifes
 import { createQuestionnaireLogic } from "@/tools/questionnaire/logic";
 import { createQuestionnaireIntents } from "@/tools/questionnaire/intents";
 import { createQuestionnaireListeners } from "@/tools/questionnaire/events";
+import { manifest as ordersManifest } from "@/tools/orders/manifest";
+import { createOrdersLogic } from "@/tools/orders/logic";
+import { createOrdersIntents } from "@/tools/orders/intents";
+import { createOrdersListeners } from "@/tools/orders/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -204,6 +208,11 @@ function build(): DataLayer {
       createQuestionnaireIntents(questionnaireLogic),
       createQuestionnaireListeners(questionnaireLogic),
     );
+  }
+  // Orders — suppliers CRUD through the injected db (RLS client by default).
+  const ordersLogic = createOrdersLogic({ db, emit: eventBus.emit });
+  if (!getApp(ordersManifest.id)) {
+    registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);
