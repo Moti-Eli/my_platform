@@ -26,6 +26,8 @@ import timeEntriesHe from "@/tools/time_entries/i18n/he.json";
 import timeEntriesEn from "@/tools/time_entries/i18n/en.json";
 import questionnaireHe from "@/tools/questionnaire/i18n/he.json";
 import questionnaireEn from "@/tools/questionnaire/i18n/en.json";
+import ordersHe from "@/tools/orders/i18n/he.json";
+import ordersEn from "@/tools/orders/i18n/en.json";
 
 const he = {
   login: {
@@ -291,6 +293,7 @@ const he = {
   candidates: candidatesHe,
   time_entries: timeEntriesHe,
   questionnaire: questionnaireHe,
+  orders: ordersHe,
 } as const;
 
 /** The canonical message shape (derived from `he`). */
@@ -547,6 +550,7 @@ const en: Messages = {
   candidates: candidatesEn,
   time_entries: timeEntriesEn,
   questionnaire: questionnaireEn,
+  orders: ordersEn,
 };
 
 export const dictionaries: Record<Locale, Messages> = { he, en };

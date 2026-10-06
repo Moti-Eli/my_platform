@@ -64,6 +64,10 @@ import { manifest as questionnaireManifest } from "@/tools/questionnaire/manifes
 import { createQuestionnaireLogic } from "@/tools/questionnaire/logic";
 import { createQuestionnaireIntents } from "@/tools/questionnaire/intents";
 import { createQuestionnaireListeners } from "@/tools/questionnaire/events";
+import { manifest as ordersManifest } from "@/tools/orders/manifest";
+import { createOrdersLogic } from "@/tools/orders/logic";
+import { createOrdersIntents } from "@/tools/orders/intents";
+import { createOrdersListeners } from "@/tools/orders/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -176,6 +180,12 @@ function build(): Runtime {
       createQuestionnaireIntents(questionnaireLogic),
       createQuestionnaireListeners(questionnaireLogic),
     );
+  }
+  // Orders — plain CRUD through the injected db, no server-only deps, so it
+  // registers identically here and in server-runtime.
+  const ordersLogic = createOrdersLogic({ db, emit: eventBus.emit });
+  if (!getApp(ordersManifest.id)) {
+    registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),

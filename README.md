@@ -209,6 +209,40 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   add → update-below-threshold → `inventory.low` in `events` + `ai_log` rows.
   Typecheck/lint/build pass; version bumped **0.3.0**. See ARCHITECTURE.md #30.
 
+**Cortex — Orders tool (restaurant supplier ordering)** 🚧 (stage 1 of 4)
+- ✅ Stage 1 — **Suppliers**: `public.suppliers` table (migration
+  `20261005000001`) with RLS gated by the tool-wide `orders.access` permission
+  (admins only for now) + immutability trigger; catalog seed (`20261005000002`);
+  `apps/cortex/src/tools/orders/` with dashboard card, full screen (add / edit /
+  two-tap delete) and a floating search + sort bar. Both migrations applied to
+  the Supabase cloud project.
+- ✅ Stage 2 — catalog: `order_categories` + `supplier_products` (category sits
+  on the product; composite same-org FKs via `suppliers (id, org_id)`) and a
+  supplier **primary category** (nullable in the DB, required by the app) so a
+  supplier is visible before it has products. Migrations
+  `20261005000003`–`06`, all applied. Prices are reserved columns only (NULL,
+  never shown). Units are a closed list in code (`tools/orders/units.ts`: kg,
+  unit, liter, pack, carton), not a DB enum. UI: categories → suppliers in a
+  category → that supplier's products, URL-driven (`?category=&supplier=`);
+  suppliers management behind the floating bar's hamburger; search filters the
+  current level; dashboard card lists categories. **Paste a list**: add many
+  products at once to the current supplier + category (`parseList.ts` strips
+  numbering, bullets and emoji; one unit for the whole list; preview marks
+  existing / duplicate / too-long lines; one `orders.create_products` call,
+  not atomic — the summary reports added / skipped / failed).
+- ✅ Order to WhatsApp (browser-only, no DB yet): tick products on a
+  supplier's screen (quantity with decimals, unit per line), kept per supplier
+  in localStorage (`orderDraft.ts`) until sent; summary screen with optional
+  delivery date + note and the exact message (always Hebrew, wording in i18n);
+  "Send on WhatsApp" opens `wa.me` (phone → international digits, leading 0 →
+  972, in `whatsapp.ts`); "Was the order sent?" then clears the selection.
+- ⏳ Stage 3 — building an order + drafts (price snapshotted at order time).
+  **Agreed, must not be dropped:** `orders.supplier_id` → `ON DELETE RESTRICT`
+  (a supplier with orders cannot be deleted) + `suppliers.archived` column and
+  an "archive" action replacing delete. See the header of
+  `20261005000005_supplier_products_table.sql`.
+- ⏳ Stage 4 — sending the order to the supplier over WhatsApp
+
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client
   provider (`useI18n` → `{ locale, dir, t, setLocale }`); **not** next-intl (a
