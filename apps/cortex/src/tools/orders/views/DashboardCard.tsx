@@ -2,62 +2,59 @@
 
 /**
  * Orders dashboard card (Standard §2 `views/DashboardCard.tsx`, §8). Cloned from
- * Tasks' card, on the app-green identity accent. Stage 1: suppliers.
+ * Tasks' card, on the app-green identity accent. Stage 2: CATEGORIES — the same
+ * thing the tool's main screen shows (stage 3 will likely swap this for open
+ * drafts / orders to do).
  *
- * STATES, MODELLED EXPLICITLY: loading → skeleton; loaded with suppliers → the
- * full list scrolling INSIDE the card; loaded empty → an explicit empty line;
- * error → a short muted "couldn't load" line, never silently blank.
+ * STATES, MODELLED EXPLICITLY: loading → skeleton; loaded → the categories,
+ * scrolling INSIDE the card; empty → an explicit line; error → a muted
+ * "couldn't load" line, never silently blank.
  *
- * Reads through the SHARED react-query cache (`useSuppliersList`) — the SAME
- * cache the full screen uses — and the quick-add writes back into it.
+ * Reads the SAME shared caches as the full screen; supplier counts use the same
+ * rule (`suppliersInCategory`), so the card and the tool never disagree.
  *
  * FIXED HEIGHT (~1/3 of the visible viewport) from `--app-vh`, exactly as the
- * tasks card does (see its header for why not bare `dvh`).
+ * tasks card does.
  *
- * QUICK ADD: name only — the fast path. Phone/contact/email/notes are filled in
- * from the full screen. Home wraps this card in a `<Link>`, so every control here
- * calls BOTH `preventDefault` (what actually stops the ancestor `<a>`) and
- * `stopPropagation` — see the tasks card for the full reasoning.
+ * TAPS: Home wraps this card in a `<Link>` to the tool's main screen. The "+"
+ * quick-add and each category row call BOTH `preventDefault` (what actually stops
+ * the ancestor `<a>`) and `stopPropagation`; a row then navigates itself, straight
+ * INTO that category. Tapping anywhere else opens the main screen as before.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { runIntentAction, type IntentResult } from "@/cortex/actions";
 import { CheckIcon, PlusIcon, SendIcon } from "@/components/icons";
-import { useSuppliersList, SUPPLIERS_LIST_KEY } from "@/lib/query/useSuppliersList";
-import type { Supplier } from "../logic";
-import { SUPPLIER_LIMITS } from "../intents";
-import { sortSuppliers } from "../sortSuppliers";
-
-/** The failure codes a write can come back with (from {@link IntentResult}). */
-type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
-
-/** Muted placeholder block (token colour; static for reduced-motion users). */
-const SKELETON = "rounded-md bg-hairline motion-safe:animate-pulse";
+import { useSuppliersList } from "@/lib/query/useSuppliersList";
+import { useCategoriesList, useProductsList } from "@/lib/query/useOrdersCatalog";
+import { CATEGORY_NAME_MAX } from "../intents";
+import { byName, sameName, suppliersInCategory } from "../catalog";
+import { ORDERS_ROUTE, ordersHref } from "../nav";
+import { useOrdersWrites } from "./useOrdersWrites";
+import { SKELETON, useCountLabel, useMounted, type WriteErrorCode } from "./shared";
 
 // userId/orgId arrive as props but are never sent anywhere: the server action
 // derives identity from the session cookie.
 export function DashboardCard(_props: ToolViewProps) {
   const { t, locale } = useI18n();
-  const queryClient = useQueryClient();
-  const { suppliers, isLoading: loading, isError: error } = useSuppliersList();
-  const sorted = sortSuppliers(suppliers, "name", locale);
+  const router = useRouter();
+  const count = useCountLabel();
+  const writes = useOrdersWrites();
+  const suppliersQ = useSuppliersList();
+  const categoriesQ = useCategoriesList();
+  const productsQ = useProductsList();
+
+  const loading = suppliersQ.isLoading || categoriesQ.isLoading || productsQ.isLoading;
+  const error = suppliersQ.isError || categoriesQ.isError || productsQ.isError;
+  const categories = byName(categoriesQ.categories, locale);
 
   const [quickAdding, setQuickAdding] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [quickError, setQuickError] = useState<WriteErrorCode | null>(null);
+  const [quickError, setQuickError] = useState<WriteErrorCode | "exists" | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Guards the async setState below (the card can unmount mid-submit).
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const mounted = useMounted();
 
   useEffect(() => {
     if (quickAdding) inputRef.current?.focus();
@@ -66,38 +63,25 @@ export function DashboardCard(_props: ToolViewProps) {
   const submitQuickAdd = useCallback(async () => {
     const nextName = name.trim();
     if (nextName === "" || submitting) return;
+    if (categoriesQ.categories.some((c) => sameName(c.name, nextName, locale))) {
+      setQuickError("exists");
+      return;
+    }
     setSubmitting(true);
     setQuickError(null);
     try {
-      const res = await runIntentAction("orders.create_supplier", { name: nextName });
+      const { error: code } = await writes.createCategory(nextName);
       if (!mounted.current) return;
-      if (res.ok) {
-        // create_supplier returns { id, createdAt }; the rest of the row is what
-        // was submitted (everything else defaults to ''), so append it straight
-        // into the SHARED cache — no refetch.
-        const { id, createdAt } = res.data as { id: string; createdAt: string };
-        const created: Supplier = {
-          id,
-          name: nextName,
-          phone: "",
-          contactName: "",
-          email: "",
-          notes: "",
-          createdAt,
-        };
-        queryClient.setQueryData<Supplier[]>(SUPPLIERS_LIST_KEY, (prev) => [
-          ...(prev ?? []),
-          created,
-        ]);
+      if (code) {
+        setQuickError(code);
+      } else {
         setName("");
         setQuickAdding(false);
-      } else {
-        setQuickError(res.code);
       }
     } finally {
       if (mounted.current) setSubmitting(false);
     }
-  }, [name, submitting, queryClient]);
+  }, [name, submitting, categoriesQ.categories, locale, writes, mounted]);
 
   return (
     <div
@@ -115,13 +99,13 @@ export function DashboardCard(_props: ToolViewProps) {
           {loading ? (
             <span className={`h-4 w-20 ${SKELETON}`} aria-hidden="true" />
           ) : error ? null : (
-            <span className={`type-label ${suppliers.length > 0 ? "text-ink" : "text-muted"}`}>
-              {`${suppliers.length} ${t("orders.supplierCount")}`}
+            <span className={`type-label ${categories.length > 0 ? "text-ink" : "text-muted"}`}>
+              {count(categories.length, "orders.categoriesOne", "orders.categoriesMany")}
             </span>
           )}
           <button
             type="button"
-            aria-label={t("orders.addSupplier")}
+            aria-label={t("orders.addCategory")}
             aria-pressed={quickAdding}
             onClick={(e) => {
               e.preventDefault();
@@ -152,9 +136,12 @@ export function DashboardCard(_props: ToolViewProps) {
           <input
             ref={inputRef}
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("orders.namePlaceholder")}
-            maxLength={SUPPLIER_LIMITS.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (quickError === "exists") setQuickError(null);
+            }}
+            placeholder={t("orders.categoryPlaceholder")}
+            maxLength={CATEGORY_NAME_MAX}
             disabled={submitting}
             className="min-w-0 flex-1 rounded-md bg-screen px-sm py-xs type-body text-ink outline-none placeholder:text-muted"
           />
@@ -178,7 +165,13 @@ export function DashboardCard(_props: ToolViewProps) {
 
       {quickError ? (
         <p role="alert" className="mb-sm shrink-0 type-caption text-danger">
-          {t(quickError === "failed" ? "orders.errorFailed" : "orders.errorDenied")}
+          {t(
+            quickError === "exists"
+              ? "orders.nameExists"
+              : quickError === "failed"
+                ? "orders.errorFailed"
+                : "orders.errorDenied",
+          )}
         </p>
       ) : null}
 
@@ -189,28 +182,41 @@ export function DashboardCard(_props: ToolViewProps) {
             {[0, 1, 2].map((i) => (
               <li key={i} className="flex items-center justify-between py-sm">
                 <span className={`h-4 w-28 ${SKELETON}`} />
-                <span className={`h-4 w-20 ${SKELETON}`} />
+                <span className={`h-4 w-16 ${SKELETON}`} />
               </li>
             ))}
           </ul>
         ) : error ? (
           <p className="type-label text-muted">{t("orders.loadFailed")}</p>
-        ) : sorted.length > 0 ? (
+        ) : categories.length > 0 ? (
           <ul className="flex flex-col divide-y divide-hairline">
-            {sorted.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-sm py-sm">
-                <span className="min-w-0 flex-1 truncate type-body text-ink">{s.name}</span>
-                {s.phone ? (
-                  // Phone numbers read left-to-right even in Hebrew.
-                  <span dir="ltr" className="shrink-0 type-label text-muted">
-                    {s.phone}
+            {categories.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    router.push(
+                      `${ORDERS_ROUTE}${ordersHref({ view: "category", categoryId: c.id })}`,
+                    );
+                  }}
+                  className="flex w-full items-center justify-between gap-sm py-sm text-start interactive"
+                >
+                  <span className="min-w-0 flex-1 truncate type-body text-ink">{c.name}</span>
+                  <span className="shrink-0 type-label text-muted">
+                    {count(
+                      suppliersInCategory(c.id, suppliersQ.suppliers, productsQ.products).length,
+                      "orders.suppliersOne",
+                      "orders.suppliersMany",
+                    )}
                   </span>
-                ) : null}
+                </button>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="type-label text-muted">{t("orders.emptyTitle")}</p>
+          <p className="type-label text-muted">{t("orders.emptyCategoriesTitle")}</p>
         )}
       </div>
     </div>

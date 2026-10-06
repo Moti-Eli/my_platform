@@ -7,14 +7,14 @@
  * which builds ctx from `requireSession()` on every call — so a background refetch
  * is re-authenticated exactly like the first fetch. No identity is passed from here.
  *
- * BOTH orders views share this one cache entry: the dashboard card reads it, and
- * the full screen reads it AND reconciles it via `setQueryData` after each write.
+ * Every orders view shares this one cache entry; writes reconcile it through
+ * `useOrdersWrites` (setQueryData), never a refetch.
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
 import type { Supplier } from "@/tools/orders/logic";
 
-/** The single queryKey both orders views share — exported so `setQueryData`
+/** The single queryKey every orders view shares — exported so `setQueryData`
  * callers use the IDENTICAL key, never a duplicated literal. */
 export const SUPPLIERS_LIST_KEY = ["orders", "suppliers"] as const;
 
