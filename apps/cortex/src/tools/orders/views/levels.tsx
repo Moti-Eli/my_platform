@@ -447,6 +447,14 @@ function SupplierPicker({
       >
         + {t("orders.newSupplier")}
       </button>
+      {/* Same cancel style as the add-product modal's (FormActions). */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="rounded-md bg-hairline py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
+      >
+        {t("orders.cancel")}
+      </button>
     </Modal>
   );
 }
