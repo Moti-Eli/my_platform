@@ -316,8 +316,9 @@ export function ProductForm({
   onSubmit: (draft: ProductDraft) => Promise<WriteErrorCode | null>;
   onClose: () => void;
   /** When given (add modal only), shows "Have a list? Paste it", which switches
-   * to the bulk-paste flow for the same supplier + category. */
-  onPasteList?: () => void;
+   * to the bulk-paste flow for the same supplier + category. Also called — WITH
+   * the pasted text — when a multi-line paste lands in the name field. */
+  onPasteList?: (initialText?: string) => void;
 }) {
   const { t, locale } = useI18n();
   const [draft, setDraft] = useState<ProductDraft>(initial);
@@ -350,7 +351,7 @@ export function ProductForm({
       {onPasteList ? (
         <button
           type="button"
-          onClick={onPasteList}
+          onClick={() => onPasteList()}
           className="self-start type-label text-app-green underline interactive"
         >
           {t("orders.pasteListLink")}
@@ -371,6 +372,19 @@ export function ProductForm({
               : null
         }
         inputRef={nameRef}
+        // A paste with 2+ non-empty lines is a LIST, not one long name: hand it
+        // to the paste-list flow instead of letting the input flatten it. A
+        // single line pastes normally.
+        onPaste={
+          onPasteList
+            ? (e) => {
+                const text = e.clipboardData.getData("text");
+                if (text.split(/\r?\n/).filter((line) => line.trim() !== "").length < 2) return;
+                e.preventDefault();
+                onPasteList(text);
+              }
+            : undefined
+        }
       />
       <SelectField
         label={t("orders.defaultUnit")}

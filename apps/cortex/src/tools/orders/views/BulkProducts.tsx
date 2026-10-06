@@ -40,8 +40,10 @@ import {
 /** What happened, for the level's notice banner. */
 export interface BulkSummary {
   added: number;
-  /** Already at this supplier, or a duplicate within the paste. */
+  /** Already at this supplier (any category). */
   skippedExisting: number;
+  /** Appeared more than once in the same paste. */
+  skippedDuplicate: number;
   skippedTooLong: number;
   /** Server-side insert failures (not atomic — see logic.createProducts). */
   failed: number;
@@ -90,6 +92,7 @@ export function BulkProducts({
   categories,
   onClose,
   onDone,
+  initialText = "",
 }: {
   supplierId: string;
   categoryId: string;
@@ -98,12 +101,14 @@ export function BulkProducts({
   categories: readonly Category[];
   onClose: () => void;
   onDone: (summary: BulkSummary) => void;
+  /** Pre-filled text — a multi-line paste that landed in the single name field. */
+  initialText?: string;
 }) {
   const { t, locale } = useI18n();
   const writes = useOrdersWrites();
   const mounted = useMounted();
   const [step, setStep] = useState<"edit" | "preview">("edit");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const [unit, setUnit] = useState("");
   const [removed, setRemoved] = useState<ReadonlySet<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
@@ -137,7 +142,8 @@ export function BulkProducts({
       }
       onDone({
         added: res.created,
-        skippedExisting: rows.filter((r) => r.status === "exists" || r.status === "duplicate").length,
+        skippedExisting: rows.filter((r) => r.status === "exists").length,
+        skippedDuplicate: rows.filter((r) => r.status === "duplicate").length,
         skippedTooLong: rows.filter((r) => r.status === "tooLong").length,
         failed: res.failed,
       });
@@ -284,7 +290,8 @@ export function BulkProducts({
   );
 }
 
-/** "Added 12 products, 2 skipped because they already exist" — the notice text. */
+/** "Added 3 products, 1 skipped because it appeared twice in the list" — the
+ * notice text. Each skip reason is its own phrase, shown only when it applies. */
 export function useBulkSummaryText() {
   const { t } = useI18n();
   const part = (n: number, oneKey: Parameters<typeof t>[0], manyKey: Parameters<typeof t>[0]) =>
@@ -294,6 +301,9 @@ export function useBulkSummaryText() {
       s.added === 0 ? t("orders.addedNone") : part(s.added, "orders.addedOne", "orders.addedMany"),
       s.skippedExisting > 0
         ? part(s.skippedExisting, "orders.skippedExistsOne", "orders.skippedExistsMany")
+        : null,
+      s.skippedDuplicate > 0
+        ? part(s.skippedDuplicate, "orders.skippedDupOne", "orders.skippedDupMany")
         : null,
       s.skippedTooLong > 0
         ? part(s.skippedTooLong, "orders.skippedLongOne", "orders.skippedLongMany")

@@ -310,7 +310,7 @@ export function CategorySuppliersLevel({
   const [pickingSupplier, setPickingSupplier] = useState(false);
   const [productFor, setProductFor] = useState<string | null>(null);
   // "Have a list? Paste it" for the picked supplier, and its outcome line.
-  const [pasteFor, setPasteFor] = useState<string | null>(null);
+  const [pasteFor, setPasteFor] = useState<{ supplierId: string; text: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const summaryText = useBulkSummaryText();
   // Same supplier edit/delete as the suppliers manager (one implementation).
@@ -368,8 +368,8 @@ export function CategorySuppliersLevel({
           supplierProducts={data.products.filter((p) => p.supplierId === productFor)}
           onSubmit={(draft) => writes.createProduct(productFor, draft)}
           onClose={() => setProductFor(null)}
-          onPasteList={() => {
-            setPasteFor(productFor);
+          onPasteList={(text) => {
+            setPasteFor({ supplierId: productFor, text: text ?? "" });
             setProductFor(null);
           }}
         />
@@ -377,10 +377,11 @@ export function CategorySuppliersLevel({
 
       {pasteFor ? (
         <BulkProducts
-          supplierId={pasteFor}
+          supplierId={pasteFor.supplierId}
           categoryId={categoryId}
-          supplierProducts={data.products.filter((p) => p.supplierId === pasteFor)}
+          supplierProducts={data.products.filter((p) => p.supplierId === pasteFor.supplierId)}
           categories={data.categories}
+          initialText={pasteFor.text}
           onClose={() => setPasteFor(null)}
           onDone={(summary) => {
             setPasteFor(null);
@@ -496,8 +497,9 @@ export function ProductsLevel({
   const writes = useOrdersWrites();
   const rows = useRowState();
   const [adding, setAdding] = useState(false);
-  // "Have a list? Paste it" — the bulk flow, and its outcome line afterwards.
-  const [pasting, setPasting] = useState(false);
+  // "Have a list? Paste it" — the bulk flow's pre-filled text (null = closed;
+  // '' = opened from the link), and its outcome line afterwards.
+  const [pasteText, setPasteText] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const summaryText = useBulkSummaryText();
 
@@ -526,22 +528,23 @@ export function ProductsLevel({
           supplierProducts={supplierProducts}
           onSubmit={(draft) => writes.createProduct(supplierId, draft)}
           onClose={() => setAdding(false)}
-          onPasteList={() => {
+          onPasteList={(text) => {
             setAdding(false);
-            setPasting(true);
+            setPasteText(text ?? "");
           }}
         />
       ) : null}
 
-      {pasting ? (
+      {pasteText !== null ? (
         <BulkProducts
           supplierId={supplierId}
           categoryId={categoryId}
           supplierProducts={supplierProducts}
           categories={data.categories}
-          onClose={() => setPasting(false)}
+          initialText={pasteText}
+          onClose={() => setPasteText(null)}
           onDone={(summary) => {
-            setPasting(false);
+            setPasteText(null);
             setNotice(summaryText(summary));
           }}
         />

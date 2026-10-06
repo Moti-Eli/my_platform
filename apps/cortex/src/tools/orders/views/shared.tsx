@@ -328,6 +328,7 @@ export function TextField({
   inputRef,
   type,
   dir,
+  onPaste,
 }: {
   label: string;
   value: string;
@@ -340,6 +341,7 @@ export function TextField({
   inputRef?: React.Ref<HTMLInputElement>;
   type?: "text" | "tel" | "email";
   dir?: "ltr";
+  onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
 }) {
   return (
     <label className="flex flex-col gap-2xs type-label text-muted">
@@ -363,6 +365,7 @@ export function TextField({
         placeholder={placeholder}
         maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
+        onPaste={onPaste}
         aria-required={required ? "true" : undefined}
         aria-invalid={error ? true : undefined}
       />
