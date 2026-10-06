@@ -22,6 +22,9 @@ import type { OrdersLocation } from "../nav";
 import { CategoryForm, ProductForm, SupplierForm } from "./forms";
 import { useOrdersWrites, type SupplierDraft } from "./useOrdersWrites";
 import { BulkProducts, useBulkSummaryText } from "./BulkProducts";
+import { QtyStepper, UnitSelect } from "./orderControls";
+import { useOrderDraft } from "../orderDraft";
+import { CheckIcon } from "@/components/icons";
 import {
   AddButton,
   EmptyCard,
@@ -63,8 +66,8 @@ function matches(query: string, locale: string, ...fields: string[]): boolean {
 }
 
 /** Shared row-level write state: which row is editing / mid-delete, and the error. */
-function useRowState() {
-  const [editingId, setEditingId] = useState<string | null>(null);
+function useRowState(initialEditingId: string | null = null) {
+  const [editingId, setEditingId] = useState<string | null>(initialEditingId);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
   return {
@@ -88,10 +91,15 @@ function useRowState() {
  * EVERY category and cascades its products, so the confirm is a full sentence
  * that says so, with explicit delete / cancel buttons.
  */
-function useSupplierRowActions(data: CatalogData, go: (loc: OrdersLocation) => void) {
+function useSupplierRowActions(
+  data: CatalogData,
+  go: (loc: OrdersLocation) => void,
+  /** Open this supplier's editor on arrival (the order screen's "edit supplier" link). */
+  initialEditId?: string,
+) {
   const { t } = useI18n();
   const writes = useOrdersWrites();
-  const rows = useRowState();
+  const rows = useRowState(initialEditId ?? null);
 
   /** Inline editor replacing the row while `isEditing(s.id)`. */
   function editor(s: Supplier) {
@@ -502,6 +510,8 @@ export function ProductsLevel({
   const [pasteText, setPasteText] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const summaryText = useBulkSummaryText();
+  // Ticked products for this supplier's order (browser-only, see orderDraft.ts).
+  const order = useOrderDraft(supplierId);
 
   const category = data.categories.find((c) => c.id === categoryId);
   const supplier = data.suppliers.find((s) => s.id === supplierId);
@@ -581,28 +591,59 @@ export function ProductsLevel({
               );
             }
             const unitKey = unitLabelKey(p.defaultUnit);
+            const item = order.draft.items[p.id];
             return (
-              <li key={p.id} className="flex items-center gap-sm py-sm">
-                <span className="min-w-0 flex-1 truncate type-heading text-ink">{p.name}</span>
-                {p.defaultUnit ? (
-                  <span className="shrink-0 type-label text-muted">
-                    {unitKey ? t(unitKey) : p.defaultUnit}
-                  </span>
+              <li key={p.id} className="flex flex-col py-sm">
+                <div className="flex items-center gap-sm">
+                  {/* The whole row (circle + name) ticks / unticks the product
+                      for the order; ✎ and ✕ stay separate buttons. */}
+                  <button
+                    type="button"
+                    aria-pressed={item !== undefined}
+                    aria-label={`${t("orders.selectProduct")}: ${p.name}`}
+                    onClick={() => order.toggle(p.id, p.defaultUnit)}
+                    className="flex min-w-0 flex-1 items-center gap-sm text-start interactive"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                        item ? "bg-app-green text-on-fill" : "border-2 border-hairline"
+                      }`}
+                    >
+                      {item ? <CheckIcon width={14} height={14} /> : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate type-heading text-ink">{p.name}</span>
+                    {!item && p.defaultUnit ? (
+                      <span className="shrink-0 type-label text-muted">
+                        {unitKey ? t(unitKey) : p.defaultUnit}
+                      </span>
+                    ) : null}
+                  </button>
+                  <RowActions
+                    onEdit={() => {
+                      rows.setConfirmId(null);
+                      rows.setEditingId(p.id);
+                    }}
+                    confirming={rows.confirmId === p.id}
+                    onArmDelete={() => rows.setConfirmId(p.id)}
+                    onConfirmDelete={() => {
+                      rows.setConfirmId(null);
+                      rows.setWriteError(null);
+                      order.remove(p.id);
+                      void writes.deleteProduct(p.id).then((code) => rows.setWriteError(code));
+                    }}
+                    confirmLabel={t("orders.confirmDelete")}
+                  />
+                </div>
+                {item ? (
+                  // Ticked: quantity and unit for the order, indented under the name.
+                  // The indent = the circle (h-6/w-6) + the row gap (gap-sm), so
+                  // the controls line up under the name.
+                  <div className="flex flex-wrap items-center gap-xs ps-[calc(--spacing(6)+var(--spacing-sm))] pt-xs">
+                    <QtyStepper value={item.qty} onChange={(qty) => order.setItem(p.id, { qty })} />
+                    <UnitSelect value={item.unit} onChange={(unit) => order.setItem(p.id, { unit })} />
+                  </div>
                 ) : null}
-                <RowActions
-                  onEdit={() => {
-                    rows.setConfirmId(null);
-                    rows.setEditingId(p.id);
-                  }}
-                  confirming={rows.confirmId === p.id}
-                  onArmDelete={() => rows.setConfirmId(p.id)}
-                  onConfirmDelete={() => {
-                    rows.setConfirmId(null);
-                    rows.setWriteError(null);
-                    void writes.deleteProduct(p.id).then((code) => rows.setWriteError(code));
-                  }}
-                  confirmLabel={t("orders.confirmDelete")}
-                />
               </li>
             );
           })}
@@ -614,12 +655,17 @@ export function ProductsLevel({
 
 // --- suppliers manager ------------------------------------------------------
 
-export function SuppliersManager({ data, search, go }: LevelProps) {
+export function SuppliersManager({
+  data,
+  search,
+  go,
+  initialEditId,
+}: LevelProps & { initialEditId?: string }) {
   const { t, locale } = useI18n();
   const count = useCountLabel();
   const writes = useOrdersWrites();
   // Same supplier edit/delete as level 2 (one implementation).
-  const supplierRows = useSupplierRowActions(data, go);
+  const supplierRows = useSupplierRowActions(data, go, initialEditId);
   const [adding, setAdding] = useState(false);
 
   const categoryName = new Map(data.categories.map((c) => [c.id, c.name]));

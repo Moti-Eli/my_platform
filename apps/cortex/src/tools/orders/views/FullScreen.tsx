@@ -20,7 +20,9 @@ import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { useSuppliersList } from "@/lib/query/useSuppliersList";
 import { useCategoriesList, useProductsList } from "@/lib/query/useOrdersCatalog";
-import { ordersHref, useOrdersNav } from "../nav";
+import { ordersHref, useOrdersNav, type OrdersLocation } from "../nav";
+import { useOrderDraft } from "../orderDraft";
+import { OrderSummary } from "./OrderSummary";
 import {
   CategoriesLevel,
   CategorySuppliersLevel,
@@ -32,8 +34,9 @@ import { OrdersBar } from "./OrdersBar";
 import { EmptyCard, SKELETON, ToolHeader } from "./shared";
 
 // userId/orgId arrive as props but are NOT sent to the action — the server
-// derives identity from the session cookie.
-export function FullScreen(_props: ToolViewProps) {
+// derives identity from the session cookie. `orgName` (display only) is read by
+// this tool's page for the WhatsApp message ("הזמנה מ…").
+export function FullScreen({ orgName = "" }: ToolViewProps & { orgName?: string }) {
   const { t } = useI18n();
   const { location, go } = useOrdersNav();
   const suppliersQ = useSuppliersList();
@@ -95,8 +98,19 @@ export function FullScreen(_props: ToolViewProps) {
           />
         );
         break;
+      case "order":
+        screen = (
+          <OrderSummary
+            data={data}
+            supplierId={location.supplierId}
+            categoryId={location.categoryId}
+            orgName={orgName}
+            go={go}
+          />
+        );
+        break;
       case "suppliers":
-        screen = <SuppliersManager {...levelProps} />;
+        screen = <SuppliersManager {...levelProps} initialEditId={location.editId} />;
         break;
     }
   }
@@ -108,12 +122,55 @@ export function FullScreen(_props: ToolViewProps) {
       <div key={locationKey} className="contents">
         {screen}
       </div>
-      <OrdersBar
-        key={`bar${locationKey}`}
-        search={search}
-        onSearchChange={setSearch}
-        onManageSuppliers={() => go({ view: "suppliers" })}
-      />
+      {/* The bottom dock: the tasks filter bar's `sticky bottom-sm` + `mt-auto`
+          (see its header), holding the floating bar and — on a supplier's
+          products — the "To order (X)" button right above it. */}
+      <div className="sticky bottom-sm z-40 mt-auto flex shrink-0 flex-col items-center gap-xs">
+        {location.view === "products" && !loading && !failed ? (
+          <OrderButton
+            supplierId={location.supplierId}
+            categoryId={location.categoryId}
+            data={data}
+            go={go}
+          />
+        ) : null}
+        <OrdersBar
+          key={`bar${locationKey}`}
+          search={search}
+          onSearchChange={setSearch}
+          onManageSuppliers={() => go({ view: "suppliers" })}
+        />
+      </div>
     </>
+  );
+}
+
+/** "To order (X)" — shown only while this supplier has ticked products. Counts
+ * ticks from EVERY category of the supplier (one order = one supplier). */
+function OrderButton({
+  supplierId,
+  categoryId,
+  data,
+  go,
+}: {
+  supplierId: string;
+  categoryId: string;
+  data: CatalogData;
+  go: (loc: OrdersLocation) => void;
+}) {
+  const { t } = useI18n();
+  const { draft } = useOrderDraft(supplierId);
+  const count = Object.keys(draft.items).filter((id) =>
+    data.products.some((p) => p.id === id && p.supplierId === supplierId),
+  ).length;
+  if (count === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => go({ view: "order", supplierId, categoryId })}
+      className="rounded-pill bg-app-green px-lg py-sm type-heading text-on-fill shadow-lifted interactive motion-safe:active:scale-[0.97]"
+    >
+      {t("orders.orderButton").replace("{count}", String(count))}
+    </button>
   );
 }

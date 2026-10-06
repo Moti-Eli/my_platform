@@ -36,7 +36,9 @@ export function OrdersBar({
   }, [searchOpen]);
 
   return (
-    <div className="sticky bottom-sm z-40 mt-auto flex w-fit shrink-0 items-center gap-2xs self-center rounded-pill border border-hairline bg-card/70 p-2xs shadow-lifted backdrop-blur-md">
+    // Not sticky itself: FullScreen's bottom dock (sticky bottom-sm + mt-auto)
+    // holds it, so the "To order (X)" button can sit right above it.
+    <div className="flex w-fit shrink-0 items-center gap-2xs rounded-pill border border-hairline bg-card/70 p-2xs shadow-lifted backdrop-blur-md">
       <div className="relative">
         {menuOpen ? (
           <>

@@ -230,6 +230,12 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   numbering, bullets and emoji; one unit for the whole list; preview marks
   existing / duplicate / too-long lines; one `orders.create_products` call,
   not atomic — the summary reports added / skipped / failed).
+- ✅ Order to WhatsApp (browser-only, no DB yet): tick products on a
+  supplier's screen (quantity with decimals, unit per line), kept per supplier
+  in localStorage (`orderDraft.ts`) until sent; summary screen with optional
+  delivery date + note and the exact message (always Hebrew, wording in i18n);
+  "Send on WhatsApp" opens `wa.me` (phone → international digits, leading 0 →
+  972, in `whatsapp.ts`); "Was the order sent?" then clears the selection.
 - ⏳ Stage 3 — building an order + drafts (price snapshotted at order time).
   **Agreed, must not be dropped:** `orders.supplier_id` → `ON DELETE RESTRICT`
   (a supplier with orders cannot be deleted) + `suppliers.archived` column and
