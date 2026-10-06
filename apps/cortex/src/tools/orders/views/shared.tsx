@@ -95,6 +95,28 @@ export function WriteErrorBanner({ code }: { code: WriteErrorCode | null }) {
   );
 }
 
+/** A dismissible success/info line, in the same spot as the error banner. */
+export function NoticeBanner({ text, onClose }: { text: string | null; onClose: () => void }) {
+  const { t } = useI18n();
+  if (!text) return null;
+  return (
+    <p
+      role="status"
+      className="flex items-center gap-xs rounded-md bg-app-green/15 px-sm py-xs type-label text-app-green"
+    >
+      <span className="min-w-0 flex-1">{text}</span>
+      <button
+        type="button"
+        aria-label={t("orders.closeNotice")}
+        onClick={onClose}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full interactive"
+      >
+        <CloseIcon width={14} height={14} />
+      </button>
+    </p>
+  );
+}
+
 /** "1 product" / "4 products" (and "0 products") — a singular key for exactly one. */
 export function useCountLabel() {
   const { t } = useI18n();

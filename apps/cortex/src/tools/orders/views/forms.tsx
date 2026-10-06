@@ -20,7 +20,7 @@ import {
   SUPPLIER_LIMITS,
 } from "../intents";
 import { UNIT_KEYS, unitLabelKey } from "../units";
-import { byName, sameName } from "../catalog";
+import { byName, normalizeName, sameName } from "../catalog";
 import type { ProductDraft, SupplierDraft } from "./useOrdersWrites";
 import {
   FormActions,
@@ -304,6 +304,7 @@ export function ProductForm({
   categories,
   onSubmit,
   onClose,
+  onPasteList,
 }: {
   mode: Mode;
   initial: ProductDraft;
@@ -314,6 +315,9 @@ export function ProductForm({
   categories?: readonly Category[];
   onSubmit: (draft: ProductDraft) => Promise<WriteErrorCode | null>;
   onClose: () => void;
+  /** When given (add modal only), shows "Have a list? Paste it", which switches
+   * to the bulk-paste flow for the same supplier + category. */
+  onPasteList?: () => void;
 }) {
   const { t, locale } = useI18n();
   const [draft, setDraft] = useState<ProductDraft>(initial);
@@ -321,7 +325,7 @@ export function ProductForm({
   const { submitting, error, run } = useSubmit();
   const nameRef = useAutoFocus(mode === "modal");
 
-  const missing = draft.name.trim() === "";
+  const missing = normalizeName(draft.name) === "";
   const duplicate =
     !missing &&
     supplierProducts.some((p) => p.id !== editingId && sameName(p.name, draft.name, locale));
@@ -331,7 +335,8 @@ export function ProductForm({
     e.preventDefault();
     setShowErrors(true);
     if (missing || duplicate || categoryMissing) return;
-    void run(() => onSubmit({ ...draft, name: draft.name.trim() }), onClose);
+    // Saved with extra spaces collapsed, matching how duplicates are detected.
+    void run(() => onSubmit({ ...draft, name: normalizeName(draft.name) }), onClose);
   }
 
   return (
@@ -342,6 +347,15 @@ export function ProductForm({
       onSubmit={handleSubmit}
     >
       <WriteErrorBanner code={error} />
+      {onPasteList ? (
+        <button
+          type="button"
+          onClick={onPasteList}
+          className="self-start type-label text-app-green underline interactive"
+        >
+          {t("orders.pasteListLink")}
+        </button>
+      ) : null}
       <TextField
         label={t("orders.productName")}
         value={draft.name}

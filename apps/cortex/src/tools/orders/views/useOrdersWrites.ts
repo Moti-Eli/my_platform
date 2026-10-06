@@ -18,7 +18,7 @@ import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
 import { SUPPLIERS_LIST_KEY } from "@/lib/query/useSuppliersList";
 import { CATEGORIES_LIST_KEY, PRODUCTS_LIST_KEY } from "@/lib/query/useOrdersCatalog";
-import type { Category, Product, Supplier } from "../logic";
+import type { Category, CreateProductsResult, Product, Supplier } from "../logic";
 import type { WriteErrorCode } from "./shared";
 
 export type SupplierDraft = Pick<
@@ -162,6 +162,40 @@ export function useOrdersWrites() {
     [append],
   );
 
+  /** A pasted list: one server call, then append whatever was actually created.
+   * Not atomic (see logic.createProducts) — `failed` counts the rows that didn't
+   * make it, so the caller can say so honestly. */
+  const createProducts = useCallback(
+    async (
+      supplierId: string,
+      categoryId: string,
+      defaultUnit: string,
+      names: string[],
+    ): Promise<{ error: WriteErrorCode | null; created: number; failed: number }> => {
+      const res = await runIntentAction("orders.create_products", {
+        supplierId,
+        categoryId,
+        defaultUnit,
+        names,
+      });
+      if (!res.ok) return { error: res.code, created: 0, failed: 0 };
+      const { created, failed } = res.data as CreateProductsResult;
+      queryClient.setQueryData<Product[]>(PRODUCTS_LIST_KEY, (prev) => [
+        ...(prev ?? []),
+        ...created.map((c) => ({
+          id: c.id,
+          name: c.name,
+          supplierId,
+          categoryId,
+          defaultUnit,
+          archived: false,
+        })),
+      ]);
+      return { error: null, created: created.length, failed: failed.length };
+    },
+    [queryClient],
+  );
+
   const updateProduct = useCallback(
     (id: string, draft: ProductDraft) =>
       guarded(`product:${id}`, () =>
@@ -194,6 +228,7 @@ export function useOrdersWrites() {
     renameCategory,
     deleteCategory,
     createProduct,
+    createProducts,
     updateProduct,
     deleteProduct,
   };

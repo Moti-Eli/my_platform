@@ -21,11 +21,13 @@ import { unitLabelKey } from "../units";
 import type { OrdersLocation } from "../nav";
 import { CategoryForm, ProductForm, SupplierForm } from "./forms";
 import { useOrdersWrites, type SupplierDraft } from "./useOrdersWrites";
+import { BulkProducts, useBulkSummaryText } from "./BulkProducts";
 import {
   AddButton,
   EmptyCard,
   Modal,
   NavRow,
+  NoticeBanner,
   RowActions,
   ToolHeader,
   WriteErrorBanner,
@@ -307,6 +309,10 @@ export function CategorySuppliersLevel({
   // Empty-state "+ הוסף מוצר": pick a supplier, then add its product here.
   const [pickingSupplier, setPickingSupplier] = useState(false);
   const [productFor, setProductFor] = useState<string | null>(null);
+  // "Have a list? Paste it" for the picked supplier, and its outcome line.
+  const [pasteFor, setPasteFor] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const summaryText = useBulkSummaryText();
   // Same supplier edit/delete as the suppliers manager (one implementation).
   const supplierRows = useSupplierRowActions(data, go);
 
@@ -328,6 +334,7 @@ export function CategorySuppliersLevel({
         }
       />
       <WriteErrorBanner code={supplierRows.writeError} />
+      <NoticeBanner text={notice} onClose={() => setNotice(null)} />
 
       {addingSupplier ? (
         <SupplierForm
@@ -361,6 +368,24 @@ export function CategorySuppliersLevel({
           supplierProducts={data.products.filter((p) => p.supplierId === productFor)}
           onSubmit={(draft) => writes.createProduct(productFor, draft)}
           onClose={() => setProductFor(null)}
+          onPasteList={() => {
+            setPasteFor(productFor);
+            setProductFor(null);
+          }}
+        />
+      ) : null}
+
+      {pasteFor ? (
+        <BulkProducts
+          supplierId={pasteFor}
+          categoryId={categoryId}
+          supplierProducts={data.products.filter((p) => p.supplierId === pasteFor)}
+          categories={data.categories}
+          onClose={() => setPasteFor(null)}
+          onDone={(summary) => {
+            setPasteFor(null);
+            setNotice(summaryText(summary));
+          }}
         />
       ) : null}
 
@@ -471,6 +496,10 @@ export function ProductsLevel({
   const writes = useOrdersWrites();
   const rows = useRowState();
   const [adding, setAdding] = useState(false);
+  // "Have a list? Paste it" — the bulk flow, and its outcome line afterwards.
+  const [pasting, setPasting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const summaryText = useBulkSummaryText();
 
   const category = data.categories.find((c) => c.id === categoryId);
   const supplier = data.suppliers.find((s) => s.id === supplierId);
@@ -488,6 +517,7 @@ export function ProductsLevel({
         action={<AddButton label={t("orders.addProduct")} onClick={() => setAdding(true)} />}
       />
       <WriteErrorBanner code={rows.writeError} />
+      <NoticeBanner text={notice} onClose={() => setNotice(null)} />
 
       {adding ? (
         <ProductForm
@@ -496,6 +526,24 @@ export function ProductsLevel({
           supplierProducts={supplierProducts}
           onSubmit={(draft) => writes.createProduct(supplierId, draft)}
           onClose={() => setAdding(false)}
+          onPasteList={() => {
+            setAdding(false);
+            setPasting(true);
+          }}
+        />
+      ) : null}
+
+      {pasting ? (
+        <BulkProducts
+          supplierId={supplierId}
+          categoryId={categoryId}
+          supplierProducts={supplierProducts}
+          categories={data.categories}
+          onClose={() => setPasting(false)}
+          onDone={(summary) => {
+            setPasting(false);
+            setNotice(summaryText(summary));
+          }}
         />
       ) : null}
 

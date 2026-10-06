@@ -59,7 +59,13 @@ export function categoryDeleteBlock(
   return null;
 }
 
-/** Case/whitespace-insensitive name match, for the "already exists" check. */
+/** Trim and collapse every run of whitespace to one space: "  גאודה   28% " → "גאודה 28%". */
+export function normalizeName(name: string): string {
+  return name.replace(/\s+/g, " ").trim();
+}
+
+/** Case-insensitive name match that ignores extra spaces at the start, the end
+ * and in the middle — for every "already exists" / "duplicate" check. */
 export function sameName(a: string, b: string, locale: string): boolean {
-  return a.trim().localeCompare(b.trim(), locale, { sensitivity: "base" }) === 0;
+  return normalizeName(a).localeCompare(normalizeName(b), locale, { sensitivity: "base" }) === 0;
 }

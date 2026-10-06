@@ -15,6 +15,7 @@ import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import type { OrdersLogic } from "./logic";
 import { UNIT_KEYS } from "./units";
+import { MAX_LIST_LINES } from "./parseList";
 
 /** Field caps — identical to the tables' CHECK constraints. */
 export const SUPPLIER_LIMITS = {
@@ -156,6 +157,22 @@ export function createOrdersIntents(logic: OrdersLogic) {
       }),
       output: id,
       handler: (input, ctx) => logic.createProduct(input, ctx),
+    }),
+    defineIntent({
+      name: "orders.create_products",
+      description:
+        "Add many products at once (a pasted list) to one supplier and category, all with the same default unit",
+      input: z.object({
+        supplierId: z.string().min(1),
+        categoryId: z.string().min(1),
+        defaultUnit: unit.optional(),
+        names: z.array(productName).min(1).max(MAX_LIST_LINES),
+      }),
+      output: z.object({
+        created: z.array(z.object({ id: z.string(), name: z.string() })),
+        failed: z.array(z.string()),
+      }),
+      handler: (input, ctx) => logic.createProducts(input, ctx),
     }),
     defineIntent({
       name: "orders.update_product",

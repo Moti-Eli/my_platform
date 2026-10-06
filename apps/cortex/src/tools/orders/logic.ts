@@ -82,6 +82,18 @@ export interface CreateProductInput {
   name: string;
   defaultUnit?: string;
 }
+/** Many products for ONE supplier + category + unit (a pasted list). */
+export interface CreateProductsInput {
+  supplierId: string;
+  categoryId: string;
+  defaultUnit?: string;
+  names: string[];
+}
+export interface CreateProductsResult {
+  created: Array<{ id: string; name: string }>;
+  /** Names whose insert failed (e.g. a duplicate added meanwhile by someone else). */
+  failed: string[];
+}
 export interface UpdateProductInput {
   id: string;
   name?: string;
@@ -107,6 +119,7 @@ export interface OrdersLogic {
 
   listProducts(input: ListInput, ctx: Ctx): Promise<Product[]>;
   createProduct(input: CreateProductInput, ctx: Ctx): Promise<{ id: string }>;
+  createProducts(input: CreateProductsInput, ctx: Ctx): Promise<CreateProductsResult>;
   updateProduct(input: UpdateProductInput, ctx: Ctx): Promise<{ id: string }>;
   deleteProduct(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
 }
@@ -248,6 +261,32 @@ export function createOrdersLogic({ db, emit: _emit }: { db: CortexDb; emit: Emi
         default_unit: input.defaultUnit ?? "",
       });
       return { id };
+    },
+
+    async createProducts(input, ctx) {
+      // NOT ATOMIC, deliberately: CortexDb inserts one row at a time and making
+      // this all-or-nothing would mean changing @platform/cortex-core. Each row
+      // is inserted on its own; a failure is recorded and the rest continue, and
+      // the caller reports exactly how many were added / failed. Re-pasting is
+      // safe — rows that made it are then skipped as already existing.
+      const result: CreateProductsResult = { created: [], failed: [] };
+      for (const name of input.names) {
+        const id = safeRandomUUID();
+        try {
+          await db.insert(PRODUCTS_TABLE, {
+            id,
+            ...ownership(ctx, new Date().toISOString()),
+            supplier_id: input.supplierId,
+            category_id: input.categoryId,
+            name,
+            default_unit: input.defaultUnit ?? "",
+          });
+          result.created.push({ id, name });
+        } catch {
+          result.failed.push(name);
+        }
+      }
+      return result;
     },
 
     async updateProduct(input, _ctx) {

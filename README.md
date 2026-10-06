@@ -225,7 +225,11 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   unit, liter, pack, carton), not a DB enum. UI: categories → suppliers in a
   category → that supplier's products, URL-driven (`?category=&supplier=`);
   suppliers management behind the floating bar's hamburger; search filters the
-  current level; dashboard card lists categories.
+  current level; dashboard card lists categories. **Paste a list**: add many
+  products at once to the current supplier + category (`parseList.ts` strips
+  numbering, bullets and emoji; one unit for the whole list; preview marks
+  existing / duplicate / too-long lines; one `orders.create_products` call,
+  not atomic — the summary reports added / skipped / failed).
 - ⏳ Stage 3 — building an order + drafts (price snapshotted at order time).
   **Agreed, must not be dropped:** `orders.supplier_id` → `ON DELETE RESTRICT`
   (a supplier with orders cannot be deleted) + `suppliers.archived` column and
