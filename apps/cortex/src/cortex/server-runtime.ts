@@ -218,8 +218,10 @@ function build(): DataLayer {
   if (!getApp(ordersManifest.id)) {
     registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
   }
-  // Shifts — positions CRUD through the injected db (RLS client by default).
-  const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit });
+  // Shifts — tool tables through the injected db (RLS client by default); the org
+  // member list through the SAME per-user RLS client as staff (getRls, never
+  // service).
+  const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit, getRls });
   if (!getApp(shiftsManifest.id)) {
     registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
   }

@@ -191,9 +191,17 @@ function build(): Runtime {
   if (!getApp(ordersManifest.id)) {
     registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
   }
-  // Shifts — stage 1 part 1 is plain CRUD through the injected db, so it
-  // registers identically here and in server-runtime.
-  const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit });
+  // Shifts — CRUD through the injected db, plus the org member list, which runs
+  // SERVER-SIDE ONLY (through runIntentAction) on the per-user RLS client. This
+  // client runtime only registers the tool so it can be listed, so getRls is a
+  // throwing stub — exactly like staff's.
+  const shiftsLogic = createShiftsLogic({
+    db,
+    emit: eventBus.emit,
+    getRls: () => {
+      throw new Error("shifts.list_org_members runs server-side only");
+    },
+  });
   if (!getApp(shiftsManifest.id)) {
     registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
   }

@@ -252,7 +252,13 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `shifts.manage`.
 - 🚧 Screens, part 1: tool registered (admin-only route), floating section bar
   (Shifts / Employees / Positions), Positions screen (add, rename, reorder,
-  delete), simple dashboard card. Employees, shifts and requirements follow.
+  delete), simple dashboard card. Hamburger menu → "Manage org members"
+  (staff tool).
+- 🚧 Screens, part 2: Employees screen — org members read server-side through
+  the same per-user RLS client as staff (staff untouched); add one / add
+  everyone; shift-lead switch; position checkboxes; remove from the tool behind
+  a confirm. Members who left the org are hidden (row kept). Positions show how
+  many employees can fill them. Shifts and requirements follow.
 
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client

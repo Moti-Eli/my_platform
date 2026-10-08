@@ -24,7 +24,16 @@ import {
   useShiftPositions,
 } from "@/lib/query/useShiftPositions";
 import {
+  SHIFT_EMPLOYEE_POSITIONS_KEY,
+  useOrgMembers,
+  useShiftEmployeePositions,
+  useShiftEmployees,
+} from "@/lib/query/useShiftsStaff";
+import type { EmployeePosition } from "../logic";
+import { employeeCountByPosition, visibleEmployees } from "../people";
+import {
   AddButton,
+  useCountLabel,
   EmptyCard,
   FormActions,
   Modal,
@@ -52,6 +61,12 @@ export function PositionsScreen() {
   const { positions: raw, isLoading, isError } = useShiftPositions();
   const positions = sortPositions(raw, locale);
   const mounted = useMounted();
+  const count = useCountLabel();
+  // Employee counts per position — VISIBLE employees only (left the org = hidden).
+  const { members } = useOrgMembers();
+  const { employees } = useShiftEmployees();
+  const { links } = useShiftEmployeePositions();
+  const counts = employeeCountByPosition(links, visibleEmployees(employees, members, locale));
 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -145,8 +160,10 @@ export function PositionsScreen() {
         />
       ) : (
         <ul className="flex flex-col divide-y divide-hairline">
-          {positions.map((p, index) =>
-            editingId === p.id ? (
+          {positions.map((p, index) => {
+            // How many (visible) employees can fill this position.
+            const linked = counts.get(p.id) ?? 0;
+            return editingId === p.id ? (
               <li key={p.id} className="py-sm">
                 <PositionForm
                   mode="inline"
@@ -171,6 +188,9 @@ export function PositionsScreen() {
             ) : (
               <li key={p.id} className="flex items-center gap-xs py-sm">
                 <span className="min-w-0 flex-1 truncate type-heading text-ink">{p.name}</span>
+                <span className="shrink-0 type-label text-muted">
+                  {count(linked, "shifts.employeesOne", "shifts.employeesMany")}
+                </span>
                 <button
                   type="button"
                   aria-label={t("shifts.moveUp")}
@@ -200,16 +220,44 @@ export function PositionsScreen() {
                   onArmDelete={() => setConfirmId(p.id)}
                   onConfirmDelete={() => {
                     setConfirmId(null);
+                    // The DB cascades the employee links — mirror that in the
+                    // cache, and restore them if the delete is refused.
+                    const linksSnapshot = queryClient.getQueryData<EmployeePosition[]>(
+                      SHIFT_EMPLOYEE_POSITIONS_KEY,
+                    );
                     void optimistic(
-                      (prev) => prev.filter((it) => it.id !== p.id),
-                      () => runIntentAction("shifts.delete_position", { id: p.id }),
+                      (prev) => {
+                        queryClient.setQueryData<EmployeePosition[]>(
+                          SHIFT_EMPLOYEE_POSITIONS_KEY,
+                          (prevLinks) => (prevLinks ?? []).filter((l) => l.positionId !== p.id),
+                        );
+                        return prev.filter((it) => it.id !== p.id);
+                      },
+                      async () => {
+                        const res = await runIntentAction("shifts.delete_position", { id: p.id });
+                        if (!res.ok) {
+                          queryClient.setQueryData<EmployeePosition[]>(
+                            SHIFT_EMPLOYEE_POSITIONS_KEY,
+                            linksSnapshot,
+                          );
+                        }
+                        return res;
+                      },
                     );
                   }}
                   disabled={busy}
+                  // Deleting a position takes it away from its employees — say so.
+                  confirmLabel={
+                    linked === 0
+                      ? undefined
+                      : linked === 1
+                        ? t("shifts.confirmDeleteLinkedOne")
+                        : t("shifts.confirmDeleteLinkedMany").replace("{count}", String(linked))
+                  }
                 />
               </li>
-            ),
-          )}
+            );
+          })}
         </ul>
       )}
     </>

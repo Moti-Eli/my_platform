@@ -127,14 +127,18 @@ export function RowActions({
   onArmDelete,
   onConfirmDelete,
   disabled,
+  confirmLabel,
 }: {
   onEdit: () => void;
   confirming: boolean;
   onArmDelete: () => void;
   onConfirmDelete: () => void;
   disabled?: boolean;
+  /** Text of the armed button; defaults to "Delete?". */
+  confirmLabel?: string;
 }) {
   const { t } = useI18n();
+  const armedText = confirmLabel ?? t("shifts.confirmDelete");
   return (
     <>
       <button
@@ -149,12 +153,12 @@ export function RowActions({
       {confirming ? (
         <button
           type="button"
-          aria-label={t("shifts.confirmDelete")}
+          aria-label={armedText}
           onClick={onConfirmDelete}
           disabled={disabled}
           className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
         >
-          {t("shifts.confirmDelete")}
+          {armedText}
         </button>
       ) : (
         <button
