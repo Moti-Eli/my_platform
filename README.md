@@ -243,6 +243,17 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   `20261005000005_supplier_products_table.sql`.
 - ⏳ Stage 4 — sending the order to the supplier over WhatsApp
 
+**Cortex — Shifts tool (staff + shift scheduling)** 🚧 (stage 1)
+- ✅ DB: `shift_positions`, `shift_employees` (composite FK to memberships,
+  access level employee / shift lead), `shift_employee_positions`,
+  `shift_templates` (weekday 0 = Sunday, overnight shifts), `shift_requirements`,
+  `shifts.manage` permission (admins only) and catalog seed — migrations
+  `20261008000001`–`06`, applied. Reads open to the org, writes need
+  `shifts.manage`.
+- 🚧 Screens, part 1: tool registered (admin-only route), floating section bar
+  (Shifts / Employees / Positions), Positions screen (add, rename, reorder,
+  delete), simple dashboard card. Employees, shifts and requirements follow.
+
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client
   provider (`useI18n` → `{ locale, dir, t, setLocale }`); **not** next-intl (a

@@ -51,6 +51,10 @@ import { manifest as ordersManifest } from "@/tools/orders/manifest";
 import { createOrdersLogic } from "@/tools/orders/logic";
 import { createOrdersIntents } from "@/tools/orders/intents";
 import { createOrdersListeners } from "@/tools/orders/events";
+import { manifest as shiftsManifest } from "@/tools/shifts/manifest";
+import { createShiftsLogic } from "@/tools/shifts/logic";
+import { createShiftsIntents } from "@/tools/shifts/intents";
+import { createShiftsListeners } from "@/tools/shifts/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -213,6 +217,11 @@ function build(): DataLayer {
   const ordersLogic = createOrdersLogic({ db, emit: eventBus.emit });
   if (!getApp(ordersManifest.id)) {
     registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
+  }
+  // Shifts — positions CRUD through the injected db (RLS client by default).
+  const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit });
+  if (!getApp(shiftsManifest.id)) {
+    registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);

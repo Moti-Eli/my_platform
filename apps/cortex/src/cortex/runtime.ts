@@ -68,6 +68,10 @@ import { manifest as ordersManifest } from "@/tools/orders/manifest";
 import { createOrdersLogic } from "@/tools/orders/logic";
 import { createOrdersIntents } from "@/tools/orders/intents";
 import { createOrdersListeners } from "@/tools/orders/events";
+import { manifest as shiftsManifest } from "@/tools/shifts/manifest";
+import { createShiftsLogic } from "@/tools/shifts/logic";
+import { createShiftsIntents } from "@/tools/shifts/intents";
+import { createShiftsListeners } from "@/tools/shifts/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -186,6 +190,12 @@ function build(): Runtime {
   const ordersLogic = createOrdersLogic({ db, emit: eventBus.emit });
   if (!getApp(ordersManifest.id)) {
     registerApp(ordersManifest, createOrdersIntents(ordersLogic), createOrdersListeners(ordersLogic));
+  }
+  // Shifts — stage 1 part 1 is plain CRUD through the injected db, so it
+  // registers identically here and in server-runtime.
+  const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit });
+  if (!getApp(shiftsManifest.id)) {
+    registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),
