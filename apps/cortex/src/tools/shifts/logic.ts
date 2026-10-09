@@ -5,10 +5,10 @@
  * `CortexDb` (never raw SQL); it receives `ctx` from the shell and never fetches
  * identity itself.
  *
- * Stage 1 so far: POSITIONS (part 1), EMPLOYEES in the tool + which positions
- * each can fill (part 2), and the WEEKLY SHIFT TEMPLATES (part 3) — including
- * "copy a day to all days", which already copies requirements too. Editing
- * requirements themselves is part 4.
+ * Stage 1: POSITIONS (part 1), EMPLOYEES in the tool + which positions each can
+ * fill (part 2), the WEEKLY SHIFT TEMPLATES with "copy a day to all days"
+ * (part 3), and STAFFING REQUIREMENTS — how many of each position a shift
+ * needs (part 4).
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
  * through the SAME per-user RLS client the staff tool uses (`getRls`, injected —
@@ -128,6 +128,12 @@ export interface UpdateTemplateInput {
   startTime: string;
   endTime: string;
 }
+export interface SetRequirementInput {
+  templateId: string;
+  positionId: string;
+  /** 0 = "not needed": the row is removed. 1–99 = needed. */
+  count: number;
+}
 export interface CopyDayInput {
   /** The day whose shifts (and their requirements) replace every other day's. */
   weekday: number;
@@ -163,6 +169,9 @@ export interface ShiftsLogic {
   updateTemplate(input: UpdateTemplateInput, ctx: Ctx): Promise<{ id: string }>;
   deleteTemplate(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
   copyDayToAll(input: CopyDayInput, ctx: Ctx): Promise<CopyDayResult>;
+
+  listRequirements(input: ListInput, ctx: Ctx): Promise<ShiftRequirement[]>;
+  setRequirement(input: SetRequirementInput, ctx: Ctx): Promise<{ id: string | null }>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -435,6 +444,43 @@ export function createShiftsLogic({
         }
       }
       return result;
+    },
+
+    // --- staffing requirements ----------------------------------------------
+    async listRequirements(_input, ctx) {
+      const rows = await db.select(REQUIREMENTS_TABLE, { org_id: ctx.orgId });
+      return rows.map(toRequirement);
+    },
+
+    async setRequirement(input, ctx) {
+      // One call per (shift, position): 0 removes the row ("not needed" has no
+      // row), any other count updates the existing row or creates it. The pair
+      // is unique in the DB (shift_requirements_template_position_key).
+      const [existing] = await db.select(REQUIREMENTS_TABLE, {
+        template_id: input.templateId,
+        position_id: input.positionId,
+      });
+      if (input.count === 0) {
+        if (existing) await db.delete(REQUIREMENTS_TABLE, { id: String(existing.id) });
+        return { id: null };
+      }
+      if (existing) {
+        await db.update(
+          REQUIREMENTS_TABLE,
+          { id: String(existing.id) },
+          { required_count: input.count, updated_at: new Date().toISOString() },
+        );
+        return { id: String(existing.id) };
+      }
+      const id = safeRandomUUID();
+      await db.insert(REQUIREMENTS_TABLE, {
+        id,
+        ...ownership(ctx, new Date().toISOString()),
+        template_id: input.templateId,
+        position_id: input.positionId,
+        required_count: input.count,
+      });
+      return { id };
     },
   };
 }

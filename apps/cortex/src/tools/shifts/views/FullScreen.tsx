@@ -31,7 +31,7 @@ export function FullScreen(_props: ToolViewProps) {
       break;
     case "shifts":
       screen = shiftId ? (
-        <ShiftEditScreen shiftId={shiftId} />
+        <ShiftEditScreen shiftId={shiftId} onGoToPositions={() => go("positions")} />
       ) : (
         <ShiftsScreen day={day} onDayChange={setDay} onOpenShift={openShift} />
       );

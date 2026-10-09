@@ -31,6 +31,8 @@ import {
 } from "@/lib/query/useShiftsStaff";
 import type { EmployeePosition } from "../logic";
 import { employeeCountByPosition, visibleEmployees } from "../people";
+import { shiftsRequiringPosition } from "../staffing";
+import { useShiftRequirements } from "@/lib/query/useShiftTemplates";
 import {
   AddButton,
   useCountLabel,
@@ -67,6 +69,11 @@ export function PositionsScreen() {
   const { employees } = useShiftEmployees();
   const { links } = useShiftEmployeePositions();
   const counts = employeeCountByPosition(links, visibleEmployees(employees, members, locale));
+  // Shifts that still require each position — such a position can't be deleted.
+  const { requirements } = useShiftRequirements();
+  const requiredBy = shiftsRequiringPosition(requirements);
+  // Which position's "can't delete" explanation is showing.
+  const [blockedId, setBlockedId] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -102,8 +109,7 @@ export function PositionsScreen() {
     const ids = positions.map((p) => p.id);
     [ids[index], ids[target]] = [ids[target]!, ids[index]!];
     void optimistic(
-      (prev) =>
-        prev.map((p) => ({ ...p, position: ids.indexOf(p.id) })),
+      (prev) => prev.map((p) => ({ ...p, position: ids.indexOf(p.id) })),
       () => runIntentAction("shifts.reorder_positions", { ids }),
     );
   }
@@ -163,6 +169,8 @@ export function PositionsScreen() {
           {positions.map((p, index) => {
             // How many (visible) employees can fill this position.
             const linked = counts.get(p.id) ?? 0;
+            // How many shifts still require it (blocks delete).
+            const inUse = requiredBy.get(p.id) ?? 0;
             return editingId === p.id ? (
               <li key={p.id} className="py-sm">
                 <PositionForm
@@ -186,75 +194,93 @@ export function PositionsScreen() {
                 />
               </li>
             ) : (
-              <li key={p.id} className="flex items-center gap-xs py-sm">
-                <span className="min-w-0 flex-1 truncate type-heading text-ink">{p.name}</span>
-                <span className="shrink-0 type-label text-muted">
-                  {count(linked, "shifts.employeesOne", "shifts.employeesMany")}
-                </span>
-                <button
-                  type="button"
-                  aria-label={t("shifts.moveUp")}
-                  onClick={() => move(index, -1)}
-                  disabled={busy || index === 0}
-                  className={`${arrowButton} ${index === 0 ? "opacity-[var(--ds-disabled-opacity)]" : ""}`}
-                >
-                  <ChevronDownIcon width={16} height={16} className="rotate-180" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={t("shifts.moveDown")}
-                  onClick={() => move(index, 1)}
-                  disabled={busy || index === positions.length - 1}
-                  className={`${arrowButton} ${
-                    index === positions.length - 1 ? "opacity-[var(--ds-disabled-opacity)]" : ""
-                  }`}
-                >
-                  <ChevronDownIcon width={16} height={16} />
-                </button>
-                <RowActions
-                  onEdit={() => {
-                    setConfirmId(null);
-                    setEditingId(p.id);
-                  }}
-                  confirming={confirmId === p.id}
-                  onArmDelete={() => setConfirmId(p.id)}
-                  onConfirmDelete={() => {
-                    setConfirmId(null);
-                    // The DB cascades the employee links — mirror that in the
-                    // cache, and restore them if the delete is refused.
-                    const linksSnapshot = queryClient.getQueryData<EmployeePosition[]>(
-                      SHIFT_EMPLOYEE_POSITIONS_KEY,
-                    );
-                    void optimistic(
-                      (prev) => {
-                        queryClient.setQueryData<EmployeePosition[]>(
-                          SHIFT_EMPLOYEE_POSITIONS_KEY,
-                          (prevLinks) => (prevLinks ?? []).filter((l) => l.positionId !== p.id),
-                        );
-                        return prev.filter((it) => it.id !== p.id);
-                      },
-                      async () => {
-                        const res = await runIntentAction("shifts.delete_position", { id: p.id });
-                        if (!res.ok) {
+              <li key={p.id} className="flex flex-col gap-2xs py-sm">
+                <div className="flex items-center gap-xs">
+                  <span className="min-w-0 flex-1 truncate type-heading text-ink">{p.name}</span>
+                  <span className="shrink-0 type-label text-muted">
+                    {count(linked, "shifts.employeesOne", "shifts.employeesMany")}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t("shifts.moveUp")}
+                    onClick={() => move(index, -1)}
+                    disabled={busy || index === 0}
+                    className={`${arrowButton} ${index === 0 ? "opacity-[var(--ds-disabled-opacity)]" : ""}`}
+                  >
+                    <ChevronDownIcon width={16} height={16} className="rotate-180" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("shifts.moveDown")}
+                    onClick={() => move(index, 1)}
+                    disabled={busy || index === positions.length - 1}
+                    className={`${arrowButton} ${
+                      index === positions.length - 1 ? "opacity-[var(--ds-disabled-opacity)]" : ""
+                    }`}
+                  >
+                    <ChevronDownIcon width={16} height={16} />
+                  </button>
+                  <RowActions
+                    onEdit={() => {
+                      setConfirmId(null);
+                      setEditingId(p.id);
+                    }}
+                    confirming={confirmId === p.id}
+                    // A position some shift still needs can't be deleted (the DB
+                    // refuses it — ON DELETE RESTRICT): explain instead of arming.
+                    deleteDisabled={inUse > 0}
+                    onArmDelete={() => {
+                      if (inUse > 0) {
+                        setBlockedId((cur) => (cur === p.id ? null : p.id));
+                        return;
+                      }
+                      setConfirmId(p.id);
+                    }}
+                    onConfirmDelete={() => {
+                      setConfirmId(null);
+                      // The DB cascades the employee links — mirror that in the
+                      // cache, and restore them if the delete is refused.
+                      const linksSnapshot = queryClient.getQueryData<EmployeePosition[]>(
+                        SHIFT_EMPLOYEE_POSITIONS_KEY,
+                      );
+                      void optimistic(
+                        (prev) => {
                           queryClient.setQueryData<EmployeePosition[]>(
                             SHIFT_EMPLOYEE_POSITIONS_KEY,
-                            linksSnapshot,
+                            (prevLinks) => (prevLinks ?? []).filter((l) => l.positionId !== p.id),
                           );
-                        }
-                        return res;
-                      },
-                    );
-                  }}
-                  disabled={busy}
-                  // Deleting a position takes it away from its employees — say so.
-                  confirmLabel={
-                    linked === 0
-                      ? undefined
-                      : linked === 1
-                        ? t("shifts.confirmDeleteLinkedOne")
-                        : t("shifts.confirmDeleteLinkedMany").replace("{count}", String(linked))
-                  }
-                />
+                          return prev.filter((it) => it.id !== p.id);
+                        },
+                        async () => {
+                          const res = await runIntentAction("shifts.delete_position", { id: p.id });
+                          if (!res.ok) {
+                            queryClient.setQueryData<EmployeePosition[]>(
+                              SHIFT_EMPLOYEE_POSITIONS_KEY,
+                              linksSnapshot,
+                            );
+                          }
+                          return res;
+                        },
+                      );
+                    }}
+                    disabled={busy}
+                    // Deleting a position takes it away from its employees — say so.
+                    confirmLabel={
+                      linked === 0
+                        ? undefined
+                        : linked === 1
+                          ? t("shifts.confirmDeleteLinkedOne")
+                          : t("shifts.confirmDeleteLinkedMany").replace("{count}", String(linked))
+                    }
+                  />
+                </div>
+                {blockedId === p.id && inUse > 0 ? (
+                  <p className="type-caption text-muted">
+                    {inUse === 1
+                      ? t("shifts.positionInUseOne")
+                      : t("shifts.positionInUseMany").replace("{count}", String(inUse))}
+                  </p>
+                ) : null}
               </li>
             );
           })}
@@ -296,7 +322,8 @@ function PositionForm({
 
   const clean = name.replace(/\s+/g, " ").trim();
   const missing = clean === "";
-  const duplicate = !missing && positions.some((p) => p.id !== editingId && sameName(p.name, clean, locale));
+  const duplicate =
+    !missing && positions.some((p) => p.id !== editingId && sameName(p.name, clean, locale));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

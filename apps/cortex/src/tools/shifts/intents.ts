@@ -29,6 +29,9 @@ const employeePosition = z.object({
 const positionName = z.string().trim().min(1).max(POSITION_NAME_MAX);
 const id = z.object({ id: z.string() });
 
+/** Mirrors shift_requirements.required_count CHECK (1–99; 0 = no row). */
+export const REQUIRED_MAX = 99;
+
 /** Mirrors shift_templates.name CHECK (1–50). */
 export const SHIFT_NAME_MAX = 50;
 const weekday = z.number().int().min(0).max(6);
@@ -188,6 +191,34 @@ export function createShiftsIntents(logic: ShiftsLogic) {
         requirementsCopied: z.number(),
       }),
       handler: (input, ctx) => logic.copyDayToAll(input, ctx),
+    }),
+
+    // --- staffing requirements ----------------------------------------------
+    defineIntent({
+      name: "shifts.list_requirements",
+      description: "List how many people of each position every shift needs",
+      input: z.object({}),
+      output: z.array(
+        z.object({
+          id: z.string(),
+          templateId: z.string(),
+          positionId: z.string(),
+          requiredCount: z.number(),
+        }),
+      ),
+      handler: (input, ctx) => logic.listRequirements(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_requirement",
+      description:
+        "Set how many people of a position a shift needs (0 = not needed, which removes the requirement)",
+      input: z.object({
+        templateId: z.string().min(1),
+        positionId: z.string().min(1),
+        count: z.number().int().min(0).max(REQUIRED_MAX),
+      }),
+      output: z.object({ id: z.string().nullable() }),
+      handler: (input, ctx) => logic.setRequirement(input, ctx),
     }),
   ];
 }

@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * One shift's edit screen (?shift=<id>): name and hours, and delete behind a
- * confirmation. Part 4 adds the requirements (how many of each position) here.
+ * One shift's edit screen (?shift=<id>): name and hours, how many people of
+ * each position it needs (RequirementsEditor — each tap saves on its own), and
+ * delete behind a confirmation.
  *
  * Saving or deleting goes back to the day view (history back — the day view is
  * the entry the user came from).
@@ -20,6 +21,7 @@ import {
   useShiftTemplates,
 } from "@/lib/query/useShiftTemplates";
 import { ShiftFields } from "./ShiftForm";
+import { RequirementsEditor } from "./RequirementsEditor";
 import {
   EmptyCard,
   SKELETON,
@@ -29,7 +31,14 @@ import {
   type WriteErrorCode,
 } from "./shared";
 
-export function ShiftEditScreen({ shiftId }: { shiftId: string }) {
+export function ShiftEditScreen({
+  shiftId,
+  onGoToPositions,
+}: {
+  shiftId: string;
+  /** "No positions yet" → open the Positions tab. */
+  onGoToPositions: () => void;
+}) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -119,7 +128,7 @@ export function ShiftEditScreen({ shiftId }: { shiftId: string }) {
         />
       </div>
 
-      <p className="type-caption text-muted">{t("shifts.requirementsSoon")}</p>
+      <RequirementsEditor templateId={shift.id} onGoToPositions={onGoToPositions} />
 
       {/* Delete — behind a confirmation. */}
       <WriteErrorBanner code={deleteError} />

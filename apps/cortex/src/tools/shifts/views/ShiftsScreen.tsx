@@ -25,8 +25,11 @@ import {
   SHIFT_REQUIREMENTS_KEY,
   SHIFT_TEMPLATES_KEY,
   shiftsOfDay,
+  useShiftRequirements,
   useShiftTemplates,
 } from "@/lib/query/useShiftTemplates";
+import { sortPositions, useShiftPositions } from "@/lib/query/useShiftPositions";
+import { shiftNeeds } from "../staffing";
 import { ShiftFields } from "./ShiftForm";
 import {
   AddButton,
@@ -56,6 +59,9 @@ export function ShiftsScreen({
   const mounted = useMounted();
   // 24-hour vs AM/PM — the same per-device choice the time picker sets.
   const [clockFormat] = useClockFormat(locale);
+  // For each shift's "Waiter ×3 · Cook ×2" summary.
+  const { requirements } = useShiftRequirements();
+  const sortedPositions = sortPositions(useShiftPositions().positions, locale);
   const { templates, isLoading, isError } = useShiftTemplates();
   const today = todayWeekday();
   const selected = day ?? today;
@@ -209,25 +215,40 @@ export function ShiftsScreen({
         <ul className="flex flex-col gap-xs">
           {dayShifts.map((s) => {
             const overnight = isOvernight(s.startTime, s.endTime);
+            // "Waiter ×3 · Cook ×2", in the positions' order.
+            const needs = shiftNeeds(requirements, s.id, sortedPositions);
             return (
               <li key={s.id}>
                 <button
                   type="button"
                   onClick={() => onOpenShift(s.id)}
                   aria-label={`${t("shifts.editShift")}: ${s.name}`}
-                  className="flex w-full items-center justify-between gap-sm rounded-lg bg-card p-md text-start interactive motion-safe:active:scale-[0.99]"
+                  className="flex w-full flex-col gap-2xs rounded-lg bg-card p-md text-start interactive motion-safe:active:scale-[0.99]"
                 >
-                  <span className="min-w-0 truncate type-heading text-ink">{s.name}</span>
-                  <span dir="ltr" className="flex shrink-0 items-baseline gap-2xs type-label text-muted">
-                    {formatHours(s.startTime, s.endTime, clockFormat, locale)}
-                    {overnight ? (
-                      <span
-                        className="type-caption text-app-coral"
-                        title={t("shifts.endsNextDay")}
-                      >
-                        {t("shifts.nextDayMark")}
-                      </span>
-                    ) : null}
+                  <span className="flex w-full items-center justify-between gap-sm">
+                    <span className="min-w-0 truncate type-heading text-ink">{s.name}</span>
+                    <span dir="ltr" className="flex shrink-0 items-baseline gap-2xs type-label text-muted">
+                      {formatHours(s.startTime, s.endTime, clockFormat, locale)}
+                      {overnight ? (
+                        <span
+                          className="type-caption text-app-coral"
+                          title={t("shifts.endsNextDay")}
+                        >
+                          {t("shifts.nextDayMark")}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  <span className="w-full truncate type-label text-muted">
+                    {needs.length > 0
+                      ? needs
+                          .map((n) =>
+                            t("shifts.reqItem")
+                              .replace("{name}", n.name)
+                              .replace("{count}", String(n.count)),
+                          )
+                          .join(" · ")
+                      : t("shifts.reqNone")}
                   </span>
                 </button>
               </li>

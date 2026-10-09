@@ -265,8 +265,13 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   days" (replace, behind a confirmation; copies requirements too — one server
   call, not atomic). Own time picker (hour / minute columns, no looping,
   quarter-hour minutes) with a per-device 24h / AM-PM switch (Hebrew defaults
-  to 24h, English to AM/PM) that also drives the shift list. Requirements
-  editing follows in part 4.
+  to 24h, English to AM/PM) that also drives the shift list.
+- 🚧 Screens, part 4: Requirements — in a shift's edit screen every position
+  (in its order) has − count +; 0 = not needed (no row); each tap saves
+  (`shifts.set_requirement`). Shift cards show "Waiter ×3 · Cook ×2". A
+  position some shift requires can't be deleted (dimmed ✕ with an
+  explanation). "Copy day to all days" verified to copy requirements. Final
+  dashboard card follows in part 5.
 
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client

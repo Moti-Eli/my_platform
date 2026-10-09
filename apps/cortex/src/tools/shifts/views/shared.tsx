@@ -128,6 +128,7 @@ export function RowActions({
   onConfirmDelete,
   disabled,
   confirmLabel,
+  deleteDisabled,
 }: {
   onEdit: () => void;
   confirming: boolean;
@@ -136,6 +137,9 @@ export function RowActions({
   disabled?: boolean;
   /** Text of the armed button; defaults to "Delete?". */
   confirmLabel?: string;
+  /** Delete not allowed: the ✕ is DIMMED but stays tappable, so `onArmDelete`
+   * can show why instead of arming. */
+  deleteDisabled?: boolean;
 }) {
   const { t } = useI18n();
   const armedText = confirmLabel ?? t("shifts.confirmDelete");
@@ -164,9 +168,12 @@ export function RowActions({
         <button
           type="button"
           aria-label={t("shifts.delete")}
+          aria-disabled={deleteDisabled || undefined}
           onClick={onArmDelete}
           disabled={disabled}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97] ${
+            deleteDisabled ? "opacity-[var(--ds-disabled-opacity)]" : ""
+          }`}
         >
           <CloseIcon width={16} height={16} />
         </button>
