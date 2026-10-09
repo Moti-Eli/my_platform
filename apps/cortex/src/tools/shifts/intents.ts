@@ -29,6 +29,21 @@ const employeePosition = z.object({
 const positionName = z.string().trim().min(1).max(POSITION_NAME_MAX);
 const id = z.object({ id: z.string() });
 
+/** Mirrors shift_templates.name CHECK (1–50). */
+export const SHIFT_NAME_MAX = 50;
+const weekday = z.number().int().min(0).max(6);
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const shiftName = z.string().trim().min(1).max(SHIFT_NAME_MAX);
+const template = z.object({
+  id: z.string(),
+  weekday: z.number(),
+  name: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+});
+/** Equal start/end is refused (the DB CHECK too); end < start = next day. */
+const hasLength = (v: { startTime: string; endTime: string }) => v.startTime !== v.endTime;
+
 export function createShiftsIntents(logic: ShiftsLogic) {
   return [
     // --- positions ----------------------------------------------------------
@@ -126,6 +141,53 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       input: id,
       output: id,
       handler: (input, ctx) => logic.unassignPosition(input, ctx),
+    }),
+
+    // --- weekly shift templates ---------------------------------------------
+    defineIntent({
+      name: "shifts.list_templates",
+      description: "List the recurring weekly shifts (0 = Sunday … 6 = Saturday)",
+      input: z.object({}),
+      output: z.array(template),
+      handler: (input, ctx) => logic.listTemplates(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.create_template",
+      description:
+        "Add a recurring shift on a weekday (HH:MM times; an end earlier than the start ends the next day)",
+      input: z
+        .object({ weekday, name: shiftName, startTime: hhmm, endTime: hhmm })
+        .refine(hasLength, { message: "start and end must differ" }),
+      output: id,
+      handler: (input, ctx) => logic.createTemplate(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.update_template",
+      description: "Rename a recurring shift or change its hours",
+      input: z
+        .object({ id: z.string(), name: shiftName, startTime: hhmm, endTime: hhmm })
+        .refine(hasLength, { message: "start and end must differ" }),
+      output: id,
+      handler: (input, ctx) => logic.updateTemplate(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.delete_template",
+      description: "Delete a recurring shift (its staffing requirements go with it)",
+      input: id,
+      output: id,
+      handler: (input, ctx) => logic.deleteTemplate(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.copy_day_to_all",
+      description:
+        "Replace every other weekday's shifts with copies of one day's shifts, including their staffing requirements",
+      input: z.object({ weekday }),
+      output: z.object({
+        deleted: z.number(),
+        created: z.number(),
+        requirementsCopied: z.number(),
+      }),
+      handler: (input, ctx) => logic.copyDayToAll(input, ctx),
     }),
   ];
 }

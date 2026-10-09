@@ -5,8 +5,10 @@
  * `CortexDb` (never raw SQL); it receives `ctx` from the shell and never fetches
  * identity itself.
  *
- * Stage 1 so far: POSITIONS (part 1) and EMPLOYEES in the tool + which positions
- * each can fill (part 2). Shift templates and requirements follow.
+ * Stage 1 so far: POSITIONS (part 1), EMPLOYEES in the tool + which positions
+ * each can fill (part 2), and the WEEKLY SHIFT TEMPLATES (part 3) — including
+ * "copy a day to all days", which already copies requirements too. Editing
+ * requirements themselves is part 4.
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
  * through the SAME per-user RLS client the staff tool uses (`getRls`, injected —
@@ -26,6 +28,8 @@ import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/c
 export const POSITIONS_TABLE = "shift_positions";
 export const EMPLOYEES_TABLE = "shift_employees";
 export const EMPLOYEE_POSITIONS_TABLE = "shift_employee_positions";
+export const TEMPLATES_TABLE = "shift_templates";
+export const REQUIREMENTS_TABLE = "shift_requirements";
 
 export type AccessLevel = "employee" | "shift_lead";
 
@@ -55,6 +59,26 @@ export interface EmployeePosition {
   id: string;
   employeeId: string;
   positionId: string;
+}
+
+/** A recurring weekly shift (a shift_templates row). */
+export interface ShiftTemplate {
+  id: string;
+  /** 0 = Sunday … 6 = Saturday. */
+  weekday: number;
+  name: string;
+  /** "HH:MM" local time. */
+  startTime: string;
+  /** "HH:MM" local time; earlier than startTime = ends the next day. */
+  endTime: string;
+}
+
+/** How many people of one position a shift needs (a shift_requirements row). */
+export interface ShiftRequirement {
+  id: string;
+  templateId: string;
+  positionId: string;
+  requiredCount: number;
 }
 
 /** Every list_* takes no input — the org comes from ctx, not the caller. */
@@ -92,6 +116,30 @@ export interface AssignPositionInput {
   employeeId: string;
   positionId: string;
 }
+export interface CreateTemplateInput {
+  weekday: number;
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+export interface UpdateTemplateInput {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+export interface CopyDayInput {
+  /** The day whose shifts (and their requirements) replace every other day's. */
+  weekday: number;
+}
+export interface CopyDayResult {
+  /** Shifts removed from the other days (their requirements went with them). */
+  deleted: number;
+  /** Shifts created on the other days. */
+  created: number;
+  /** Requirement rows copied along with them. */
+  requirementsCopied: number;
+}
 
 export interface ShiftsLogic {
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
@@ -109,6 +157,12 @@ export interface ShiftsLogic {
   listEmployeePositions(input: ListInput, ctx: Ctx): Promise<EmployeePosition[]>;
   assignPosition(input: AssignPositionInput, ctx: Ctx): Promise<{ id: string }>;
   unassignPosition(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
+
+  listTemplates(input: ListInput, ctx: Ctx): Promise<ShiftTemplate[]>;
+  createTemplate(input: CreateTemplateInput, ctx: Ctx): Promise<{ id: string }>;
+  updateTemplate(input: UpdateTemplateInput, ctx: Ctx): Promise<{ id: string }>;
+  deleteTemplate(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
+  copyDayToAll(input: CopyDayInput, ctx: Ctx): Promise<CopyDayResult>;
 }
 
 /** The event-bus surface the logic needs (from `@platform/cortex-core`). */
@@ -131,6 +185,28 @@ function toEmployeePosition(row: DbRow): EmployeePosition {
     id: String(row.id),
     employeeId: String(row.employee_id),
     positionId: String(row.position_id),
+  };
+}
+
+/** Postgres `time` comes back as "HH:MM:SS" — the app works in "HH:MM". */
+const hhmm = (v: unknown) => String(v ?? "").slice(0, 5);
+
+function toTemplate(row: DbRow): ShiftTemplate {
+  return {
+    id: String(row.id),
+    weekday: Number(row.weekday),
+    name: String(row.name),
+    startTime: hhmm(row.start_time),
+    endTime: hhmm(row.end_time),
+  };
+}
+
+function toRequirement(row: DbRow): ShiftRequirement {
+  return {
+    id: String(row.id),
+    templateId: String(row.template_id),
+    positionId: String(row.position_id),
+    requiredCount: Number(row.required_count),
   };
 }
 
@@ -265,6 +341,100 @@ export function createShiftsLogic({
     async unassignPosition(input, _ctx) {
       await db.delete(EMPLOYEE_POSITIONS_TABLE, { id: input.id });
       return { id: input.id };
+    },
+
+    // --- weekly shift templates ---------------------------------------------
+    async listTemplates(_input, ctx) {
+      const rows = await db.select(TEMPLATES_TABLE, { org_id: ctx.orgId });
+      return rows.map(toTemplate);
+    },
+
+    async createTemplate(input, ctx) {
+      const id = safeRandomUUID();
+      await db.insert(TEMPLATES_TABLE, {
+        id,
+        ...ownership(ctx, new Date().toISOString()),
+        weekday: input.weekday,
+        name: input.name,
+        start_time: input.startTime,
+        end_time: input.endTime,
+      });
+      return { id };
+    },
+
+    async updateTemplate(input, _ctx) {
+      await db.update(
+        TEMPLATES_TABLE,
+        { id: input.id },
+        {
+          name: input.name,
+          start_time: input.startTime,
+          end_time: input.endTime,
+          updated_at: new Date().toISOString(),
+        },
+      );
+      return { id: input.id };
+    },
+
+    async deleteTemplate(input, _ctx) {
+      // Its requirements cascade (shift_requirements_template_fk).
+      await db.delete(TEMPLATES_TABLE, { id: input.id });
+      return { id: input.id };
+    },
+
+    async copyDayToAll(input, ctx) {
+      // "Copy day X to all days" = REPLACE: every other day ends up with exactly
+      // day X's shifts — names, hours AND requirements (how many of each
+      // position). One server call.
+      //
+      // Order matters: the other days' shifts are DELETED FIRST (their
+      // requirements cascade), then the copies are inserted — inserting first
+      // would collide with same-named shifts on the unique (org, weekday, name).
+      //
+      // NOT ATOMIC (CortexDb writes one row at a time): a failure part-way leaves
+      // some days copied and others not. It throws, so the caller reports the
+      // failure, and running the copy again converges to the intended state.
+      const templates = (await db.select(TEMPLATES_TABLE, { org_id: ctx.orgId })).map(toTemplate);
+      const requirements = (await db.select(REQUIREMENTS_TABLE, { org_id: ctx.orgId })).map(
+        toRequirement,
+      );
+      const source = templates.filter((t) => t.weekday === input.weekday);
+      const others = templates.filter((t) => t.weekday !== input.weekday);
+
+      const result: CopyDayResult = { deleted: 0, created: 0, requirementsCopied: 0 };
+
+      for (const t of others) {
+        await db.delete(TEMPLATES_TABLE, { id: t.id });
+        result.deleted += 1;
+      }
+
+      for (let day = 0; day <= 6; day += 1) {
+        if (day === input.weekday) continue;
+        for (const t of source) {
+          const id = safeRandomUUID();
+          const now = new Date().toISOString();
+          await db.insert(TEMPLATES_TABLE, {
+            id,
+            ...ownership(ctx, now),
+            weekday: day,
+            name: t.name,
+            start_time: t.startTime,
+            end_time: t.endTime,
+          });
+          result.created += 1;
+          for (const r of requirements.filter((req) => req.templateId === t.id)) {
+            await db.insert(REQUIREMENTS_TABLE, {
+              id: safeRandomUUID(),
+              ...ownership(ctx, now),
+              template_id: id,
+              position_id: r.positionId,
+              required_count: r.requiredCount,
+            });
+            result.requirementsCopied += 1;
+          }
+        }
+      }
+      return result;
     },
   };
 }

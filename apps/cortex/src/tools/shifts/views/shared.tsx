@@ -216,6 +216,47 @@ export function Modal({
   );
 }
 
+/**
+ * Same overlay chrome as {@link Modal}, but the panel is a plain <div> — for
+ * content that brings its OWN <form> (a form inside Modal's form would nest
+ * forms) or has no form at all (a confirmation).
+ */
+export function Dialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="ds-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-scrim p-md"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="ds-panel flex max-h-full w-[min(100%,24rem)] flex-col gap-sm overflow-y-auto rounded-xl bg-card p-lg shadow-lifted"
+      >
+        <h2 className="type-heading text-ink">{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** Primary + cancel buttons for a modal or inline form. */
 export function FormActions({
   submitLabel,

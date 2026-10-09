@@ -258,7 +258,15 @@ A production-ready monorepo skeleton designed to scale across multiple business 
   the same per-user RLS client as staff (staff untouched); add one / add
   everyone; shift-lead switch; position checkboxes; remove from the tool behind
   a confirm. Members who left the org are hidden (row kept). Positions show how
-  many employees can fill them. Shifts and requirements follow.
+  many employees can fill them.
+- 🚧 Screens, part 3: Shifts — day strip (Sunday first, today selected, day kept
+  in the URL), the day's shifts with hours ("+1" when crossing midnight), add /
+  edit / delete (confirm) with a duplicate-name check, and "copy day to all
+  days" (replace, behind a confirmation; copies requirements too — one server
+  call, not atomic). Own time picker (hour / minute columns, no looping,
+  quarter-hour minutes) with a per-device 24h / AM-PM switch (Hebrew defaults
+  to 24h, English to AM/PM) that also drives the shift list. Requirements
+  editing follows in part 4.
 
 **Phase 10: Cortex Settings — i18n + Themes + Version** ✅
 - ✅ **i18n** (`apps/cortex/src/i18n/`): a minimal typed he/en dictionary + client

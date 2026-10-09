@@ -5,22 +5,21 @@
  * section from the URL (`nav.ts`) and renders it, with the floating section bar
  * under every section.
  *
- * Positions (part 1) and Employees (part 2) are built; Shifts shows a "coming
- * soon" card until part 3. The opening section is Shifts (agreed).
+ * Sections: Shifts (part 3 — the opening section, agreed; a shift's edit screen
+ * opens from it), Employees (part 2), Positions (part 1).
  */
 import type { ToolViewProps } from "@/tools";
-import { useI18n } from "@/i18n";
 import { useShiftsNav, shiftsHref } from "../nav";
 import { PositionsScreen } from "./PositionsScreen";
 import { EmployeesScreen } from "./EmployeesScreen";
+import { ShiftsScreen } from "./ShiftsScreen";
+import { ShiftEditScreen } from "./ShiftEditScreen";
 import { ShiftsBar } from "./ShiftsBar";
-import { EmptyCard, ToolHeader } from "./shared";
 
 // userId/orgId arrive as props but are NOT sent to the action — the server
 // derives identity from the session cookie.
 export function FullScreen(_props: ToolViewProps) {
-  const { t } = useI18n();
-  const { section, go } = useShiftsNav();
+  const { section, day, shiftId, go, setDay, openShift } = useShiftsNav();
 
   let screen;
   switch (section) {
@@ -31,20 +30,20 @@ export function FullScreen(_props: ToolViewProps) {
       screen = <EmployeesScreen />;
       break;
     case "shifts":
-      screen = (
-        <>
-          <ToolHeader title={t("shifts.name")} />
-          <EmptyCard titleKey="shifts.comingSoonTitle" hintKey="shifts.comingSoonShifts" />
-        </>
+      screen = shiftId ? (
+        <ShiftEditScreen shiftId={shiftId} />
+      ) : (
+        <ShiftsScreen day={day} onDayChange={setDay} onOpenShift={openShift} />
       );
       break;
   }
 
   return (
     <>
-      {/* Keyed by section so per-screen state (open forms, armed deletes)
-          resets when switching. */}
-      <div key={shiftsHref(section)} className="contents">
+      {/* Keyed by section (+ open shift) so per-screen state (open forms,
+          armed deletes) resets when switching — but NOT by day, so picking a
+          day keeps the day view mounted. */}
+      <div key={`${shiftsHref(section)}|${shiftId ?? ""}`} className="contents">
         {screen}
       </div>
       <ShiftsBar section={section} onChange={go} />
