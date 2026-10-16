@@ -28,7 +28,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@expo/metro-runtime": "6.1.2"
+      "@expo/metro-runtime": "6.1.2",
+      "@types/react": "19.2.17"
     }
   }
 }
