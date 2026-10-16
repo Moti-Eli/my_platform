@@ -52,6 +52,10 @@ sessions, often from a phone:
 4. Schema changes are applied deliberately with **DB Migrations**: dry run first,
    then apply.
 
+Cloud Claude Code sessions run `.claude/hooks/session-start.sh` on startup. It
+runs `pnpm install`, so `pnpm lint`, `pnpm typecheck`, `pnpm build` and the
+smoke tests (`pnpm --filter @platform/cortex-core smoke`) work right away.
+
 ## 🚀 Running Locally (optional)
 
 Requires Node ≥ 20.9 and pnpm 9.
