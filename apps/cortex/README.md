@@ -1,0 +1,194 @@
+# @platform/cortex
+
+The **Cortex super-app shell** — the visual frame that hosts tools. A phone-first
+Next.js (App Router) app, RTL Hebrew, installable as a **PWA**. This milestone is
+the **frame only**: no real sub-apps, no AI model calls. Home and Profile are
+empty shells; the AI button and urgency bell are empty shells too.
+
+This is the product: the only app in the repo (see ARCHITECTURE.md #34).
+
+## Local development
+
+Dev server: `pnpm --filter @platform/cortex dev` → http://localhost:3001
+
+### Environment — read this before "fixing" a login page that says "not connected"
+
+Cortex reads **three** variables. Two are **public** (`NEXT_PUBLIC_`, inlined into
+the client bundle and shipped to every browser); one is **secret** and read only
+on the server:
+
+- `NEXT_PUBLIC_SUPABASE_URL` — public
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — public
+- `SUPABASE_SECRET_KEY` — **secret, server-only, NO `NEXT_PUBLIC_` prefix.** Read
+  by exactly one file, `src/lib/supabase/admin.ts` (`import "server-only"`). It
+  backs the shell's audit writes to `ai_log` / `events` (which `authenticated` is
+  not granted); it never reads tool data. The absence of the prefix is the only
+  thing keeping it out of the browser — never add one.
+
+All three live in **`apps/cortex/.env`**. Next only loads `.env*` from **its own
+app directory** — it does *not* read the monorepo root `.env`, which is why the
+root file (used by the `packages/db` scripts, which load it via dotenv themselves)
+never reached this app.
+
+> **⚠️ Do not move these into `apps/cortex/.env.local`.**
+> That file is a **Vercel CLI artifact** (`# Created by Vercel CLI`, holding
+> `VERCEL_OIDC_TOKEN`). `vercel env pull` / `vercel link` **overwrite it
+> wholesale**, silently taking any variables you put there with them. That trap
+> now costs more than a login page: it would take `SUPABASE_SECRET_KEY` too, and
+> **every runIntent call fails** (the audit write can't run) with a
+> `SUPABASE_SECRET_KEY is not set` crash — not just "not connected". `.env` is not
+> a Vercel target, and unlike `.env.development.local` it also loads under
+> `NODE_ENV=production` — which the phone workflow below (`build && start`) needs.
+
+**The deployed Cortex does not read any of this.** Vercel builds have no `.env`
+file — set all three in the Cortex project's dashboard (Settings → Environment
+Variables), keeping `SUPABASE_SECRET_KEY` **secret** (do not expose it to
+Preview/Production client builds via a prefix), or the deployed app fails the same
+way.
+
+**Testing on a real phone:** do NOT use the dev server over a LAN IP (e.g.
+http://10.0.0.3:3001). Next.js's HMR WebSocket fails to connect from a
+non-localhost origin, React hydration never completes, and no `useEffect` runs —
+so the app registry never initializes and the catalog/chips render empty. Nothing
+is broken; it's a dev-server limitation.
+
+Use one of these instead:
+
+- `pnpm --filter @platform/cortex build && pnpm --filter @platform/cortex start`
+  then open the LAN IP (no hot-reload — rebuild after each change)
+- `vercel --prod` from the repo root
+
+## Layout
+
+- **Phone-first**, centered on desktop (`max-w-[480px]` column).
+- **Header** (`src/components/shell/Header.tsx`): brain+tech logo, a stub search
+  button, and the urgency **bell** (opens the "מה דחוף היום" inbox — empty).
+- **Bottom tab bar** (`src/components/shell/TabBar.tsx`) — 5 slots, RTL order:
+  Home (right-most) · כל הכלים (catalog) · **AI hero** (center) · צ'אט (comms) ·
+  Profile (left-most). The AI hero is a larger, elevated button that opens the
+  **AI sheet** (`AiSheet.tsx`, empty shell — input + placeholder, no model call).
+- **Screens**: Home (`app/page.tsx`, app-tabs placeholder + "nothing pinned"),
+  Catalog, Comms, Profile (Identity Core placeholder) — all `app/**/page.tsx`.
+
+## Design system & themes
+
+Colors/radii/shadows/font live in **`@/design-system`** (`src/design-system/`)
+as the single source of truth. A **theme is just an alternate set of token
+values**: `themes` holds six, darkest→lightest — `abyss`, `midnight`, `slate`,
+`dawn`, `quietLight` (**default**), `clay`. `themeStylesheet()` emits each theme's
+tokens under `[data-theme="…"]` and `baseStylesheet()` emits the structural tokens
+on `:root`; `globals.css` maps Tailwind utilities onto those via `@theme inline`
+(the default Tailwind palette + font-size namespaces are cleared, so only
+token-backed utilities resolve). Components use **semantic** utilities
+(`bg-accent`, `text-ink`, `bg-card`, `rounded-lg`, `shadow-lifted`) — **no
+hard-coded colors**. Switching theme flips `data-theme` on `<html>` (instant,
+flash-free). Adding a theme is just a new entry in `themes` — no component changes.
+
+Tokens split into **semantic roles** (screen, card, ink, muted, hairline, accent,
+success, warning, danger, inverse, ring, on-fill) and an **app-identity palette**
+(`app-violet/teal/coral/amber/blue/green`). Shadows are only for genuinely
+floating surfaces (`shadow-lifted`/`shadow-hero`); cards and rows separate by
+tone, not shadow.
+
+## i18n (he / en)
+
+A minimal, typed, client-side dictionary (`src/i18n/`) — **not** next-intl,
+which is built around locale-prefixed routing and doesn't fit a shell where the
+user picks the language in Settings and it persists locally. `he` is default;
+`en` is a full parallel set. `useI18n()` gives `{ locale, dir, t, setLocale }`;
+`t("home.allTab")` keys are type-checked. **Direction follows the language**
+(`dir` flips he↔en). All shell strings go through `t` — no hard-coded UI text.
+
+Language and theme are persisted in **cookies** (read server-side in the root
+layout so the first paint is already correct — no flash), which is also the
+"saved on this device" behavior.
+
+## Settings & version
+
+`/settings` (reached from the header gear or the Profile screen) has three
+sections: **שפה** (language he/en), **נראות** (the six theme cards), and
+**גרסה** (read-only). The app version is a single source of truth —
+`src/lib/version.ts` (`APP_VERSION`), a plain running integer (no semver) — shown
+in Settings. **Standing rule:** bump it by 1 at the end of every unit of work that
+ends in a commit.
+
+## Tools (sub-apps)
+
+Tools live in `src/tools/<id>/` and follow `docs/Cortex-SubApp-Standard.md`
+(§2 file template). The shell hosts; the tool implements. Each tool is registered
+with `@platform/cortex-core` at startup by `src/cortex/runtime.ts` (the client
+composition root), and its views are mapped in `src/tools/index.ts` (`TOOL_VIEWS`)
+so Home can render it as a pinned tab + dashboard card.
+
+**First tool — Inventory** (`src/tools/inventory/`): `manifest.ts`, `intents.ts`
+(3 zod intents), `logic.ts` (the only code that touches the db client / emits
+events — handlers hold no SQL), `events.ts`, `schema.sql`, `views/`
+(`DashboardCard`, `FullScreen`), `i18n/{he,en}.json`. Opens at `/tools/inventory`.
+Updating a quantity below its reorder threshold emits `inventory.low` (persisted
+to the `events` table via the event-bus) and every call is audited to `ai_log` —
+all through `runIntent`, the one door.
+
+- **Identity** (`src/lib/session.ts` + `src/cortex/build-ctx.ts`): `requireSession()`
+  resolves the signed-in user and their active organization, and **every protected
+  page calls it itself** (never a layout, never the proxy — `src/proxy.ts` only
+  refreshes tokens). `buildCtx(session)` turns that into the `Ctx` passed to
+  `runIntent`; identity travels to client views as props, never a context, and no
+  hard-coded id remains. **Data backend**: the runtime still uses the in-memory
+  `CortexDb` (the same port a Supabase adapter will implement), so the mechanism
+  runs on real identity but not yet on a real database. The DB migration
+  (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
+  applied** — run `db push` yourself.
+- **Acceptance smoke** (no browser/DB needed):
+
+  ```bash
+  pnpm --filter @platform/cortex smoke:inventory
+  ```
+
+  Proves: add product → update below threshold → `inventory.low` lands in
+  `events` + `ai_log` audit rows, via `runIntent`.
+
+## Run it
+
+```bash
+pnpm --filter @platform/cortex dev      # http://localhost:3001
+```
+
+To open it from a **phone on the same Wi-Fi**, serve a production build
+(`build && start`) or use the Vercel URL and open the LAN IP — the dev server
+does **not** work over a LAN IP (see [Local development](#local-development)).
+
+### Install on your phone ("Add to Home Screen")
+
+1. Find your computer's LAN IP (Windows: `ipconfig` → IPv4, e.g. `192.168.1.23`).
+2. Phone on the **same Wi-Fi** → open that LAN IP (e.g.
+   `http://192.168.1.23:3001`) served via a **production build** (`build && start`)
+   or the **Vercel URL**, not the dev server (see
+   [Local development](#local-development)).
+3. **iOS Safari**: Share → *Add to Home Screen*. **Android Chrome**: ⋮ menu →
+   *Add to Home screen* / *Install app*. It launches standalone (no browser
+   chrome) thanks to the manifest.
+4. **Offline caching** (the service worker) requires a **secure context** —
+   `localhost` or **https**. Over a plain-http LAN IP the SW intentionally
+   no-ops (the app still installs and loads). For full offline on a phone, serve
+   over https, e.g. a quick tunnel:
+
+   ```bash
+   npx cloudflared tunnel --url http://localhost:3001   # prints an https URL
+   ```
+
+   Open that https URL on the phone and install — the SW then caches the shell.
+
+## PWA files
+
+- `public/manifest.webmanifest` — name, theme/background colors (from palette),
+  RTL/he, standalone, icon.
+- `public/sw.js` — hand-rolled service worker (network-first navigations,
+  cache-first assets; app-shell precache).
+- `public/icons/icon.svg` — **placeholder** maskable icon. Swap for final
+  PNG art (192/512, and a 180×180 apple-touch-icon) before production.
+
+## Scope (this prompt)
+
+No DB tables/migrations, no real tools, no AI/model calls, no auth. The AI sheet
+`handleSubmit` is a stub that a later prompt wires to `@platform/cortex-core`'s
+`runIntent`.

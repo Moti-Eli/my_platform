@@ -1,0 +1,17 @@
+{
+  "name": "שאלון",
+  "questionCount": "שאלות",
+  "answeredCount": "נענו",
+  "emptyBadge": "אין שאלון",
+  "emptyBody": "אין כאן שאלון",
+  "loadFailed": "טעינת השאלון נכשלה",
+  "openTool": "פתח שאלון",
+  "answerPlaceholder": "כתוב/כתבי את תשובתך…",
+  "save": "שמירה",
+  "saving": "שומר…",
+  "saved": "נשמר",
+  "emptyTitle": "אין כאן שאלון",
+  "emptyHint": "כשתקבל/י הזמנה, השאלון שלך יופיע כאן.",
+  "errorDenied": "אין לך הרשאה לשמור את התשובה.",
+  "errorFailed": "משהו השתבש. נסה שוב."
+}

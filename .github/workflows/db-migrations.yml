@@ -1,0 +1,98 @@
+name: DB Migrations
+
+# Applies packages/db/supabase/migrations to the linked Supabase project.
+# MANUAL ONLY (Actions → DB Migrations → Run workflow, works from the GitHub phone
+# app): nothing runs on push/merge, so a schema change never ships by accident.
+#
+#   apply = false (default) → dry run: lists applied vs pending migrations, changes nothing
+#   apply = true            → runs `supabase db push` (applies the pending ones)
+#
+# The job runs in the `production` GitHub Environment. Configure it in
+# Settings → Environments → production with:
+#   - Required reviewers: the repo owner, so every run waits for their approval
+#     (whoever pressed the button)
+#   - Deployment branches: `main` only
+#   - The three secrets below as ENVIRONMENT secrets, not repository secrets.
+#     Repository secrets are readable by any workflow a collaborator pushes on a
+#     branch; environment secrets are released only after that approval.
+#
+# Required secrets:
+#   SUPABASE_ACCESS_TOKEN  personal access token (supabase.com → Account → Access Tokens)
+#   SUPABASE_PROJECT_REF   the project ref (the <ref> in https://<ref>.supabase.co)
+#   SUPABASE_DB_PASSWORD   the database password (Project Settings → Database)
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply pending migrations (leave unchecked for a dry run)"
+        type: boolean
+        default: false
+
+# Never run two migration jobs against the same database at once.
+concurrency:
+  group: db-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: ${{ inputs.apply && 'Apply' || 'Dry run' }}
+    runs-on: ubuntu-latest
+    environment: production
+    # Secrets are set per step (never job-wide), and the CLI is the exact version
+    # the repo locks (root devDependency `supabase`), run via npx: no third-party
+    # action ever sees the credentials.
+    env:
+      SUPABASE_CLI: supabase@2.105.0
+    defaults:
+      run:
+        working-directory: packages/db
+    steps:
+      - name: Check secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          missing=""
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
+        working-directory: .
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --yes "$SUPABASE_CLI" link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Migration status (local vs remote)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --yes "$SUPABASE_CLI" migration list --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Pending migrations (dry run)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --yes "$SUPABASE_CLI" db push --dry-run --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Apply pending migrations
+        if: ${{ inputs.apply }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --yes "$SUPABASE_CLI" db push --password "$SUPABASE_DB_PASSWORD"

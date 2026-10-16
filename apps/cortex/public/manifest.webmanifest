@@ -1,0 +1,21 @@
+{
+  "name": "Cortex",
+  "short_name": "Cortex",
+  "description": "Cortex — סופר-אפליקציה לניהול העסק שלך.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F6FB",
+  "theme_color": "#5B4CE0",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

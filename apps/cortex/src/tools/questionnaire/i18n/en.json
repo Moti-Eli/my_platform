@@ -1,0 +1,17 @@
+{
+  "name": "Questionnaire",
+  "questionCount": "questions",
+  "answeredCount": "answered",
+  "emptyBadge": "No questionnaire",
+  "emptyBody": "Nothing here yet",
+  "loadFailed": "Couldn't load the questionnaire",
+  "openTool": "Open questionnaire",
+  "answerPlaceholder": "Write your answer…",
+  "save": "Save",
+  "saving": "Saving…",
+  "saved": "Saved",
+  "emptyTitle": "No questionnaire here",
+  "emptyHint": "When you're invited, your questionnaire will appear here.",
+  "errorDenied": "You don't have permission to save this answer.",
+  "errorFailed": "Something went wrong. Please try again."
+}

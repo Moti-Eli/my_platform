@@ -1,9 +1,0 @@
-{
-  "extends": "@platform/config/tsconfig.strict.json",
-  "compilerOptions": {
-    "outDir": "./dist",
-    "baseUrl": "."
-  },
-  "include": ["src"],
-  "exclude": ["node_modules"]
-}

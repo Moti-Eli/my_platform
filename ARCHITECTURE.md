@@ -2,6 +2,11 @@
 
 This document records key architectural decisions and the reasoning behind them.
 
+> **Cortex is the product (see #34).** Decisions #1–#26 were made for the earlier
+> `apps/web` + `apps/mobile` platform, which has been removed. They stay here as
+> history, and the parts that still hold (RBAC, RLS, multi-tenancy, strict TS, CI)
+> still apply. The removed code is recoverable from commit `4e356f2`.
+
 ## 1. Monorepo with Turborepo + pnpm
 
 **Decision:** Use Turborepo for orchestration and pnpm for workspace management.
@@ -713,6 +718,369 @@ The mobile add-user (members screen) and create-org (platform screen) call these
 endpoints; permission-aware UI hides the entry points (the server stays the
 boundary), and the dev temp-password hint is gated by `__DEV__` to mirror the
 server's `NODE_ENV` gate.
+
+## 27. Cortex Super-App Core — A Thin, Contract-Bound Engine (additive package)
+
+**Decision:** Introduce **Cortex**, a super-app platform that *hosts* tools, as a
+**new isolated package** `@platform/cortex-core` — additive, touching no existing
+code. It reuses the existing Supabase project (auth + RBAC schema) but lives in
+its own package and its own tables. The core is a **thin shell with zero business
+logic**: it exposes the shared contract types (`Ctx`, `AppManifest`, `Intent`,
+`Listener`), an in-memory **registry**, a **data-layer** (`runIntent` — the one
+door), and an in-process **event-bus** (`emit`). Built to the binding contract
+`Cortex-SubApp-Standard.md` (§1 types, §6 DB standard, §7 data-layer). This
+milestone is the **core only** — no sub-apps, no UI, no AI model calls.
+
+**The one door.** `runIntent(intentName, input, ctx)` is the ONLY way anything
+(the AI included) reads or writes tool data: resolve intent → **zod**-validate
+input → enforce the manifest's permissions → run `handler(input, ctx)` → write
+the mandatory `ai_log` audit row → **zod**-validate output. Handlers receive a
+ready-made `ctx` (userId, orgId, instanceId) and never fetch identity themselves,
+and never write SQL except through a db client they close over. The event-bus
+persists each event to `events` before dispatching to registered listeners, so
+the emitter is fully decoupled from listeners.
+
+**Framework-agnostic db port.** Like `@platform/db`, the core depends on a tiny
+`CortexDb` port (`insert(table, row)`) rather than on `@supabase/*` — the shell
+supplies a `service_role`-backed adapter (shell writes bypass RLS); tests supply
+an in-memory adapter. The lone new runtime dependency is **zod** (approved).
+
+**Four shell tables (migration `20260714000001`, additive).** `app_definitions`
+(the global tool catalog — no owner, authenticated-readable like `permissions`),
+`app_instances` (an owned/placed instance — polymorphic `owner_id`, nullable
+`org_id`), `events` (the bus log), `ai_log` (the audit trail). RLS follows
+Standard §6's **SELECT** pattern — `owner_id = auth.uid()` OR member of `org_id`,
+via the existing recursion-safe `private.auth_user_is_member_of` helper (§6's
+"permitted, preferred deviation" over inline subqueries). §6's owner/manager
+**WRITE** rule is explicitly scoped to *tool* tables; there are none yet, so
+these shell tables get **no client write policies** — writes run server-side as
+`service_role` through the data-layer, matching the repo's established
+open-writes-one-reviewed-path-at-a-time convention (#11). Tool-table write
+policies land with the first tool table in a later migration.
+
+**Reasoning:** A super-app that must host many independently-shipped tools needs
+a rigid, auditable contract at its center — one door for all data access (so
+every AI/tool read/write is validated and logged in `ai_log`), and event/intent
+indirection (so tools never reference each other). Keeping the core free of
+business logic and isolated in its own package honors the monorepo philosophy and
+makes each tool an independent unit. Reusing the existing membership helper for
+RLS keeps Cortex's tenant isolation identical to the rest of the platform rather
+than inventing a parallel mechanism.
+
+**Status / sequencing:** Core engine + the four shell tables delivered.
+`packages/cortex-core` typechecks under strict mode and its smoke demo passes
+end-to-end (registry + runIntent + event-bus + `ai_log`/`events` writes,
+in-memory). The migration file is **written but not yet applied** to the cloud
+project (apply is a separate, reviewed step). Sub-apps, the generative
+`app_records` table, tool tables (with §6 write policies), and any AI wiring are
+deliberately deferred to later prompts.
+
+---
+
+## 28. Cortex Shell UI — A Separate Phone-First PWA App (additive)
+
+**Decision:** Build the Cortex shell as a **new, isolated Next.js app**
+`apps/cortex` (`@platform/cortex`), not as a route inside `apps/web`. It is
+phone-first (centered on desktop), **RTL Hebrew** (`<html lang="he" dir="rtl">`),
+and an installable **PWA**. This milestone is the **visual frame only** — no real
+sub-apps, no AI/model calls: Home and Profile are empty shells, and the AI hero
+button and urgency bell open empty-shell overlays.
+
+**Why a separate app (not a route in `apps/web`).** The requirement is strict
+isolation from existing web/mobile code, and a PWA needs app-root control
+(manifest, service worker, viewport/theme, a single-purpose layout). Adding this
+inside `apps/web` would entangle its `[locale]` layout, next-intl setup, and
+root — and a service worker there would affect the landing/dashboard. A separate
+app keeps the blast radius zero and lets Cortex evolve its own shell. Cost: its
+own `package.json` (reusing the repo's existing `next`/`react`/Tailwind versions
+— no new resolutions) and port (`3001`, so web on `3000` and Cortex can run
+together).
+
+**Design system as the single source of truth.** Per the Standard's "design &
+language are consumed, not invented", the palette/radii/shadows/font live in
+`@/design-system` (`src/design-system/tokens.ts`). `tokenStylesheet()` emits them
+as `:root` CSS variables; `globals.css` maps Tailwind utilities onto those via
+`@theme inline` — the exact pattern `@platform/config` uses for web theming.
+Components use utilities (`bg-indigo`, `rounded-xl`, `shadow-soft`) and **never
+hard-code colors**, so a token change reflows everywhere.
+
+**Tab bar with AI as hero.** Five slots in RTL order — Home, כל הכלים (catalog),
+**AI hero** (center), צ'אט (comms), Profile. The four corners are route links
+(`/`, `/catalog`, `/comms`, `/profile`) with active state from `usePathname`; the
+center AI is a larger, elevated button (it is not a route) that opens a bottom
+sheet. The AI sheet's submit is a **stub** — a later prompt wires it to
+`@platform/cortex-core`'s `runIntent` so the assistant acts through the one door.
+
+**PWA hand-rolled, no library.** A static `manifest.webmanifest` plus a small
+`sw.js` (network-first navigations, cache-first assets, app-shell precache),
+registered client-side. Chosen over a build plugin to add zero dependencies and
+keep the SW auditable. Because browsers restrict service workers to a **secure
+context**, the registration no-ops over a plain-http LAN address (the app still
+loads and installs); full offline needs `localhost` or https (a tunnel) — this is
+a browser constraint, documented for the on-phone install flow. Icons are
+placeholders (SVG) to be replaced with final PNG art pre-production.
+
+**Reasoning:** Keeping the shell a thin, isolated, token-driven frame mirrors the
+core's philosophy (#27): the shell hosts, it does not implement. Verified at
+runtime — `dir="rtl" lang="he"`, all screens return 200, and the manifest/service
+worker are served — in addition to typecheck, lint, and a production build.
+
+**Status / sequencing:** Frame delivered. Deferred to later prompts: Home/Profile
+content, wiring the AI sheet to `runIntent`, the tool catalog, and real
+comms/notifications. No DB changes in this milestone.
+
+---
+
+## 29. Cortex Settings — Client i18n, Token-Set Themes, Cookie-Persisted, Versioned
+
+**Decision:** Give the Cortex shell a Settings screen with three concerns —
+**language** (he/en), **appearance** (light/dark themes), and a read-only **app
+version** — using a **client-side typed i18n dictionary** and a **theme = token
+set** mechanism, both **persisted in cookies** and read server-side for a
+flash-free first paint. Additive to `apps/cortex` only.
+
+**i18n: a typed client dictionary, not next-intl.** `apps/web` uses next-intl,
+which is built around **locale-prefixed routing** and server message loading.
+The Cortex shell is a single installable PWA where the user picks a language in
+Settings and it persists locally, switching **live with no route change** — the
+routing model doesn't fit. So Cortex uses a minimal `src/i18n/` layer: `he`/`en`
+dictionaries, a `useI18n()` context exposing a **type-checked** `t("ns.key")`,
+and `dir` that follows the language. It adds no dependency and keeps every UI
+string out of components. (If a third locale or richer pluralization is ever
+needed, this can graduate — but it isn't now.)
+
+**Themes are alternate token sets, not new CSS.** Building on decision #28's
+design-system, a theme is just a different set of `--ds-*` values. `themes`
+holds `light` (default) and `dark`; `themeStylesheet()` emits each under
+`[data-theme="…"]`, structural tokens stay on `:root`, and switching flips
+`data-theme` on `<html>`. Because components only use token-driven utilities,
+adding Midnight/Aurora/Parchment later is **one new entry in `themes`** with zero
+component changes — the property the prompt asked for.
+
+**Cookie persistence, read server-side.** Language and theme are stored in
+cookies (not localStorage) and read in the root layout, so the very first server
+paint already has the correct `lang`/`dir`/`data-theme` — no flash, no hydration
+mismatch. This mirrors the web app's theming approach (#12) and is the "saved on
+this device" behavior. Consequence: the shell routes are now server-rendered on
+demand (reading cookies opts out of static prerender) — appropriate for an app
+shell.
+
+**Single-source version + a standing bump rule.** The app version lives in ONE
+place — `apps/cortex/package.json`'s `version` — and the UI reads it via
+`@/lib/version` (`APP_VERSION`), never hard-coding it twice. Adopted as a
+**standing rule for all Cortex work**: bump `package.json` (semver) at the end of
+every unit of work that ends in a commit — patch for fixes, minor for a new
+feature/tool, major only at a real user release. This Settings feature bumped
+Cortex **0.1.0 → 0.2.0**, shown in Settings as "גרסה 0.2.0".
+
+**Reasoning:** Keeping i18n and theming as thin, client-persisted, token-driven
+layers matches the shell's "frame, not logic" role (#27/#28) and the design-
+system-consumes-not-invents principle. Choosing a typed dictionary over next-intl
+avoids restructuring the app around locale routes for a preference that is really
+a toggle. Verified at runtime: `lang`/`dir` and copy switch he↔en, dark theme
+applies via `data-theme`, and Settings shows the single-sourced version — plus
+typecheck, lint, and a production build.
+
+**Status / sequencing:** Delivered. No DB changes, no sub-apps, no AI calls. More
+themes and localized metadata can follow additively.
+
+---
+
+## 30. Cortex Inventory — the First Sub-App (reference tool)
+
+**Decision:** Build **Inventory** as the first real Cortex tool and the reference
+implementation every future tool copies, following `docs/Cortex-SubApp-Standard.md`
+exactly: the §2 file template (`manifest.ts`, `intents.ts`, `schema.sql`,
+`logic.ts`, `events.ts`, `views/`, `i18n/`), the manifest/intents/events formats,
+the §6 three-mandatory-fields + RLS, and the §7 one-door data-layer. Additive to
+`apps/cortex` + `@platform/cortex-core`; touches no existing web/mobile/chat/auth
+code. A thin-but-complete vertical slice that exercises the whole mechanism on
+minimal content — not a full inventory product.
+
+**The one door, everywhere.** The three intents (`inventory.query_stock`,
+`inventory.update_quantity`, `inventory.add_product`) are zod-validated in and
+out and run only through `runIntent`, which writes the mandatory `ai_log` audit
+row. Handlers contain **zero SQL** — they delegate to `logic.ts`, the only place
+that touches the provided db client or emits events. `update_quantity` emits
+`inventory.updated` and, when the new quantity drops below the reorder threshold,
+`inventory.low {product, quantity, threshold}` — persisted to `events` before any
+listener runs. There are no listeners yet; the emitting tool is fully decoupled
+from whoever will later react (tasks, finance, notifications).
+
+**Core additions (additive).** `@platform/cortex-core` gained the `defineIntent`
+/ `defineListener` authoring helpers the standard's §4/§5 use, a `listApps()` for
+the shell to enumerate registered tools, and `select`/`update` on the `CortexDb`
+port (the core itself still only `insert`s; tool logic reads/updates its own
+table through the same one client — never raw SQL).
+
+**Real identity + in-memory backend (the fence has moved).** Cortex now
+authenticates: `requireSession()` (`src/lib/session.ts`) resolves the signed-in
+user and their active organization through the RLS-scoped client, and EVERY page
+calls it itself — not a layout, not the proxy, because a guard that runs once and
+is then trusted is no guard. `Ctx` is built from that session by `buildCtx`, and
+identity reaches client views as props (never a React context, which would be
+somewhere it could be read without a guard having run). No hard-coded context
+remains. `instanceId` stays null — audit metadata only, until installed-apps
+moves off localStorage. What is still fenced is the DATA backend: the runtime
+uses the in-memory `CortexDb` (the SAME
+port a Supabase adapter will implement), so `runIntent`/`emit`/`ai_log`/`events`
+all exercise the real mechanism. The **schema migration is written but not
+applied** (`20260714000002_inventory_items.sql`); the owner runs `db push`.
+
+**RLS write policy — deferred, consistent with #27/#11.** `inventory_items`
+carries the three mandatory fields, indexes on `(instance_id)`/`(org_id)`, and a
+SELECT policy (`owner_id = auth.uid()` OR `auth_user_is_member_of(org_id)`). §6's
+`role in ('owner','manager')` write policy is **not expressible** in this repo —
+`memberships` has no `role` column (roles live in `roles`/`membership_roles` with
+`is_admin`) — so, matching the established convention, there is **no client write
+policy**; tool writes go through the data-layer as `service_role` until Cortex
+auth and a reviewed permission-checked write policy land.
+
+**Design & language consumed, not invented.** Both views (`DashboardCard`,
+`FullScreen`) are built only from design-system token utilities (amber accent
+from the palette) and i18n `t()` keys — zero hard-coded colors or text. The
+tool ships `i18n/he.json` + `en.json`, merged into the central typed dictionary
+under the `inventory` namespace (§8). Home renders pinned tools from the registry
++ a `TOOL_VIEWS` map: the tool shows as a tab + dashboard card and opens a full
+screen at `/tools/inventory`.
+
+**Reasoning:** Proving the entire contract on one small tool establishes the
+copy-paste pattern and validates that the platform's promise — uniform AI access,
+audited writes, decoupled events, tenant-isolated tables — actually holds. Doing
+it in-memory behind the real `CortexDb` port keeps it runnable pre-auth while the
+migration encodes the real DB standard for when auth arrives.
+
+**Verified:** the §9 checklist; an acceptance smoke
+(`pnpm --filter @platform/cortex smoke:inventory`) proving add → update-below-
+threshold → an `inventory.low` row in `events` + `ai_log` audit rows via
+`runIntent`; typecheck + lint + build; and the routes render he/en. Cortex version
+bumped **0.2.0 → 0.3.0** (new feature) per #29, shown in Settings.
+
+**Status / sequencing:** Delivered, and auth has since landed (login +
+`requireSession()` + per-page guards; `Ctx` from the real session). No second
+tool, no listeners yet, and the backend is still the in-memory `CortexDb`. Next:
+swap that for a Supabase-backed adapter, wire the AI sheet to `runIntent`, then a
+second tool + the first cross-tool `inventory.low` listener.
+
+---
+
+## 31. Candidate Portal — Isolated End-User Provisioning
+
+**Decision:** Provisioning an end-user who is NOT an org member (a candidate given
+a login to answer a questionnaire) is a fixed pipeline in
+`apps/cortex/src/tools/candidates/invite-core.ts` — framework-free, so the exact
+function runs both behind the `candidates.invite` intent and in the verification
+harness. The order IS the design. (a) Read the parent-side record through the
+RLS client — the candidates permission gate authorizes it for free. (b) If the
+record is already linked, re-issue a link ONLY and stop — invite is **idempotent**
+("invite" and "resend" are one action). Otherwise: (c) `createChildOrgWithMember`
+(`@platform/auth`) mints an isolated **child org** plus a login **user** under it
+with a random, never-disclosed password; (d) **materialize** the end-user's rows
+(the questionnaire snapshot) in THEIR child org, owned by THEIR user; (d.5)
+**install** their tool by inserting one `app_instances` row (definition resolved by
+key; a missing seed is a hard error → compensate); (e) THE COMMIT POINT, last on
+purpose — write the link column (`candidates.candidate_user_id`) on the parent-side
+record; (f) mint OUR OWN recovery link from `generateLink`'s `hashed_token`, never
+GoTrue's `action_link`. **Compensation is org-then-user:** on any failure delete
+the child org FIRST (its `org_id ON DELETE CASCADE` clears the answers and the
+install), THEN the auth user — because `candidate_answers.owner_id → public.users`
+is `NO ACTION`, so a user-first delete would be blocked. A failed invite never
+leaves an orphan org / user / rows / install.
+
+**Geography is the security.** The end-user's rows live in the child org (migration
+`20260727000001`); a recruiter in the PARENT reads and writes them by DOWNWARD tree
+inheritance (a member of an ancestor is a member of any descendant's tree), a
+sibling child org sees nothing (inheritance only flows down), and losing membership
+loses access. There are **no bespoke candidate policies** — the ordinary org-tree
+`auth_user_can_read` / `can_write` say exactly the right thing purely because of
+WHERE the rows sit. `question_text` is a denormalized snapshot (the question bank
+lives in tool code) so re-wording it later never rewrites what a candidate was asked.
+
+**The door.** The self-built link is
+`/confirm?token_hash=…&type=recovery&next=<encoded onward target>`, and the onward
+target nests one hop: `next=/set-password?next=/tools/questionnaire`. `/confirm`
+(a route handler) exchanges the hash via `verifyOtp` — the SSR client writes the
+session cookies as a side effect — then redirects to `next` (default
+`/set-password`). `/set-password` guards on `getCurrentUser`, NOT `requireSession`
+(which would bounce an org-less recovering user to `/no-organization`), then either
+sets the password or **skips** (the session is already live, so skip keeps the temp
+password and just navigates on) and redirects to its own `next`. Both hops sanitise
+through the single `apps/cortex/src/lib/safe-next.ts` `safeRelativePath(raw,
+fallback)` — a same-origin relative path only (query strings allowed; `//` and
+`/\` off-site tricks rejected) — never trusting a URL param or a form field.
+
+**Known deliberate gaps.** `candidate_answers` is gated by org-tree membership
+alone, NOT the `candidates.access` permission that fences the `candidates` table —
+so any parent-tree member can currently read answers; this closes when a real
+non-admin recruiter role lands and the check is composed on. Recovery links expire
+~1h (GoTrue `otp_expiry`); the idempotent resend covers a stale one. Email delivery
+is manual until SMTP is wired — `generateLink` returns the link in the response and
+the recruiter copies+sends it from the card.
+
+**Template, don't copy.** This shape — isolated child org + user, rows in their
+own org, tool installed, the parent-side link written LAST, a self-built recovery
+door — is the reference for every future OUTSIDER persona (e.g. clients). When the
+second one lands, **extract** the shared mechanism; don't fork `invite-core.ts`.
+
+## 32. Persona Placement — Members vs. Child Orgs
+
+**Decision:** Every provisioned person answers one question — insider or outsider.
+An EMPLOYEE is an insider: a member of the business org itself. Their isolation
+rides the two existing axes, no third mechanism. Per-role tool gating
+(`auth_user_has_permission` / the `*.access` keys) decides which tools they can
+enter; born-private rows (`auth_user_can_read`, owner-or-tree-admin) decide which
+rows they see inside those tools. A CANDIDATE — and future clients — is an
+outsider: a child org per person, where the isolation IS the org boundary itself
+(#31). The persona picks the boundary; the boundary is never bespoke.
+
+**Consequence for provisioning.** The generic core extracted from `invite-core`
+must take the org step as a **strategy parameter** — "create child org" for an
+outsider vs. "join existing org" for an insider (`createUser` → `addMemberToOrg`,
+with simpler compensation because there is no org to delete). The door, the link
+building, and the idempotency guard are shared across both; only the org step
+differs.
+
+**Why it splits here.** An employee must appear in staff, receive a role, and
+report INTO the business org — the manager's team table reads same-org rows, so an
+employee outside the org is invisible to their own manager. A candidate must never
+be a member: their whole point is a fenced org of one. Same pipeline, opposite
+placement.
+
+---
+
+## 33. Migrations Run From GitHub, Manually, Dry-Run First
+
+**Decision:** Supabase migrations are applied by a `workflow_dispatch`-only
+GitHub Action (`db-migrations.yml`). It dry-runs by default and applies only when
+`apply` is ticked. The job runs in the `production` GitHub Environment, whose
+required reviewer is the repo owner. Credentials are environment secrets, released
+only after that approval.
+
+**Reasoning:** Development moves to GitHub and cloud Claude Code sessions with
+more than one maintainer, so applying migrations can't depend on one person's
+laptop and its local `.env`. Keeping it manual, and not run on merge, means a
+schema change is always a deliberate step: the dry run shows exactly what is
+pending first. The environment gate means any collaborator can prepare and
+trigger a run, but production changes only with the owner's approval. Repository
+secrets would not do this: any workflow pushed on a branch could read them.
+
+---
+
+## 34. Cortex Is the Product — Legacy Web/Mobile Removed
+
+**Decision:** The repo now holds a single app, `apps/cortex`, and only the
+packages it uses (`cortex-core`, `auth`, `db`, `config`). `apps/web`,
+`apps/mobile`, `packages/{core,ui,i18n,observability}`, FEATURES.md and the
+web-only verification scripts were deleted. The database schema is untouched,
+because Cortex runs on the same RBAC/RLS tables. The last commit with the old
+apps is `4e356f2`.
+
+**Reasoning:** All active work is Cortex. Keeping two dormant apps doubled CI
+and lint/typecheck surface, confused new sessions about what "the app" is, and
+dragged in conflicting dependencies (Expo's `@types/react` broke the Cortex
+typecheck in CI). Git history keeps everything recoverable.
+
+---
 
 ## Future Considerations
 

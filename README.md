@@ -1,515 +1,136 @@
-pnpm --filter @platform/mobile start
+# Cortex
 
-# my-platform
+A phone-first **super-app** for running a business: one installable PWA (RTL
+Hebrew, he/en) that hosts many small tools on a shared, multi-tenant,
+permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 
-Multi-domain business management platform built with Turborepo + pnpm.
-
-A production-ready monorepo skeleton designed to scale across multiple business domains with shared infrastructure, authentication, and design systems.
+> The repository is still named `my_platform` for historical reasons. The earlier
+> `apps/web` + `apps/mobile` platform was removed (ARCHITECTURE.md #34). It is
+> recoverable from commit `4e356f2`.
 
 ## 📋 Current Status
 
-**Phase 0: Infrastructure Setup** ✅
-- Monorepo structure with Turborepo + pnpm workspaces
-- Shared configuration and design tokens
-- TypeScript strict mode everywhere
-- Placeholder apps (Next.js web, Expo mobile)
-- Conventional Commits readiness
+- **Shell:** tab bar, AI sheet and urgency bell (placeholders), catalog,
+  profile, settings (language, theme, version), PWA install and offline shell.
+- **Auth & tenancy:** Supabase login, multi-org with org switching, RBAC
+  (roles → permissions), row-level access (`visibility` + `record_grants`)
+  enforced by Postgres RLS.
+- **Tools** (`apps/cortex/src/tools/`): inventory, tasks (filters, week view,
+  categories, urgency), notes, expenses, journal, staff, candidates (admin-only)
+  + questionnaire, time entries, orders (suppliers, catalog, WhatsApp order),
+  shifts (positions, employees, weekly shifts, staffing requirements).
+- **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
+  the manual **DB Migrations** workflow (see below).
+- **CI:** lint, typecheck and build on every push to `main` and every PR. There
+  are no automated tests yet.
 
-**Phase 1: Database — Multi-Tenant RBAC** ✅
-- ✅ Step 1: Core RBAC schema migration (organizations, users, memberships,
-  roles, permissions, and join tables) with DB-level same-organization
-  integrity on role assignments — **applied to the Supabase cloud project**
-  (migration `20260605000001`) — see `packages/db/SCHEMA.md`
-- ✅ Step 2: Row Level Security enabled on all 7 tables with org-membership
-  tenant-isolation policies (read-only for now) — **applied to the Supabase
-  cloud project** (migration `20260605000002`)
-- ✅ Step 2b: Global `permissions` catalog made publicly readable for the
-  web health check (migration `20260608000001`)
-
-**Phase 2: Web App Skeleton** ✅
-- ✅ `apps/web` scaffolded: Next.js 16 (App Router, Turbopack), TypeScript
-  strict, wired to the shared `@platform/*` packages
-- ✅ i18n via next-intl: locale-prefixed routing (`/he`, `/en`, `he` default),
-  dynamic `dir` (RTL/LTR), translations sourced from `@platform/i18n`
-- ✅ Token-driven theming (Tailwind v4 + CSS variables from `@platform/config`),
-  two themes switchable at runtime, persisted via cookie (SSR-safe)
-- ✅ Supabase wiring (`@supabase/ssr`) with a working home-page health check
-
-**Phase 3: Authentication & RBAC** ✅
-- ✅ `@platform/auth`: email/password sign-in, sign-out, current user, and RBAC
-  resolution (org membership → roles → effective permissions; admin ⇒ all)
-- ✅ Login page (`/[locale]/login`) — polished to match the landing page
-  (display serif, background atmosphere, centered card), with a home wordmark +
-  "back to home" link, language switcher and theme toggle, and translated error
-  handling (he/en, RTL/LTR, both themes)
-- ✅ Protected dashboard (`/[locale]/dashboard`) showing the user's org(s) and
-  role(s); logged-out access redirects to login; logout clears the session
-- ✅ Session refresh in the proxy (`@supabase/ssr`) composed with next-intl
-
-**Phase 4: Admin Member Management** ✅
-- ✅ DB-enforced write path: `members.manage` permission gates `membership_roles`
-  writes via RLS (migration `20260608000003`)
-- ✅ Member-management screen (`/[locale]/dashboard/members`): polished,
-  token-driven members table; change a member's role (Admin ↔ Member)
-- ✅ Permission-aware UI: editing controls show only if the user has
-  `members.manage` (via `@platform/auth` `hasPermission`); otherwise read-only.
-  Writes go through the authenticated client so RLS is the real enforcer
-- ✅ "Can't remove the last admin" guard (UI-level; DB-level guard is a TODO)
-- ✅ **Add user to organization**: an admin (anyone with `members.manage`) can
-  create a new user — email + display name + initial role — via an accessible,
-  i18n/RTL modal. Runs in a **server action** with the secret key (the one path
-  that needs `service_role`, to create the `auth.users` row), behind a
-  mandatory server-side permission re-check; the secret key is confined to a
-  `server-only` module and never reaches the client. No cross-org creation;
-  duplicate emails surface a translated error. See ARCHITECTURE.md #16.
-
-**Phase 5: Platform Owner (Super Admin)** ✅
-- ✅ PART 1 — data layer: `platform_admins` allowlist table (PK → `auth.users`),
-  an access level **above** org admins (migration `20260609000001`, applied to
-  cloud). **Sealed & not self-assignable**: RLS + no policies + `REVOKE ALL` from
-  anon/authenticated → only the server-side `service_role` can grant ownership.
-  `auth_user_is_platform_owner()` `SECURITY DEFINER` RPC (caller-only boolean).
-  Server-side `createOrganizationWithFirstAdmin` in `@platform/auth` (owner
-  re-checked server-side; atomic-ish with rollback). **No new cross-org RLS** —
-  super-admin power is server-side only, so tenant isolation is unchanged.
-- ✅ PART 2 — super-admin UI (`/[locale]/platform`): a **platform-owner-only**
-  screen that lists **all** organizations (name, member count, created date) and
-  creates a new org + first admin (accessible modal, i18n he/en, RTL/LTR, both
-  themes). The route is **guarded server-side** on `isPlatformOwner` (non-owners
-  are redirected to `/dashboard`); the all-orgs listing is fetched with the
-  **service-role client only after** that guard passes (the publishable client
-  can't read across orgs by design). The create server action re-checks ownership
-  server-side before acting. The dashboard shows a "Platform admin" nav link only
-  to owners. See ARCHITECTURE.md #17.
-
-**Phase 6: Internal Org Chat (Realtime)** ✅
-- ✅ PART 1 — data layer: `messages` table (org-scoped; `sender_id` →
-  `auth.users`) with RLS (migration `20260609000002`, applied to cloud). **SELECT**
-  is members-only (`auth_user_is_member_of`); **INSERT** requires org membership
-  **and** `sender_id = auth.uid()` (anti-forgery — you can only post as
-  yourself); messages are immutable (no update/delete). Verified live (6/6):
-  cross-org read/insert denied, forged sender rejected.
-- ✅ PART 2 — realtime chat UI (`/[locale]/dashboard/chat`): server-rendered
-  recent history + a **Supabase Realtime** (Postgres Changes) subscription so new
-  messages appear live. Sends go through the authenticated client (RLS enforces
-  the sender). Token-driven bubbles distinguish your own messages, i18n (he/en),
-  RTL/LTR, both themes. Realtime is added to the `supabase_realtime` publication
-  (migration `20260609000003`). **Socket tenant isolation is RLS-enforced and
-  verified (5/5)**: same-org users get each other's messages live; a cross-org
-  client (even tampering its filter) receives nothing. See ARCHITECTURE.md #18.
-
-**Phase 7: Pre-production Hardening** 🚧 (in progress)
-- ✅ Stripped `TRUNCATE/TRIGGER/REFERENCES` from `anon`/`authenticated` on all
-  tables + future-table defaults (migration `20260609000004`)
-- ✅ DB-level **last-admin guard**: a deferred constraint trigger rejects removing
-  an org's last admin even via a direct privileged call (migration `20260609000005`)
-- ✅ Covering indexes for the `membership_roles` and `messages` foreign keys —
-  performance advisor's unindexed-FK findings cleared (migrations `…06`, `…07`)
-- ✅ **Soft deletes** (`deleted_at`) for `organizations`, `memberships`,
-  `messages`: soft-deleted rows are hidden from normal reads via the RLS helpers
-  (tenant isolation unchanged), rows retained for history/recovery; `users`
-  deliberately deferred (migration `20260610000001`). See ARCHITECTURE.md #19.
-- ✅ **Observability** (`@platform/observability`): vendor-agnostic structured
-  logging + error reporting, with an optional env-activated **Sentry** adapter and
-  built-in secret/PII redaction. App code never imports a vendor SDK directly. See
-  the Observability section below + ARCHITECTURE.md #20.
-- ✅ **User-facing error states**: calm, localized (he/en, RTL/LTR, themed) error
-  boundary (`error.tsx`) + 404 (`not-found.tsx`, via a `[...rest]` catch-all);
-  no stack traces/raw messages ever reach the user (logged instead); form/action
-  flows show translated errors + pending/loading feedback. See ARCHITECTURE.md #21.
-- ✅ **Input length limits** (`deleted_at`-style DB enforcement): CHECK constraints
-  bound user-supplied text (`messages.content` ≤ 4000; org/role names and
-  `display_name` ≤ 200) and forbid empty/whitespace-only values — enforced at the
-  database so the UI's bypassable `maxLength` is not the only guard (migration
-  `20260610000002`). Closes security-review M1/L2. See ARCHITECTURE.md #24.
-- ✅ **Authenticated admin API for mobile** (`/api/admin/members`,
-  `/api/admin/organizations`): the two privileged operations (add user to org,
-  create org + first admin) exposed as Bearer-token POST route handlers in
-  `apps/web`. The shared authorize-then-act logic (`apps/web/src/lib/admin/`) is
-  called by **both** the web server actions and these handlers (zero duplication);
-  token validated server-side, `members.manage`/owner re-checked on an RLS-scoped
-  client before the secret key is touched. Plus a **GET** on the organizations
-  endpoint for the owner's all-orgs list (active only). The **mobile app is wired
-  to all of these** (`apps/mobile/lib/admin-api.ts`): add-user, create-org, and
-  the platform-owner screen. Verified 17/17 (`scripts/verify-admin-api.mjs`):
-  401/403/400/409/405 paths, tenant isolation, rollback, the 3 GET checks, and
-  secret-key-absent-from-bundle. See ARCHITECTURE.md #26.
-- ✅ **Mobile Home design shell** (`apps/mobile/home/`): the post-login Home is
-  now a single shared screen — top bar, date strip, capability-filtered
-  "coming soon" cards (local `HOME_CARDS` registry with the same
-  ownerOnly/requiredPermission gate semantics as `@platform/core` FEATURES),
-  and a presentational tab bar. Capabilities resolve once on load via
-  `@platform/auth`; filtering is UI convenience only (no destinations behind
-  the cards yet). Existing functionality stays reachable: the avatar signs out
-  (confirm → `@platform/auth` signOut → landing) and the menu opens a
-  provisional drawer linking to the existing members/chat/platform screens,
-  gated as before (org membership / owner). Route is a thin shell
-  (`app/home.tsx`); tokens-only styling, he/en + light/dark.
-- ✅ **Dashboard restyled with the Home-shell design**
-  (`apps/web/src/features/dashboard/`; the temporary `/[locale]/home` preview
-  page was folded into it and deleted): the existing dashboard keeps ALL its
-  behavior — logout (same server action), navigation to the real chat /
-  members / platform screens, signed-in-as + organizations/roles info, and the
-  login→dashboard redirect — now rendered as capability-filtered cards
-  (`DASHBOARD_CARDS`, registry gate semantics + the old nav's org-membership
-  rule; capabilities resolved server-side). Chat/members/platform cards
-  navigate to the existing screens (each still enforces its own access);
-  schedule/tasks stay "coming soon" placeholders. NOTE: the Manage-members
-  card is now shown only with `members.manage` (plain members no longer see
-  the link; the members screen itself is unchanged). Responsive (bottom dock
-  on phones, side rail on desktop), token-driven Tailwind only, he/en +
-  light/dark.
-- ⏳ Deferred to pre-production: enable leaked-password protection (HIBP, needs a
-  Pro plan) + switch to a strong dev password — tracked as one combined step.
-  Plus application-level **rate limiting** and the **launch-gate checklist** —
-  see `packages/db/SCHEMA.md` "Deferred / pre-production".
-
-**Coming Next:**
-- Mobile screens (login, navigation) — STEP 1 skeleton is in place
-- Feature development
+Detailed build order, decisions and open work: [`docs/Cortex-Roadmap.md`](./docs/Cortex-Roadmap.md).
 
 ## 🏗️ Project Structure
 
 ```
-my-platform/
+my_platform/
 ├── apps/
-│   ├── web/          (Next.js 16 app: i18n, RTL, theming, Supabase)
-│   └── mobile/       (Expo SDK 54 + Expo Router: shares packages, login + session persistence)
+│   └── cortex/        The app: Next.js App Router PWA (shell + tools)
 ├── packages/
-│   ├── config/       (ESLint, TS configs, design tokens, Prettier)
-│   ├── core/         (Business logic, types, API client)
-│   ├── auth/         (RBAC, permissions, Supabase wrapper)
-│   ├── i18n/         (Translations: English, Hebrew)
-│   ├── ui/           (Shared UI components)
-│   └── db/           (Supabase client, schema, migrations)
-├── turbo.json        (Turborepo pipeline configuration)
-├── pnpm-workspace.yaml
-├── package.json
-└── docs/             (Documentation)
+│   ├── cortex-core/   Engine: registry, runIntent data-layer, event-bus, contracts
+│   ├── auth/          Authentication + RBAC helpers (Supabase)
+│   ├── db/            Supabase client factories, migrations, seed/verify scripts
+│   └── config/        TS configs, ESLint, Prettier, design tokens
+├── docs/              Cortex standard, new-tool runbook, roadmap
+└── .github/workflows/ ci.yml (checks) · db-migrations.yml (manual migrations)
 ```
 
-## 🚀 Quick Start
+## 🔁 How We Work
 
-### Prerequisites
-- Node.js >= 18.17.0
-- pnpm >= 9.0.0
+Development happens through **GitHub only**, usually in cloud Claude Code
+sessions, often from a phone:
 
-### Installation
+1. Each change goes on a **branch**, which becomes a **PR**.
+2. CI must be green. The PR gets a **Vercel preview** URL to check on a phone.
+3. **Merge to `main`** deploys to production.
+4. Schema changes are applied deliberately with **DB Migrations**: dry run first,
+   then apply.
+
+## 🚀 Running Locally (optional)
+
+Requires Node ≥ 20.9 and pnpm 9.
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Start development servers (all packages in parallel)
-pnpm dev
-
-# Run linting across all packages
-pnpm lint
-
-# Run TypeScript type checking
-pnpm typecheck
-
-# Build all packages
-pnpm build
+# Put NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY and
+# SUPABASE_SECRET_KEY in apps/cortex/.env (see .env.example and apps/cortex/README.md)
+pnpm --filter @platform/cortex dev     # http://localhost:3001
 ```
 
-### Project Commands
-
-| Command | Description |
-|---------|-------------|
-| `pnpm install` | Install all dependencies |
-| `pnpm dev` | Start all dev servers in parallel |
-| `pnpm build` | Build all packages |
-| `pnpm lint` | Run ESLint across all packages |
-| `pnpm typecheck` | Run TypeScript type checking |
-| `pnpm format` | Format code with Prettier |
-| `pnpm seed` | Seed dev test data (2 orgs + users) — see `packages/db` |
-| `pnpm clean` | Remove node_modules and lock file |
-
-## 📦 Package Guide
-
-### `@platform/config`
-Shared configuration for the entire platform:
-- Design tokens (colors, spacing, radii, fonts)
-- TypeScript configurations (strict mode enabled)
-- ESLint rules
-- Prettier formatting
-
-### `@platform/core`
-Core business logic and types:
-- Shared TypeScript interfaces
-- Business entities
-- API client utilities
-- Data transformations
-
-### `@platform/auth`
-Authentication and authorization (UI-agnostic; takes a Supabase client):
-- `signIn` / `signOut` / `getCurrentUser`
-- RBAC resolution: `getUserOrganizations`, `getEffectivePermissions`,
-  `hasPermission` (admin role ⇒ all permissions)
-- Runs as the current user, so RLS enforces tenant isolation
-
-### `@platform/i18n`
-Internationalization and translations:
-- English (en)
-- Hebrew (he)
-- Built-in language support structure
-
-### `@platform/ui`
-Shared UI component library:
-- Platform-agnostic components
-- Accessible by default
-- Design token integration
-
-### `@platform/db`
-Database layer:
-- Supabase client wrapper
-- Schema definitions — see [`packages/db/SCHEMA.md`](./packages/db/SCHEMA.md)
-- Migration management — multi-tenant RBAC core schema (Step 1) lives in
-  `packages/db/supabase/migrations/`
-
-### `@platform/web`
-Next.js 16 web application (App Router, Turbopack, TypeScript strict):
-- Locale-prefixed i18n via next-intl (`/he`, `/en`; `he` default; RTL/LTR)
-- Token-driven theming (Tailwind v4 + CSS variables), runtime theme switch
-- Supabase wiring via `@supabase/ssr` (browser + server clients)
-- Consumes `@platform/config`, `@platform/i18n`, `@platform/db`, `@platform/ui`
-
-**Running it:**
-
 ```bash
-# 1. Provide Supabase env in apps/web/.env.local:
-#      NEXT_PUBLIC_SUPABASE_URL=...
-#      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...   # safe for the client
-#      SUPABASE_SECRET_KEY=...                    # server-only; needed for the
-#                                                 # admin "Add user" action.
-#                                                 # No NEXT_PUBLIC_ prefix, so it
-#                                                 # is never shipped to the browser.
-# 2. From the repo root:
-pnpm dev            # starts the web dev server (http://localhost:3000 -> /he)
-```
-
-The home page (`/[locale]`) is a polished **landing page** explaining the project
-to semi-technical partners — hero, "what this is", architecture, security, and a
-fenced **demo-access** section listing the seeded logins so partners can sign in
-and explore. It's **temporary/demo** content (real product marketing replaces it
-later), and the old raw permission dump is now a subtle "systems operational"
-indicator.
-
-The demo-access block discloses the seeded login credentials, so it is **safe by
-default**: it renders automatically in development, but in a **production build it
-appears ONLY if `NEXT_PUBLIC_SHOW_DEMO_ACCESS=1`** is set — intended for a
-dedicated **evaluation** deploy that holds no real data, and **never** a real
-production site. It's also self-contained in one component
-(`src/components/demo-access.tsx`): delete the file + its one usage to drop it
-entirely.
-
-### `@platform/observability`
-Vendor- and framework-agnostic **logging + error reporting**:
-- `logger.{debug,info,warn,error}` → structured JSON console lines
-- `captureException(err, context?)` → logs + forwards to the active reporter
-- Pluggable backend via `setErrorReporter` (optional **Sentry** adapter, env-gated)
-- Built-in **secret/PII redaction** before any sink — app code imports only this,
-  never a vendor SDK directly
-
-### `@platform/mobile`
-Expo (SDK 54) + Expo Router + TypeScript app, inside the monorepo, at **feature
-parity with the web app**: login + AsyncStorage session persistence, landing,
-dashboard with role-aware nav, realtime org chat, members management (view +
-change role), **add user**, and the **platform-owner** screen (list/create orgs).
-All identity/data logic is the shared `@platform/*` packages. Privileged
-operations that need the secret key (add user, create org, all-orgs list) go
-through the web admin API (`/api/admin/*`) with the user's Bearer token —
-`apps/mobile/lib/admin-api.ts`. Strings come from `@platform/i18n` (he/en,
-default RTL); theming from `@platform/config` tokens.
-- Client env uses Expo's `EXPO_PUBLIC_` prefix (see `apps/mobile/.env.example`),
-  incl. `EXPO_PUBLIC_API_URL` for the admin API; the secret key is never shipped
-  to the client, same as web.
-- Run with Expo Go (development): `pnpm --filter @platform/mobile start` and scan
-  the QR code.
-
-**Android APK for partners (EAS Build).** A partner-distributable, sideloadable
-APK is built in the cloud with EAS. The config lives in `apps/mobile/eas.json`
-(the `production-apk` profile → `android.buildType: "apk"`) plus the
-`android.package` / `versionCode` in `apps/mobile/app.json`.
-
-```bash
-# One-time: install the EAS CLI and sign in to your Expo account
-npm install -g eas-cli
-eas login
-
-# Build the partner APK (from apps/mobile)
-cd apps/mobile
-eas build --platform android --profile production-apk
-```
-
-`eas.json` holds only the `EXPO_PUBLIC_*` values for the build — they are public,
-low-privilege client values. **The Supabase secret / service-role key must never
-be put in `eas.json`** (the file is committed), same rule as web. `eas.json` is
-kept as **clean, comment-free strict JSON** (eas-cli/JSON tooling reject `//`
-comments), so the rationale that would otherwise be inline lives here in the
-README instead. EAS prints a **build-details URL** as it runs; when the build
-finishes that page (and the *Builds* tab on expo.dev) holds the **APK download
-link** to hand to partners.
-
-**F4 demo-access gate (deliberate — enforced by this profile).** The
-`production-apk` profile builds with `NODE_ENV=production` and **does not** set
-`EXPO_PUBLIC_SHOW_DEMO_ACCESS`, so the seeded demo logins shown on the landing
-screen are **never bundled into the partner APK**. Keep it that way — do **not**
-add `EXPO_PUBLIC_SHOW_DEMO_ACCESS` to this profile's `env`.
-
-## 🔧 Configuration Files
-
-### `.env.example`
-Template for environment variables. Copy to `.env` and fill in your values:
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` - Supabase publishable key
-  (`sb_publishable_...`; formerly the "anon" key) — safe for client use
-- `SUPABASE_SECRET_KEY` - Supabase secret key (`sb_secret_...`; formerly the
-  "service_role" key) — server-side only, never exposed to the client
-- Additional API and feature flag configuration
-
-**Note:** `.env` is gitignored and never committed.
-
-### `turbo.json`
-Defines build pipeline:
-- `build` - Builds all packages
-- `lint` - Lints all packages
-- `typecheck` - Type-checks all packages
-- `dev` - Runs dev servers
-
-### `pnpm-workspace.yaml`
-Workspace configuration for all packages and apps.
-
-## 🔐 Secrets & Environment
-
-All secrets go in `.env` (gitignored):
-- Never commit `.env`
-- Use `.env.example` as a template
-- Deploy secrets via CI/CD platform (GitHub Actions, etc.)
-
-## 🔭 Observability (logging + error reporting)
-
-App code logs and reports errors **only** through `@platform/observability` —
-never a vendor SDK directly — so the backend is swappable from one adapter.
-
-- **Default (no config):** errors and logs go to the console as **structured JSON
-  lines** (`level`, `timestamp`, `msg`, `context`, `error`). Nothing else happens.
-- **Enable Sentry (optional):** set `SENTRY_DSN` (server) and
-  `NEXT_PUBLIC_SENTRY_DSN` (browser) in `.env.local`. The Sentry adapter then
-  initializes and errors are reported there **in addition to** the console log.
-  Leave them empty to disable. Never commit a real DSN.
-- **Secrets never hit logs:** every log context + error is run through a redaction
-  layer that scrubs passwords, tokens, the Supabase keys, `Bearer …`, JWTs, and
-  emails. Prefer logging identifiers (`userId`, `orgId`) over sensitive content.
-- **Swap vendors:** replace the two adapter files
-  (`apps/web/src/lib/observability/sentry.{server,client}.ts`) with your provider
-  and register it via `setErrorReporter` — no app code changes.
-
-See `ARCHITECTURE.md` #20 and `packages/observability/README.md`.
-
-## 🎯 Development Workflow
-
-### Conventional Commits
-
-This project uses Conventional Commits with commitlint and husky:
-
-```bash
-# Examples of valid commits:
-git commit -m "feat: add user authentication"
-git commit -m "fix: resolve login redirect issue"
-git commit -m "refactor: optimize database queries"
-git commit -m "docs: update README"
-```
-
-Pre-commit hooks run:
-- ESLint (linting)
-- TypeScript (type checking)
-
-### Making Changes
-
-1. Create a feature branch: `git checkout -b feature/my-feature`
-2. Make changes across packages as needed
-3. Test locally: `pnpm dev`, `pnpm lint`, `pnpm typecheck`
-4. Commit with conventional commit message
-5. Push and open a PR
-
-### Working with Turborepo
-
-Turborepo caches build outputs and intelligently runs only affected packages:
-
-```bash
-# Run tasks only on changed packages
-pnpm dev
-
-# Force rebuild all
-pnpm build --force
-
-# View task graph
-pnpm build --graph
+pnpm lint        # must pass
+pnpm typecheck   # must pass
+pnpm build       # should pass
+pnpm seed        # seed dev test orgs/users (packages/db, uses the root .env)
 ```
 
 ## ⚙️ Continuous Integration
 
-GitHub Actions runs a **static-checks gate** on every push to `main` and every PR
-targeting `main` (`.github/workflows/ci.yml`):
+`.github/workflows/ci.yml` runs on every push to `main` and every PR targeting
+`main`:
 
 ```
-pnpm install  →  pnpm lint  →  pnpm typecheck  →  pnpm build   (turbo, whole monorepo)
+pnpm install --frozen-lockfile  →  pnpm lint  →  pnpm typecheck  →  pnpm build
 ```
 
-Each step is separate, so the run **fails** if lint, typecheck, or build fails —
-this is the gate that catches regressions (e.g. the kind that hid before every
-package had a `typecheck` task). It uses Node 20 (engines: `>=20.9`) and pnpm
-(from `packageManager`), with the pnpm store cached (keyed on the lockfile).
+No secrets and no live database are involved: these are static checks only.
+`pnpm-lock.yaml` is committed, and CI installs with `--frozen-lockfile`.
 
-- **Reproducible:** `pnpm-lock.yaml` is **committed**, and CI installs with
-  `--frozen-lockfile` — so "works in CI" == "works for a teammate cloning the
-  repo". The install fails if `package.json` and the lockfile disagree.
-- **No secrets / no live DB:** CI runs only static checks. The web build is
-  server-rendered on demand, so `next build` needs no Supabase env. DB-dependent
-  tests / e2e can be added later as a separate job using GitHub Actions secrets.
+### Database migrations (manual workflow)
+
+`.github/workflows/db-migrations.yml` applies `packages/db/supabase/migrations`
+to the Supabase project from GitHub, with no local machine needed. It **only runs
+manually**: Actions → **DB Migrations** → Run workflow (also from the GitHub
+phone app).
+
+- `apply` unchecked (default) → **dry run**: shows applied vs. pending
+  migrations and changes nothing.
+- `apply` checked → `supabase db push` applies the pending migrations.
+
+The job runs in the `production` GitHub Environment (Settings → Environments):
+required reviewer = the repo owner, deployment branches = `main`, and the three
+secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
+stored as **environment** secrets. Any collaborator can start a run, but it waits
+for the owner's approval. It never runs on push or merge, so a schema change can't
+ship by accident. See ARCHITECTURE.md #33.
+
+**Who deploys:** collaborators open PRs and get Vercel previews. Only the repo
+owner approves and merges to `main` (which is the production deploy) and
+approves migration runs. This is enforced by branch protection on `main` and by
+the `production` environment.
+
+## 🔐 Secrets & Environment
+
+- Cortex reads three variables: `NEXT_PUBLIC_SUPABASE_URL`,
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` (server-only,
+  never `NEXT_PUBLIC_`).
+- **Production:** Vercel project → Settings → Environment Variables.
+- **Migrations:** GitHub repository secrets (above).
+- **Cloud Claude Code sessions:** the environment's settings, with **dev** keys
+  only.
+- `.env` files are gitignored and never committed.
 
 ## 📚 Documentation
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Key architectural decisions and reasoning
-- [FEATURES.md](./FEATURES.md) - Feature-module convention (registry, folder shape, add/remove)
-- [CLAUDE.md](./CLAUDE.md) - Instructions for AI sessions
+- [ARCHITECTURE.md](./ARCHITECTURE.md): architectural decisions and reasoning (#27+ is Cortex)
+- [docs/Cortex-SubApp-Standard.md](./docs/Cortex-SubApp-Standard.md): the tool contract
+- [docs/Cortex-New-Tool-Runbook.md](./docs/Cortex-New-Tool-Runbook.md): how to add a tool
+- [docs/Cortex-Roadmap.md](./docs/Cortex-Roadmap.md): status, decisions, open work
+- [apps/cortex/README.md](./apps/cortex/README.md): app setup, env, phone testing
+- [packages/db/README.md](./packages/db/README.md) and [SCHEMA.md](./packages/db/SCHEMA.md): migrations and schema
+- [CLAUDE.md](./CLAUDE.md): instructions for AI sessions
 
 ## 🛠️ Tech Stack
 
-- **Monorepo**: Turborepo + pnpm
-- **Language**: TypeScript (strict mode)
-- **Web**: Next.js 16 (App Router, Turbopack) + React 19
-- **i18n**: next-intl (locale-prefixed routing, RTL/LTR)
-- **Styling**: Tailwind CSS v4 (design tokens via CSS variables)
-- **Database/Auth**: Supabase (`@supabase/ssr`)
-- **Linting**: ESLint
-- **Formatting**: Prettier
-- **Git Hooks**: Husky
-- **Commit Linting**: Commitlint
-- **Package Manager**: pnpm
-- **Node**: 20.9.0+
-
-## 📖 Next Steps
-
-1. ✅ Monorepo infrastructure
-2. ✅ Set up Supabase database (multi-tenant RBAC schema + RLS, applied to cloud)
-3. ✅ Scaffold Next.js web app (i18n, RTL, theming, Supabase wiring)
-4. ✅ Authentication & RBAC (`@platform/auth`): login, protected dashboard
-5. 📱 Scaffold Expo mobile app
-6. 🌍 Add first feature domain
-
-## 🔐 Authentication
-
-- **Login**: `/[locale]/login` (email + password). On success → dashboard.
-- **Protected route**: `/[locale]/dashboard` — server-side guard redirects to
-  login if there's no session. Session refresh runs in the proxy.
-- **Logout** clears the session and returns to login.
-- Seed dev test users with `pnpm seed` (see `packages/db`), e.g.
-  `admin1@organizationA.com` / `123456`. The seed also creates a **platform
-  owner** (super admin) `owner@platform.test` / `123456` — flagged in
-  `platform_admins`, belonging to no organization.
+Turborepo + pnpm · TypeScript (strict) · Next.js 16 (App Router) + React 19 ·
+Tailwind CSS v4 · TanStack Query · zod · Supabase (Postgres + RLS + Auth) ·
+Vercel · GitHub Actions · ESLint · Prettier · Husky + Commitlint
 
 ## 📝 License
 

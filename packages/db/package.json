@@ -5,7 +5,14 @@
   "description": "Database client, schema, and migrations",
   "scripts": {
     "seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:admin-private": "tsx scripts/verify-admin-private-read.ts",
+    "verify:child-org": "tsx scripts/verify-child-org.ts",
+    "verify:multi-org": "tsx scripts/verify-multi-org.ts",
+    "verify:time-entries": "tsx scripts/verify-time-entries.ts",
+    "verify:candidates-gate": "tsx scripts/verify-candidates-gate.ts",
+    "verify:candidate-answers": "tsx scripts/verify-candidate-answers.ts",
+    "verify:invite-candidate": "tsx scripts/verify-invite-candidate.ts"
   },
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -22,7 +29,9 @@
   "devDependencies": {
     "@platform/config": "workspace:*",
     "@types/node": "^25.9.2",
+    "@types/pg": "^8.20.0",
     "dotenv": "^17.4.2",
+    "pg": "^8.22.0",
     "tsx": "^4.22.4",
     "typescript": "^5.3.0"
   }

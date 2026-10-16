@@ -1,0 +1,54 @@
+/**
+ * Tool UI registry — maps a registered tool id to its shell-facing view bits
+ * (the dashboard card component + its full-screen route). The shell reads the
+ * *logic* side of a tool from the core registry (manifest/intents); this is the
+ * *view* side. Add a tool's row here to make it renderable on Home.
+ */
+import type { ComponentType } from "react";
+import { DashboardCard as InventoryDashboardCard } from "./inventory/views/DashboardCard";
+import { DashboardCard as TasksDashboardCard } from "./tasks/views/DashboardCard";
+import { DashboardCard as StaffDashboardCard } from "./staff/views/DashboardCard";
+import { DashboardCard as NotesDashboardCard } from "./notes/views/DashboardCard";
+import { DashboardCard as ExpensesDashboardCard } from "./expenses/views/DashboardCard";
+import { DashboardCard as JournalDashboardCard } from "./journal/views/DashboardCard";
+import { DashboardCard as CandidatesDashboardCard } from "./candidates/views/DashboardCard";
+import { DashboardCard as TimeEntriesDashboardCard } from "./time_entries/views/DashboardCard";
+import { DashboardCard as QuestionnaireDashboardCard } from "./questionnaire/views/DashboardCard";
+import { DashboardCard as OrdersDashboardCard } from "./orders/views/DashboardCard";
+import { DashboardCard as ShiftsDashboardCard } from "./shifts/views/DashboardCard";
+
+/**
+ * The identity every tool view is handed by the shell.
+ *
+ * A tool NEVER resolves identity itself (Standard §7: the shell resolves it up
+ * front). These two ids arrive as props from the server page that called
+ * `requireSession()`, and the view turns them into a `Ctx` with `buildCtx`. The
+ * card is typed to REQUIRE them so a tool view cannot be rendered without a guard
+ * having run above it — the type is what makes that structural rather than a
+ * convention someone can forget.
+ */
+export interface ToolViewProps {
+  userId: string;
+  orgId: string;
+}
+
+export interface ToolUI {
+  /** Compact summary card shown on Home. */
+  DashboardCard: ComponentType<ToolViewProps>;
+  /** Full-screen route (post-locale path in the cortex app). */
+  route: string;
+}
+
+export const TOOL_VIEWS: Record<string, ToolUI> = {
+  inventory: { DashboardCard: InventoryDashboardCard, route: "/tools/inventory" },
+  tasks: { DashboardCard: TasksDashboardCard, route: "/tools/tasks" },
+  staff: { DashboardCard: StaffDashboardCard, route: "/tools/staff" },
+  notes: { DashboardCard: NotesDashboardCard, route: "/tools/notes" },
+  expenses: { DashboardCard: ExpensesDashboardCard, route: "/tools/expenses" },
+  journal: { DashboardCard: JournalDashboardCard, route: "/tools/journal" },
+  candidates: { DashboardCard: CandidatesDashboardCard, route: "/tools/candidates" },
+  time_entries: { DashboardCard: TimeEntriesDashboardCard, route: "/tools/time_entries" },
+  questionnaire: { DashboardCard: QuestionnaireDashboardCard, route: "/tools/questionnaire" },
+  orders: { DashboardCard: OrdersDashboardCard, route: "/tools/orders" },
+  shifts: { DashboardCard: ShiftsDashboardCard, route: "/tools/shifts" },
+};

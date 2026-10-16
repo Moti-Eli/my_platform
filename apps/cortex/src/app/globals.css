@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+/*
+ * Map Tailwind's utilities onto the design-system CSS variables emitted by
+ * baseStylesheet() + themeStylesheet() (see @/design-system). `inline` resolves
+ * the variables at use-time, so utilities like `bg-accent`, `text-ink`,
+ * `rounded-lg`, `shadow-lifted` are driven entirely by the tokens — no hard-coded
+ * colors in components (Cortex Standard §1 law 6).
+ */
+@theme inline {
+  /* Block Tailwind's default colour palette: clearing the `--color-*` namespace
+     means bg-gray-400 / bg-white / bg-red-500 no longer resolve, so nothing can
+     bypass the token layer. Re-add only the two keyword colours utilities still
+     rely on (bg-transparent, from-transparent, currentColor); our token-backed
+     colours below repopulate the namespace. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* Surfaces / neutrals */
+  --color-screen: var(--ds-screen);
+  --color-card: var(--ds-card);
+  --color-ink: var(--ds-ink);
+  --color-muted: var(--ds-muted);
+  --color-hairline: var(--ds-hairline);
+
+  /* Family A — semantic roles */
+  --color-accent: var(--ds-accent);
+  --color-success: var(--ds-success);
+  --color-warning: var(--ds-warning);
+  --color-danger: var(--ds-danger);
+  --color-inverse: var(--ds-inverse);
+  --color-inverse-ink: var(--ds-inverse-ink);
+  --color-scrim: var(--ds-scrim);
+  --color-ring: var(--ds-ring);
+  --color-on-fill: var(--ds-on-fill);
+
+  /* Family B — app identity palette */
+  --color-app-violet: var(--ds-app-violet);
+  --color-app-teal: var(--ds-app-teal);
+  --color-app-coral: var(--ds-app-coral);
+  --color-app-amber: var(--ds-app-amber);
+  --color-app-blue: var(--ds-app-blue);
+  --color-app-green: var(--ds-app-green);
+
+  /* Radii — ADDED on top of Tailwind's defaults (not cleared), so `rounded-full`
+     / `rounded-none` (circles/shape utilities) keep working untouched. */
+  --radius-sm: var(--ds-radius-sm);
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-xl: var(--ds-radius-xl);
+  --radius-pill: var(--ds-radius-pill);
+
+  /* Shadows — only for genuinely floating surfaces (sheet/popover/toast/hero).
+     shadowSoft (the card float) was removed this step. */
+  --shadow-lifted: var(--ds-shadow-lifted);
+  --shadow-hero: var(--ds-shadow-hero);
+
+  --font-sans: var(--ds-font-sans);
+
+  /* Typography scale (structural). Clear Tailwind's default font-size namespace
+     so text-sm / text-xs / text-3xl / text-[11px] no longer resolve — type is a
+     closed set of role utilities, like colours. Then register our six roles, each
+     carrying its own line-height. Weight is applied by the `.type-*` classes
+     below (size + weight are one decision and can't drift apart). */
+  --text-*: initial;
+  --text-display: var(--ds-text-display-size);
+  --text-display--line-height: var(--ds-text-display-line);
+  --text-title: var(--ds-text-title-size);
+  --text-title--line-height: var(--ds-text-title-line);
+  --text-heading: var(--ds-text-heading-size);
+  --text-heading--line-height: var(--ds-text-heading-line);
+  --text-body: var(--ds-text-body-size);
+  --text-body--line-height: var(--ds-text-body-line);
+  --text-label: var(--ds-text-label-size);
+  --text-label--line-height: var(--ds-text-label-line);
+  --text-caption: var(--ds-text-caption-size);
+  --text-caption--line-height: var(--ds-text-caption-line);
+
+  /* Spacing scale (structural). Tailwind v4 derives EVERY numeric spacing AND
+     sizing/inset utility (p-4, gap-3, mt-8 AND w-9, h-16, top-2, size-6) from the
+     one `--spacing` base, so clearing `--spacing-*` would break sizing too — out
+     of scope. We ADD named steps on top of the default ramp (left alive for
+     sizing) and enforce the scale by convention + the contract. */
+  --spacing-2xs: var(--ds-space-2xs);
+  --spacing-xs: var(--ds-space-xs);
+  --spacing-sm: var(--ds-space-sm);
+  --spacing-md: var(--ds-space-md);
+  --spacing-lg: var(--ds-space-lg);
+  --spacing-xl: var(--ds-space-xl);
+  --spacing-2xl: var(--ds-space-2xl);
+}
+
+/* Type roles — size + line-height + weight bundled into one class so weight can't
+   drift from size. letter-spacing is ALWAYS normal (Hebrew: never tighten). */
+.type-display { font-size: var(--ds-text-display-size); line-height: var(--ds-text-display-line); font-weight: var(--ds-text-display-weight); letter-spacing: normal; }
+.type-title { font-size: var(--ds-text-title-size); line-height: var(--ds-text-title-line); font-weight: var(--ds-text-title-weight); letter-spacing: normal; }
+.type-heading { font-size: var(--ds-text-heading-size); line-height: var(--ds-text-heading-line); font-weight: var(--ds-text-heading-weight); letter-spacing: normal; }
+.type-body { font-size: var(--ds-text-body-size); line-height: var(--ds-text-body-line); font-weight: var(--ds-text-body-weight); letter-spacing: normal; }
+.type-label { font-size: var(--ds-text-label-size); line-height: var(--ds-text-label-line); font-weight: var(--ds-text-label-weight); letter-spacing: normal; }
+.type-caption { font-size: var(--ds-text-caption-size); line-height: var(--ds-text-caption-line); font-weight: var(--ds-text-caption-weight); letter-spacing: normal; }
+
+/* ---- Interaction feedback (consumed, not invented) -------------------------
+   Any pressable element opts in with `.interactive`: a translucent overlay on
+   hover/press that works identically on ANY surface (neutral, accent, or app-*
+   fill), a :focus-visible ring in the `ring` token, and disabled handling. Small
+   controls ALSO add `motion-safe:active:scale-[0.97]`; cards/rows do NOT scale. */
+.interactive {
+  position: relative;
+  transition: transform var(--ds-duration-fast) var(--ds-ease);
+}
+.interactive::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit; /* REQUIRED — matches rounded cards / circular buttons */
+  background-color: var(--ds-overlay-hover);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--ds-duration-base) var(--ds-ease),
+    background-color var(--ds-duration-base) var(--ds-ease);
+}
+/* Hover gated behind (hover: hover) so a phone tap never sticks in hover state. */
+@media (hover: hover) {
+  .interactive:hover::after {
+    opacity: 1;
+  }
+}
+.interactive:active::after {
+  background-color: var(--ds-overlay-pressed);
+  opacity: 1;
+  transition-duration: var(--ds-duration-fast);
+}
+/* Focus: keyboard only (:focus-visible), 2px ring + 2px offset showing `screen`.
+   OPT-IN via `.interactive` only — text inputs are deliberately NOT included, so
+   they render clean and read as part of their container surface rather than
+   growing a frame on focus. An input that needs a ring opts in like anything
+   else. */
+.interactive:focus-visible {
+  outline: 2px solid var(--ds-ring);
+  outline-offset: 2px;
+}
+/* Disabled: dim, no overlay, no pointer events. */
+.interactive:disabled,
+.interactive[aria-disabled="true"] {
+  opacity: var(--ds-disabled-opacity);
+  pointer-events: none;
+}
+.interactive:disabled::after,
+.interactive[aria-disabled="true"]::after {
+  display: none;
+}
+
+html {
+  /* Respect the notch/home-indicator on installed phones. */
+  background-color: var(--color-screen);
+  /* Kill the browser's grey tap flash everywhere (inherited) so our own instant
+   * active: states are the only press feedback. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-color: var(--color-screen);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Bottom-sheet + panel entrances — soft, organic motion. */
+@keyframes ds-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ds-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ds-panel-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ds-backdrop {
+  animation: ds-backdrop-in 0.2s ease-out;
+}
+
+.ds-sheet {
+  animation: ds-sheet-up 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ds-panel {
+  animation: ds-panel-down 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-backdrop,
+  .ds-sheet,
+  .ds-panel {
+    animation: none;
+  }
+}
+
+/* Horizontal chip rows scroll but hide the scrollbar (touch/trackpad/keyboard
+ * scrolling still work). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
