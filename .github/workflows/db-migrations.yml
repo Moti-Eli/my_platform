@@ -7,7 +7,16 @@ name: DB Migrations
 #   apply = false (default) → dry run: lists applied vs pending migrations, changes nothing
 #   apply = true            → runs `supabase db push` (applies the pending ones)
 #
-# Required repository secrets (Settings → Secrets and variables → Actions):
+# The job runs in the `production` GitHub Environment. Configure it in
+# Settings → Environments → production with:
+#   - Required reviewers: the repo owner, so every run waits for their approval
+#     (whoever pressed the button)
+#   - Deployment branches: `main` only
+#   - The three secrets below as ENVIRONMENT secrets, not repository secrets.
+#     Repository secrets are readable by any workflow a collaborator pushes on a
+#     branch; environment secrets are released only after that approval.
+#
+# Required secrets:
 #   SUPABASE_ACCESS_TOKEN  personal access token (supabase.com → Account → Access Tokens)
 #   SUPABASE_PROJECT_REF   the project ref (the <ref> in https://<ref>.supabase.co)
 #   SUPABASE_DB_PASSWORD   the database password (Project Settings → Database)
@@ -28,6 +37,7 @@ jobs:
   migrate:
     name: ${{ inputs.apply && 'Apply' || 'Dry run' }}
     runs-on: ubuntu-latest
+    environment: production
     # Secrets are set per step (never job-wide), and the CLI is the exact version
     # the repo locks (root devDependency `supabase`), run via npx: no third-party
     # action ever sees the credentials.

@@ -1052,13 +1052,17 @@ placement.
 
 **Decision:** Supabase migrations are applied by a `workflow_dispatch`-only
 GitHub Action (`db-migrations.yml`). It dry-runs by default and applies only when
-`apply` is ticked. Credentials live in repository secrets.
+`apply` is ticked. The job runs in the `production` GitHub Environment, whose
+required reviewer is the repo owner. Credentials are environment secrets, released
+only after that approval.
 
 **Reasoning:** Development moves to GitHub and cloud Claude Code sessions with
 more than one maintainer, so applying migrations can't depend on one person's
 laptop and its local `.env`. Keeping it manual, and not run on merge, means a
 schema change is always a deliberate step: the dry run shows exactly what is
-pending first.
+pending first. The environment gate means any collaborator can prepare and
+trigger a run, but production changes only with the owner's approval. Repository
+secrets would not do this: any workflow pushed on a branch could read them.
 
 ---
 

@@ -16,6 +16,9 @@ sessions (often from a phone), by more than one maintainer. There is no local
 machine in the loop. Every change goes on a branch, then a PR, a green CI and a
 preview, then a merge to `main`. Database migrations are applied with the manual
 **DB Migrations** GitHub workflow (ARCHITECTURE.md #33), never from a laptop.
+Merging to `main` (= the production deploy) and approving migration runs are the
+repo owner's call. Collaborators open PRs; never merge to `main` or approve a
+`production` run on the owner's behalf.
 
 ## Before Starting Any Work
 

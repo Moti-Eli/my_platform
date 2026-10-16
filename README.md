@@ -93,9 +93,17 @@ phone app).
   migrations and changes nothing.
 - `apply` checked → `supabase db push` applies the pending migrations.
 
-Needs three repository secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`,
-`SUPABASE_DB_PASSWORD`. It never runs on push or merge, so a schema change can't
+The job runs in the `production` GitHub Environment (Settings → Environments):
+required reviewer = the repo owner, deployment branches = `main`, and the three
+secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
+stored as **environment** secrets. Any collaborator can start a run, but it waits
+for the owner's approval. It never runs on push or merge, so a schema change can't
 ship by accident. See ARCHITECTURE.md #33.
+
+**Who deploys:** collaborators open PRs and get Vercel previews. Only the repo
+owner approves and merges to `main` (which is the production deploy) and
+approves migration runs. This is enforced by branch protection on `main` and by
+the `production` environment.
 
 ## 🔐 Secrets & Environment
 
