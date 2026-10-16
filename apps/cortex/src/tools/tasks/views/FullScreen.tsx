@@ -118,12 +118,12 @@ export function FullScreen(_props: ToolViewProps) {
   // (reading `pending` state would be stale within a burst of taps, before a
   // re-render lands); `pending` mirrors it only to disable checkboxes.
   const pendingRef = useRef<Set<string>>(new Set());
-  const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
 
   // In-flight DELETES, keyed by task id — a SEPARATE guard from the toggle set
   // above, so a toggle and a delete never share a lock. Same shape as `pending`.
   const deletingRef = useRef<Set<string>>(new Set());
-  const [deleting, setDeleting] = useState<ReadonlySet<string>>(deletingRef.current);
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(() => new Set());
   // Which row is mid two-tap delete confirm (null = none). Tapping a different row's
   // trash moves the confirm there; a second tap on the SAME row commits the delete.
   const [confirmId, setConfirmId] = useState<string | null>(null);

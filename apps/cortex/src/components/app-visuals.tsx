@@ -7,7 +7,7 @@
  * The color classes are written as full static strings (not interpolated) so
  * Tailwind detects them. Unknown ids fall back to a neutral default.
  */
-import type { ComponentType, SVGProps } from "react";
+import { createElement, type ComponentType, type SVGProps } from "react";
 import {
   BoxIcon,
   GridIcon,
@@ -53,6 +53,16 @@ const ICONS: Record<string, IconComponent> = {
 /** The icon component for a manifest `icon` id (falls back to a generic box). */
 export function appIcon(icon: string): IconComponent {
   return ICONS[icon] ?? BoxIcon;
+}
+
+/**
+ * Renders the icon for a manifest `icon` id. Prefer this to
+ * `const Icon = appIcon(id); <Icon />` inside a component: the React Compiler
+ * can't tell that lookup returns a stable module-level component, so it flags
+ * it as "component created during render" (react-hooks/static-components).
+ */
+export function AppIcon({ icon, ...props }: { icon: string } & SVGProps<SVGSVGElement>) {
+  return createElement(appIcon(icon), props);
 }
 
 /** Tinted-circle classes (`bg-<color>/15 text-<color>`) for a palette token. */

@@ -15,11 +15,21 @@ const eslintConfig = [
       // purpose (`export interface QueryListInput {}`), one named Input type per
       // intent per docs/Cortex-SubApp-Standard.md.
       "@typescript-eslint/no-empty-object-type": ["error", { allowInterfaces: "always" }],
-      // React Compiler rules (react-hooks v7) that flag existing code. Each one
-      // needs a behaviour-level fix, not a lint tweak, so they warn until fixed
-      // one by one; do not add new violations.
-      "react-hooks/refs": "warn",
-      "react-hooks/static-components": "warn",
+      // A leading underscore marks a parameter the contract signature requires
+      // but this implementation doesn't use (`_ctx`, `_emit`, `_props`, `_logic`).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+      // React Compiler rule (react-hooks v7) that still flags 4 existing sites
+      // (AppShell overlay reset, useInstalledApps/usePinnedApps hydration gates,
+      // CandidateAnswers reload). Each needs a behaviour-level fix verified in a
+      // preview, so it warns until then; do not add new violations.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

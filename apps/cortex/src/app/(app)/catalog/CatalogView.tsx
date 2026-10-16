@@ -15,7 +15,7 @@ import type { AppManifest } from "@platform/cortex-core";
 import { useRouter } from "next/navigation";
 import { useRegisteredApps, appRoute } from "@/cortex/apps";
 import { useInstalledApps, useAppInstaller } from "@/lib/installed-apps";
-import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { AppIcon, appColorClasses } from "@/components/app-visuals";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
 
@@ -31,7 +31,6 @@ function CatalogCard({
   const { t } = useI18n();
   const router = useRouter();
   const { install, uninstall } = useAppInstaller();
-  const Icon = appIcon(manifest.icon);
   const available = manifest.status !== "unavailable";
   const label = t(manifest.name.key as MessageKey);
 
@@ -40,7 +39,7 @@ function CatalogCard({
       <span
         className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
       >
-        <Icon width={22} height={22} />
+        <AppIcon icon={manifest.icon} width={22} height={22} />
       </span>
       <span className="text-center type-label text-ink">{label}</span>
     </>
