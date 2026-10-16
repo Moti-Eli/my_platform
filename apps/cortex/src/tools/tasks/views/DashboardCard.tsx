@@ -138,7 +138,7 @@ export function DashboardCard(_props: ToolViewProps) {
   // toggleTask — patch the shared cache immediately, revert it if the server
   // says no.
   const pendingRef = useRef<Set<string>>(new Set());
-  const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
 
   const patchTask = useCallback(
     (id: string, patch: (it: Task) => Task) => {

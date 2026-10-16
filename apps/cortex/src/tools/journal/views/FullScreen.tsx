@@ -89,7 +89,7 @@ export function FullScreen(_props: ToolViewProps) {
   // In-flight DELETES, keyed by entry id — a SEPARATE guard from the edit set above,
   // so an edit and a delete never share a lock. Mirrors notes' `deleting`.
   const deletingRef = useRef<Set<string>>(new Set());
-  const [deleting, setDeleting] = useState<ReadonlySet<string>>(deletingRef.current);
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(() => new Set());
   // Which row is mid two-tap delete confirm (null = none). Tapping a different row's
   // trash moves the confirm there; a second tap on the SAME row commits the delete.
   const [confirmId, setConfirmId] = useState<string | null>(null);

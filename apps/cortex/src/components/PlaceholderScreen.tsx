@@ -8,23 +8,22 @@
  * real tool replaces the stub, it ships its own screen and this is unused.
  */
 import { useRegisteredApps } from "@/cortex/apps";
-import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { AppIcon, appColorClasses } from "@/components/app-visuals";
 import { useI18n, type MessageKey } from "@/i18n";
 
 export function PlaceholderScreen({ appId }: { appId: string }) {
   const { t } = useI18n();
   const apps = useRegisteredApps();
   const manifest = apps.find((a) => a.id === appId);
-  const Icon = manifest ? appIcon(manifest.icon) : null;
 
   return (
     <>
       <div className="flex items-center gap-sm">
-        {manifest && Icon ? (
+        {manifest ? (
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
           >
-            <Icon width={22} height={22} />
+            <AppIcon icon={manifest.icon} width={22} height={22} />
           </span>
         ) : null}
         <div className="flex flex-col">

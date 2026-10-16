@@ -13,7 +13,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
-import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { AppIcon, appColorClasses } from "@/components/app-visuals";
 import { BellIcon, CloseIcon } from "@/components/icons";
 import { EmptyState } from "@/components/EmptyState";
 import { useI18n, type MessageKey } from "@/i18n";
@@ -97,7 +97,6 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
           ) : (
             <div className="flex min-h-0 flex-col gap-md overflow-y-auto">
               {cards.map(({ n, manifest }) => {
-                const Icon = appIcon(manifest.icon);
                 return (
                   <Link
                     key={n.id}
@@ -109,7 +108,7 @@ export function UrgencyInbox({ open, onClose }: { open: boolean; onClose: () => 
                       <span
                         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
                       >
-                        <Icon width={18} height={18} />
+                        <AppIcon icon={manifest.icon} width={18} height={18} />
                       </span>
                       <span className="truncate type-label text-ink">
                         {t(manifest.name.key as MessageKey)}

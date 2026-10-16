@@ -12,7 +12,7 @@ import Link from "next/link";
 import { appRoute, useRegisteredApps } from "@/cortex/apps";
 import { useInstalledApps } from "@/lib/installed-apps";
 import { TOOL_VIEWS } from "@/tools";
-import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { AppIcon, appColorClasses } from "@/components/app-visuals";
 import { EmptyState } from "@/components/EmptyState";
 import { PlusIcon } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
@@ -24,7 +24,6 @@ import { useI18n, type MessageKey } from "@/i18n";
  */
 function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
   const { t } = useI18n();
-  const Icon = appIcon(manifest.icon);
 
   return (
     <div className="rounded-lg bg-card p-md">
@@ -32,7 +31,7 @@ function PlaceholderPreviewCard({ manifest }: { manifest: AppManifest }) {
         <span
           className={`flex h-9 w-9 items-center justify-center rounded-full ${appColorClasses(manifest.color)}`}
         >
-          <Icon width={20} height={20} />
+          <AppIcon icon={manifest.icon} width={20} height={20} />
         </span>
         <span className="type-heading text-ink">{t(manifest.name.key as MessageKey)}</span>
       </div>

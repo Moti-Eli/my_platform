@@ -297,7 +297,7 @@ export function FullScreen(_props: ToolViewProps) {
   // second toggle for a member whose write is still running is ignored, and that
   // row's control is disabled, so a double-tap can't double-apply.
   const pendingRef = useRef<Set<string>>(new Set());
-  const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
 
   // --- Add-member form (additive, top of screen) -----------------------------
   // Its error state is SEPARATE from `writeError` so an add failure and a role

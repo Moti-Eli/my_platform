@@ -78,13 +78,13 @@ export function FullScreen(_props: ToolViewProps) {
   // truth for the guard (reading `pending` state would be stale within a burst of
   // taps, before a re-render lands); `pending` mirrors it only to disable buttons.
   const pendingRef = useRef<Set<string>>(new Set());
-  const [pending, setPending] = useState<ReadonlySet<string>>(pendingRef.current);
+  const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
 
   // In-flight DELETES, keyed by row id — a SEPARATE guard from the +/- set above,
   // so a quantity write and a delete never share a lock. (This one keys on id,
   // matching the delete intent + the cache filter, not the product name.)
   const deletingRef = useRef<Set<string>>(new Set());
-  const [deleting, setDeleting] = useState<ReadonlySet<string>>(deletingRef.current);
+  const [deleting, setDeleting] = useState<ReadonlySet<string>>(() => new Set());
   // Which row is mid two-tap delete confirm (null = none). Tapping a different row's
   // trash moves the confirm there; a second tap on the SAME row commits the delete.
   const [confirmId, setConfirmId] = useState<string | null>(null);

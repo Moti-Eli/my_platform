@@ -213,7 +213,6 @@ export function AiSheet({ open, onClose }: { open: boolean; onClose: () => void 
         {/* Inline search-in-conversation */}
         {searchOpen ? (
           <div className="shrink-0 px-sm pb-xs">
-            {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
             <input
               autoFocus
               value={query}
@@ -531,7 +530,6 @@ function HistoryPanel({
           {store.conversations.map((c) => (
             <li key={c.id}>
               {renamingId === c.id ? (
-                // eslint-disable-next-line jsx-a11y/no-autofocus
                 <input
                   autoFocus
                   value={renameText}

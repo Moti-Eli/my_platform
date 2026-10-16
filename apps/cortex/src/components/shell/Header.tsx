@@ -14,7 +14,7 @@ import { SearchIcon, BellIcon, ChevronIcon } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
 import { useInstalledApps } from "@/lib/installed-apps";
 import { useRegisteredApps } from "@/cortex/apps";
-import { appIcon, appColorClasses } from "@/components/app-visuals";
+import { AppIcon, appColorClasses } from "@/components/app-visuals";
 import { STAFF_MEMBERS_KEY } from "@/lib/query/useStaffMembers";
 import { useGlobalSearch, type SearchGroup } from "@/lib/search/useGlobalSearch";
 import { Wordmark } from "./Wordmark";
@@ -157,18 +157,17 @@ function SearchResultGroup({
   // registry may still be loading on first paint — fall back to no icon then.
   const apps = useRegisteredApps();
   const manifest = apps.find((m) => m.id === group.tool);
-  const Icon = manifest ? appIcon(manifest.icon) : null;
 
   return (
     <section>
       <div className="flex items-center gap-xs px-2xs pb-2xs">
-        {Icon ? (
+        {manifest ? (
           <span
             className={`flex h-6 w-6 items-center justify-center rounded-full ${appColorClasses(
-              manifest!.color,
+              manifest.color,
             )}`}
           >
-            <Icon width={14} height={14} />
+            <AppIcon icon={manifest.icon} width={14} height={14} />
           </span>
         ) : null}
         <span className="type-label text-muted">{t(group.labelKey as MessageKey)}</span>
