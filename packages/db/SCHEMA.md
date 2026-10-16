@@ -531,10 +531,9 @@ review found **no critical and no high** findings.)
      change** (requires Supabase **Pro**). The dev password `123456` (seed,
      add-member, create-org) must flip in the same step HIBP turns on, or those
      paths break. See the detailed HIBP note under "Notes & deferred work" below.
-  2. **Remove the demo-access component**
-     (`apps/web/src/components/demo-access.tsx` + its single landing-page usage) and
-     confirm `NEXT_PUBLIC_SHOW_DEMO_ACCESS` is unset — it discloses the seeded logins
-     and is for evaluation deploys only (ARCHITECTURE.md #23).
+  2. **Demo access:** done. The demo-access component lived in `apps/web`, which
+     has been removed (ARCHITECTURE.md #34). The seeded logins are no longer
+     published anywhere; still make sure no production deploy seeds them.
   3. **Wire a real onboarding flow** (email invite / magic link / forced reset)
      before the create-user paths are user-facing; until then production mints a
      random, never-disclosed password — no backdoor, but no usable login either

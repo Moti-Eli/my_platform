@@ -3,6 +3,10 @@
 Read-only inventory of the authentication, RBAC/permissions, and database layer,
 produced for review. Nothing was modified. Paths are repo-relative.
 
+> **Historical snapshot.** This was written when `apps/web` and `apps/mobile`
+> existed. Both have since been removed (ARCHITECTURE.md #34), so paths under
+> them no longer exist. The DB and `@platform/auth` parts still apply.
+
 The model in one line: **organizations are tenants → a user's roles live on their
 `membership` (user+org) → roles grant `permissions` → tenant isolation is enforced
 by Postgres RLS via `SECURITY DEFINER` helper functions in the `private` schema →

@@ -5,7 +5,7 @@ Next.js (App Router) app, RTL Hebrew, installable as a **PWA**. This milestone i
 the **frame only**: no real sub-apps, no AI model calls. Home and Profile are
 empty shells; the AI button and urgency bell are empty shells too.
 
-Additive and isolated — it does **not** touch `apps/web` or `apps/mobile`.
+This is the product: the only app in the repo (see ARCHITECTURE.md #34).
 
 ## Local development
 
@@ -28,7 +28,7 @@ on the server:
 All three live in **`apps/cortex/.env`**. Next only loads `.env*` from **its own
 app directory** — it does *not* read the monorepo root `.env`, which is why the
 root file (used by the `packages/db` scripts, which load it via dotenv themselves)
-never reached this app. `apps/web` works the same way.
+never reached this app.
 
 > **⚠️ Do not move these into `apps/cortex/.env.local`.**
 > That file is a **Vercel CLI artifact** (`# Created by Vercel CLI`, holding

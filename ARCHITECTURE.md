@@ -2,6 +2,11 @@
 
 This document records key architectural decisions and the reasoning behind them.
 
+> **Cortex is the product (see #34).** Decisions #1–#26 were made for the earlier
+> `apps/web` + `apps/mobile` platform, which has been removed. They stay here as
+> history, and the parts that still hold (RBAC, RLS, multi-tenancy, strict TS, CI)
+> still apply. The removed code is recoverable from commit `4e356f2`.
+
 ## 1. Monorepo with Turborepo + pnpm
 
 **Decision:** Use Turborepo for orchestration and pnpm for workspace management.
@@ -1054,6 +1059,22 @@ more than one maintainer, so applying migrations can't depend on one person's
 laptop and its local `.env`. Keeping it manual, and not run on merge, means a
 schema change is always a deliberate step: the dry run shows exactly what is
 pending first.
+
+---
+
+## 34. Cortex Is the Product — Legacy Web/Mobile Removed
+
+**Decision:** The repo now holds a single app, `apps/cortex`, and only the
+packages it uses (`cortex-core`, `auth`, `db`, `config`). `apps/web`,
+`apps/mobile`, `packages/{core,ui,i18n,observability}`, FEATURES.md and the
+web-only verification scripts were deleted. The database schema is untouched,
+because Cortex runs on the same RBAC/RLS tables. The last commit with the old
+apps is `4e356f2`.
+
+**Reasoning:** All active work is Cortex. Keeping two dormant apps doubled CI
+and lint/typecheck surface, confused new sessions about what "the app" is, and
+dragged in conflicting dependencies (Expo's `@types/react` broke the Cortex
+typecheck in CI). Git history keeps everything recoverable.
 
 ---
 

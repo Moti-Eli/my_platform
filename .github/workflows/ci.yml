@@ -23,7 +23,7 @@ jobs:
       HUSKY: "0" # skip git hooks (e.g. the prepare/husky install) in CI
       TURBO_TELEMETRY_DISABLED: "1"
       # NOTE: no secrets and no live Supabase here — these are STATIC checks only.
-      # The web build's pages are server-rendered on demand, so `next build` does
+      # Cortex's pages are server-rendered on demand, so `next build` does
       # not call Supabase at build time and needs no env. DB-dependent tests / e2e
       # can be added later as a separate job using GitHub Actions secrets.
     steps:

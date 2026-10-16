@@ -77,7 +77,8 @@ export interface Ctx {
 /**
  * A translation reference. Per Standard §1 law 6 ("design & language are
  * consumed, not invented"), a tool supplies an i18n *key* for its display name
- * rather than a hard-coded string; the shell resolves it through `@platform/i18n`.
+ * rather than a hard-coded string; the shell resolves it through its own
+ * dictionaries (`apps/cortex/src/i18n`).
  */
 export interface LocalizedKey {
   key: string;

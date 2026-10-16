@@ -96,5 +96,5 @@ if (user && (await hasPermission(supabase, user.id, orgId, "members.manage"))) {
 }
 ```
 
-In `apps/web`, the Supabase client comes from `src/lib/supabase/server.ts`
+In `apps/cortex`, the Supabase client comes from `src/lib/supabase/server.ts`
 (server) or `client.ts` (browser), both wrapping `@platform/db` factories.

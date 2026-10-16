@@ -426,7 +426,7 @@ import { createBrowserDbClient, createServerDbClient } from "@platform/db";
 ```
 
 These are framework-agnostic factories over `@supabase/ssr`. Apps supply the
-URL, key, and (server-side) a cookie adapter — see `apps/web/src/lib/supabase/`.
+URL, key, and (server-side) a cookie adapter — see `apps/cortex/src/lib/supabase/`.
 
 ## Seeding test data (development only)
 
