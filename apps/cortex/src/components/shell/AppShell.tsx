@@ -83,9 +83,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const fullBleed = pathname.startsWith("/profile") || pathname.startsWith("/settings");
 
   // Overlays are dismissed on navigation so a new screen never opens under them.
-  useEffect(() => {
+  // Adjusted during render when the path changes (React's "store the previous
+  // value" pattern), not in an effect, so there is no extra cascading render.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setAiOpen(false);
     setInboxOpen(false);
+  }
+  useEffect(() => {
     // Count the navigation, so back controls know whether router.back() stays
     // in-app (see lib/navigation-history — module state, resets on cold start).
     markNavigation();
