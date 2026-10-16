@@ -19,7 +19,7 @@
  * preference, not org state, so it remains in localStorage behind the functions at
  * the bottom of this file. Untouched by the server swap.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listInstalledApps,
@@ -52,8 +52,7 @@ export function useInstalledApps(): string[] {
     queryKey: INSTALLED_APPS_KEY,
     queryFn: listInstalledApps,
   });
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
+  const hydrated = useHydrated();
   return hydrated ? (query.data ?? []) : [];
 }
 
@@ -107,6 +106,22 @@ export function useAppInstaller(): {
   return { install, uninstall };
 }
 
+const noopSubscribe = () => () => {};
+
+/**
+ * False on the server and during the hydration render, true afterwards. Uses
+ * useSyncExternalStore's server snapshot instead of a mount-time effect +
+ * setState, so React Compiler doesn't flag a cascading render
+ * (react-hooks/set-state-in-effect); the render sequence is the same.
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 // ---- Pinned apps (device-local; NOT part of the server swap) ----------------
 
 const PINNED_KEY = "cortex.pinnedApps";
@@ -137,7 +152,18 @@ function readPinned(): string[] {
   }
 }
 
+// Cached parse of localStorage for useSyncExternalStore, which needs the same
+// array back until something actually changes. Cleared by writePinned().
+let pinnedSnapshot: string[] | null = null;
+const EMPTY_PINNED: string[] = [];
+
+function getPinnedSnapshot(): string[] {
+  if (pinnedSnapshot === null) pinnedSnapshot = readPinned();
+  return pinnedSnapshot;
+}
+
 function writePinned(ids: string[]): void {
+  pinnedSnapshot = null;
   if (typeof window !== "undefined") {
     try {
       window.localStorage.setItem(PINNED_KEY, JSON.stringify(ids));
@@ -183,10 +209,5 @@ export function togglePin(id: string): void {
  * — AppShell intersects this list with the installed one before rendering.
  */
 export function usePinnedApps(): string[] {
-  const [ids, setIds] = useState<string[]>([]);
-  useEffect(() => {
-    setIds(listPinned());
-    return subscribe(() => setIds(listPinned()));
-  }, []);
-  return ids;
+  return useSyncExternalStore(subscribe, getPinnedSnapshot, () => EMPTY_PINNED);
 }

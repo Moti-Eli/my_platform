@@ -26,11 +26,6 @@ const eslintConfig = [
           destructuredArrayIgnorePattern: "^_",
         },
       ],
-      // React Compiler rule (react-hooks v7) that still flags 4 existing sites
-      // (AppShell overlay reset, useInstalledApps/usePinnedApps hydration gates,
-      // CandidateAnswers reload). Each needs a behaviour-level fix verified in a
-      // preview, so it warns until then; do not add new violations.
-      "react-hooks/set-state-in-effect": "warn",
     },
   },
   {

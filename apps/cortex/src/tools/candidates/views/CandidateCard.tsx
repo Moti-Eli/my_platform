@@ -1053,9 +1053,16 @@ function CandidateAnswers({ candidateId }: { candidateId: string }) {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [answers, setAnswers] = useState<QuestionnaireAnswer[]>([]);
 
+  // Back to "loading" when the candidate changes, adjusted during render (not in
+  // the effect) so there is no extra cascading render.
+  const [prevCandidateId, setPrevCandidateId] = useState(candidateId);
+  if (candidateId !== prevCandidateId) {
+    setPrevCandidateId(candidateId);
+    setStatus("loading");
+  }
+
   useEffect(() => {
     let active = true;
-    setStatus("loading");
     void (async () => {
       const res = await runIntentAction("candidates.answers", { candidateId });
       if (!active) return;
