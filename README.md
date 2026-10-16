@@ -678,6 +678,21 @@ package had a `typecheck` task). It uses Node 20 (engines: `>=20.9`) and pnpm
   server-rendered on demand, so `next build` needs no Supabase env. DB-dependent
   tests / e2e can be added later as a separate job using GitHub Actions secrets.
 
+### Database migrations (manual workflow)
+
+`.github/workflows/db-migrations.yml` applies `packages/db/supabase/migrations`
+to the Supabase project from GitHub, with no local machine needed. It **only runs
+manually**: Actions → **DB Migrations** → Run workflow (also from the GitHub
+phone app).
+
+- `apply` unchecked (default) → **dry run**: shows applied vs. pending
+  migrations and changes nothing.
+- `apply` checked → `supabase db push` applies the pending migrations.
+
+Needs three repository secrets: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`,
+`SUPABASE_DB_PASSWORD`. It never runs on push or merge, so a schema change can't
+ship by accident. See ARCHITECTURE.md #33.
+
 ## 📚 Documentation
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Key architectural decisions and reasoning
