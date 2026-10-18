@@ -9,13 +9,14 @@
  * value is refused here with a clear schema error instead of reaching the DB.
  * A supplier's primary category is REQUIRED here on create even though the
  * column is nullable in the DB (existing rows) — the app is where it is enforced.
- * No action reads or writes a price (reserved column, out of scope).
+ * A product's price is optional (null = none), >= 0 and within numeric(10,2).
  */
 import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import type { OrdersLogic } from "./logic";
 import { UNIT_KEYS } from "./units";
 import { MAX_LIST_LINES } from "./parseList";
+import { PRICE_MAX } from "./price";
 
 /** Field caps — identical to the tables' CHECK constraints. */
 export const SUPPLIER_LIMITS = {
@@ -45,6 +46,7 @@ const product = z.object({
   categoryId: z.string(),
   name: z.string(),
   defaultUnit: z.string(),
+  price: z.number().nullable(),
   archived: z.boolean(),
 });
 
@@ -57,6 +59,8 @@ const categoryName = z.string().trim().min(1).max(CATEGORY_NAME_MAX);
 const productName = z.string().trim().min(1).max(PRODUCT_NAME_MAX);
 /** A unit key from the code-side list, or '' for "no default unit". */
 const unit = z.enum(UNIT_KEYS).or(z.literal(""));
+/** Price per unit; null = no price. Rounded to agorot by the DB column. */
+const price = z.number().nonnegative().max(PRICE_MAX).nullable();
 const id = z.object({ id: z.string() });
 
 export function createOrdersIntents(logic: OrdersLogic) {
@@ -148,12 +152,14 @@ export function createOrdersIntents(logic: OrdersLogic) {
     }),
     defineIntent({
       name: "orders.create_product",
-      description: "Add a product to a supplier's catalog, in a category, with an optional default unit",
+      description:
+        "Add a product to a supplier's catalog, in a category, with an optional default unit and price",
       input: z.object({
         supplierId: z.string().min(1),
         categoryId: z.string().min(1),
         name: productName,
         defaultUnit: unit.optional(),
+        price: price.optional(),
       }),
       output: id,
       handler: (input, ctx) => logic.createProduct(input, ctx),
@@ -176,12 +182,13 @@ export function createOrdersIntents(logic: OrdersLogic) {
     }),
     defineIntent({
       name: "orders.update_product",
-      description: "Edit a product's name, category or default unit",
+      description: "Edit a product's name, category, default unit or price (null clears the price)",
       input: z.object({
         id: z.string(),
         name: productName.optional(),
         categoryId: z.string().min(1).optional(),
         defaultUnit: unit.optional(),
+        price: price.optional(),
       }),
       output: id,
       handler: (input, ctx) => logic.updateProduct(input, ctx),
