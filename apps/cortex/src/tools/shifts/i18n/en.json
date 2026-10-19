@@ -7,8 +7,6 @@
   "menu": "Menu",
   "manageMembers": "Manage org members",
   "positionsTitle": "Positions",
-  "positionsOne": "1 position",
-  "positionsMany": "positions",
   "addPosition": "Add position",
   "editPosition": "Edit position",
   "positionName": "Position name",
@@ -94,5 +92,11 @@
   "hoursLabel": "Hour",
   "minutesLabel": "Min",
   "periodLabel": "AM/PM",
-  "done": "Done"
+  "done": "Done",
+  "todayShiftsLabel": "Today's shifts",
+  "noShiftsToday": "No shifts today",
+  "addShiftToday": "Add a shift for today",
+  "peopleOne": "1 person",
+  "peopleMany": "people",
+  "peopleNotSet": "Not set"
 }

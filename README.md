@@ -18,7 +18,8 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 - **Tools** (`apps/cortex/src/tools/`): inventory, tasks (filters, week view,
   categories, urgency), notes, expenses, journal, staff, candidates (admin-only)
   + questionnaire, time entries, orders (suppliers, catalog, WhatsApp order),
-  shifts (positions, employees, weekly shifts, staffing requirements).
+  shifts (positions, employees, weekly shifts, staffing requirements, Home card
+  with today's shifts).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There

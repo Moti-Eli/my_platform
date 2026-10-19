@@ -7,8 +7,6 @@
   "menu": "תפריט",
   "manageMembers": "ניהול חברי הארגון",
   "positionsTitle": "תפקידים",
-  "positionsOne": "תפקיד אחד",
-  "positionsMany": "תפקידים",
   "addPosition": "הוסף תפקיד",
   "editPosition": "עריכת תפקיד",
   "positionName": "שם התפקיד",
@@ -94,5 +92,11 @@
   "hoursLabel": "שעה",
   "minutesLabel": "דקות",
   "periodLabel": "חלק ביום",
-  "done": "סיום"
+  "done": "סיום",
+  "todayShiftsLabel": "המשמרות של היום",
+  "noShiftsToday": "אין משמרות היום",
+  "addShiftToday": "הוסף משמרת להיום",
+  "peopleOne": "אדם אחד",
+  "peopleMany": "אנשים",
+  "peopleNotSet": "לא נקבע"
 }

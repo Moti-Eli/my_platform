@@ -1,6 +1,7 @@
 /**
  * Staffing helpers — pure, shared by the shift list (summary line), the shift
- * edit screen (steppers) and the positions screen (delete block), so "what does
+ * edit screen (steppers), the positions screen (delete block) and the Home card
+ * (total people), so "what does
  * this shift need" is computed in ONE place.
  */
 import type { Position, ShiftRequirement } from "./logic";
@@ -30,6 +31,17 @@ export function shiftNeeds(
     const count = requiredCount(requirements, templateId, p.id);
     return count > 0 ? [{ name: p.name, count }] : [];
   });
+}
+
+/** How many people the shift needs in total, all positions together (0 = not set). */
+export function totalRequired(
+  requirements: readonly ShiftRequirement[],
+  templateId: string,
+): number {
+  return requirements.reduce(
+    (sum, r) => (r.templateId === templateId ? sum + r.requiredCount : sum),
+    0,
+  );
 }
 
 /** How many shifts require each position — a position in use can't be deleted. */
