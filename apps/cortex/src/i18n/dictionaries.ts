@@ -224,6 +224,18 @@ const he = {
     contactPlaceholder: "הוספת אימייל או טלפון",
     roleAdmin: "מנהל",
     roleMember: "חבר",
+    // Status tags under the name (stage 1a). Shift positions are the manager's own
+    // names, shown as typed — only "owner" is a translated key.
+    statusOwner: "בעל מסעדה",
+    // Edit profile (name only for now).
+    editProfile: "עריכת פרופיל",
+    nameLabel: "שם",
+    namePlaceholder: "השם שיוצג באפליקציה",
+    nameSave: "שמירה",
+    nameSaving: "שומר…",
+    nameInvalid: "יש להזין שם, עד 200 תווים",
+    nameSaveFailed: "שמירת השם נכשלה, נסה שוב",
+    nameNotConfigured: "המערכת אינה מחוברת לשרת",
     menu: "תפריט",
     changePhoto: "שינוי תמונה",
     // Section headers
@@ -482,6 +494,15 @@ const en: Messages = {
     contactPlaceholder: "Add email or phone",
     roleAdmin: "Admin",
     roleMember: "Member",
+    statusOwner: "Restaurant owner",
+    editProfile: "Edit profile",
+    nameLabel: "Name",
+    namePlaceholder: "The name shown in the app",
+    nameSave: "Save",
+    nameSaving: "Saving…",
+    nameInvalid: "Enter a name, up to 200 characters",
+    nameSaveFailed: "Couldn't save the name, try again",
+    nameNotConfigured: "The app is not connected to a server",
     menu: "Menu",
     changePhoto: "Change photo",
     // Section headers

@@ -107,6 +107,20 @@ the personal-org trigger is its second half. Note (3) still governs how that
 trigger must behave when it is built: exactly one `membership_roles` row per new
 org, because the bootstrap exemption fires only while an org has zero role rows.
 
+### Profile screen
+
+Build order: 1a basic profile, 1b photo, 2 business card, 3 tool data
+(supplier catalog, employee hours), 4 stories. Rule: **the tool manages, the
+profile shows** (ARCHITECTURE.md #35).
+
+- **1a (status tags + name edit): IN PROGRESS** (`feat/profile-basic`). Tags
+  under the name: "owner" for an org admin, plus the user's shift positions in
+  the active org, read through the shifts tool's own `shifts.list_my_positions`
+  intent. A badge on the avatar opens `/profile/edit` (name only). Migration
+  `20261020000001` (own-row `display_name` UPDATE) is NOT applied yet: dry-run +
+  apply via the DB Migrations workflow after merge.
+- 1b (profile photo: storage bucket + policies + column): not started.
+
 ## Decisions and why
 
 Settled. Here because the reasoning is not visible in the code; without it the
@@ -300,6 +314,11 @@ G. `holdRoleAs()` in `verify-can-read.ts` and `verify-can-write-grant.ts` seeds
    lost. Not fixed: the history is pushed and a rebase over 60+ commits is a bigger
    risk than a wrong label. Recorded so nobody hunts for the escalation migration
    under the wrong subject.
+
+7. `public.users` still grants INSERT/DELETE to `authenticated` at the table
+   level (the deferred my-platform debt in `20260717000001`), denied by RLS
+   alone. UPDATE is narrowed: `20261020000001` revokes table-level UPDATE and
+   grants only `display_name`, with an own-row policy.
 
 ## Resolved debts
 

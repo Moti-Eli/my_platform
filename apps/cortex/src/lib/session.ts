@@ -42,6 +42,7 @@ export interface Session {
  *   app/comms/page.tsx              -> requireSession()
  *   app/notifications/page.tsx      -> requireSession()
  *   app/profile/page.tsx            -> requireSession()
+ *   app/profile/edit/page.tsx       -> requireSession()
  *   app/profile/s/[key]/page.tsx    -> requireSession()
  *   app/settings/page.tsx           -> requireSession()
  *   app/settings/appearance/page.tsx-> requireSession()

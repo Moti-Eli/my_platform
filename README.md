@@ -11,7 +11,8 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 ## 📋 Current Status
 
 - **Shell:** tab bar, AI sheet and urgency bell (placeholders), catalog,
-  profile, settings (language, theme, version), PWA install and offline shell.
+  profile (status tags from the tools, name edit), settings (language, theme,
+  version), PWA install and offline shell.
 - **Auth & tenancy:** Supabase login, multi-org with org switching, RBAC
   (roles → permissions), row-level access (`visibility` + `record_grants`)
   enforced by Postgres RLS.
