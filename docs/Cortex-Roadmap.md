@@ -107,6 +107,15 @@ the personal-org trigger is its second half. Note (3) still governs how that
 trigger must behave when it is built: exactly one `membership_roles` row per new
 org, because the bootstrap exemption fires only while an org has zero role rows.
 
+### Profile screen — photo (stage 1b)
+
+**IN PROGRESS** (`feat/profile-photo`, merge AFTER `feat/profile-basic` / #10).
+Tapping the large avatar opens choose / remove photo. The image is shrunk to
+512px in the browser, uploaded with the user's own session to the private
+`avatars` bucket at `<user id>/avatar`, and the server records `avatar_path`.
+The profile page signs a 1-hour URL per view. Migration `20261020000002` is
+NOT applied yet and depends on `20261020000001` (it renames that policy).
+
 ## Decisions and why
 
 Settled. Here because the reasoning is not visible in the code; without it the
