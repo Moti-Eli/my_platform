@@ -328,6 +328,7 @@ export function TextField({
   inputRef,
   type,
   dir,
+  inputMode,
   onPaste,
 }: {
   label: string;
@@ -341,6 +342,8 @@ export function TextField({
   inputRef?: React.Ref<HTMLInputElement>;
   type?: "text" | "tel" | "email";
   dir?: "ltr";
+  /** Which phone keyboard to open (e.g. "decimal" for a price). */
+  inputMode?: "decimal";
   onPaste?: React.ClipboardEventHandler<HTMLInputElement>;
 }) {
   return (
@@ -360,6 +363,7 @@ export function TextField({
         ref={inputRef}
         type={type ?? "text"}
         dir={dir}
+        inputMode={inputMode}
         className={error ? `${inputClass} ${invalidRing}` : inputClass}
         value={value}
         placeholder={placeholder}
