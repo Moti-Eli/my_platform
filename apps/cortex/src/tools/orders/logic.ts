@@ -14,8 +14,8 @@
  * The `org_id` filters below are CONTEXT filters, not security ones — RLS is the
  * enforcement point. The writes do NOT set `visibility`; it defaults to 'org'.
  *
- * PRICES ARE OUT OF SCOPE: supplier_products.price exists in the DB (reserved for
- * the supplier-built catalog) but is never read into these types nor written.
+ * PRICE: supplier_products.price (nullable) is read and written for single
+ * products — set in the product form. A pasted list leaves it NULL.
  */
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
@@ -51,6 +51,8 @@ export interface Product {
   name: string;
   /** A unit KEY from `units.ts`, or '' for none. */
   defaultUnit: string;
+  /** Price per unit, or null when none was entered. */
+  price: number | null;
   archived: boolean;
 }
 
@@ -81,6 +83,7 @@ export interface CreateProductInput {
   categoryId: string;
   name: string;
   defaultUnit?: string;
+  price?: number | null;
 }
 /** Many products for ONE supplier + category + unit (a pasted list). */
 export interface CreateProductsInput {
@@ -99,6 +102,8 @@ export interface UpdateProductInput {
   name?: string;
   categoryId?: string;
   defaultUnit?: string;
+  /** null clears the price. */
+  price?: number | null;
 }
 /** Every list_* takes no input — the org comes from ctx, not the caller. */
 export interface ListInput {}
@@ -157,6 +162,8 @@ function toProduct(row: DbRow): Product {
     categoryId: String(row.category_id),
     name: String(row.name),
     defaultUnit: text(row.default_unit),
+    // numeric may arrive as a string from PostgREST.
+    price: row.price == null ? null : Number(row.price),
     archived: row.archived === true,
   };
 }
@@ -259,6 +266,7 @@ export function createOrdersLogic({ db, emit: _emit }: { db: CortexDb; emit: Emi
         category_id: input.categoryId,
         name: input.name,
         default_unit: input.defaultUnit ?? "",
+        price: input.price ?? null,
       });
       return { id };
     },
@@ -294,6 +302,7 @@ export function createOrdersLogic({ db, emit: _emit }: { db: CortexDb; emit: Emi
       if (input.name !== undefined) patch.name = input.name;
       if (input.categoryId !== undefined) patch.category_id = input.categoryId;
       if (input.defaultUnit !== undefined) patch.default_unit = input.defaultUnit;
+      if (input.price !== undefined) patch.price = input.price;
       await db.update(PRODUCTS_TABLE, { id: input.id }, patch);
       return { id: input.id };
     },

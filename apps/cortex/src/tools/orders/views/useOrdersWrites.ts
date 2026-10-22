@@ -26,7 +26,7 @@ export type SupplierDraft = Pick<
   "name" | "phone" | "contactName" | "email" | "notes"
 > & { primaryCategoryId: string };
 
-export type ProductDraft = Pick<Product, "name" | "categoryId" | "defaultUnit">;
+export type ProductDraft = Pick<Product, "name" | "categoryId" | "defaultUnit" | "price">;
 
 export function useOrdersWrites() {
   const queryClient = useQueryClient();
@@ -188,6 +188,7 @@ export function useOrdersWrites() {
           supplierId,
           categoryId,
           defaultUnit,
+          price: null,
           archived: false,
         })),
       ]);
