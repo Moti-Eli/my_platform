@@ -7,6 +7,11 @@
  *
  * Saving or deleting goes back to the day view (history back — the day view is
  * the entry the user came from).
+ *
+ * Arming delete opens its confirmation BELOW the button, at the very bottom of
+ * the page — where the floating section bar sits. The page doesn't scroll by
+ * itself, so the confirmation is scrolled into view (centred, clear of the bar)
+ * the moment it appears.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -30,6 +35,14 @@ import {
   useMounted,
   type WriteErrorCode,
 } from "./shared";
+
+/** Stable (module-level) callback ref: runs once when the confirmation mounts,
+ * not on every re-render. Smooth only when the user allows motion. */
+function revealConfirm(el: HTMLDivElement | null) {
+  if (!el) return;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+}
 
 export function ShiftEditScreen({
   shiftId,
@@ -133,7 +146,11 @@ export function ShiftEditScreen({
       {/* Delete — behind a confirmation. */}
       <WriteErrorBanner code={deleteError} />
       {confirmingDelete ? (
-        <div role="alert" className="flex flex-col gap-xs rounded-md bg-danger/10 px-sm py-xs">
+        <div
+          ref={revealConfirm}
+          role="alert"
+          className="flex flex-col gap-xs rounded-md bg-danger/10 px-sm py-xs"
+        >
           <p className="type-label text-danger">
             {t("shifts.confirmDeleteShift").replace("{name}", shift.name)}
           </p>

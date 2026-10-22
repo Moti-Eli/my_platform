@@ -20,6 +20,7 @@ import {
   SUPPLIER_LIMITS,
 } from "../intents";
 import { UNIT_KEYS, unitLabelKey } from "../units";
+import { parsePrice, priceToText } from "../price";
 import { byName, normalizeName, sameName } from "../catalog";
 import type { ProductDraft, SupplierDraft } from "./useOrdersWrites";
 import {
@@ -322,10 +323,14 @@ export function ProductForm({
 }) {
   const { t, locale } = useI18n();
   const [draft, setDraft] = useState<ProductDraft>(initial);
+  // The price is edited as text and parsed on submit (see price.ts).
+  const [priceText, setPriceText] = useState(() => priceToText(initial.price));
   const [showErrors, setShowErrors] = useState(false);
   const { submitting, error, run } = useSubmit();
   const nameRef = useAutoFocus(mode === "modal");
 
+  const price = parsePrice(priceText);
+  const priceInvalid = price === "invalid";
   const missing = normalizeName(draft.name) === "";
   const duplicate =
     !missing &&
@@ -335,9 +340,9 @@ export function ProductForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setShowErrors(true);
-    if (missing || duplicate || categoryMissing) return;
+    if (missing || duplicate || categoryMissing || price === "invalid") return;
     // Saved with extra spaces collapsed, matching how duplicates are detected.
-    void run(() => onSubmit({ ...draft, name: normalizeName(draft.name) }), onClose);
+    void run(() => onSubmit({ ...draft, name: normalizeName(draft.name), price }), onClose);
   }
 
   return (
@@ -395,6 +400,16 @@ export function ProductForm({
           return { value: key, label: labelKey ? t(labelKey) : key };
         })}
         placeholder={t("orders.noUnit")}
+      />
+      <TextField
+        label={t("orders.price")}
+        value={priceText}
+        onChange={setPriceText}
+        placeholder={t("orders.pricePlaceholder")}
+        maxLength={20}
+        inputMode="decimal"
+        dir="ltr"
+        error={showErrors && priceInvalid ? t("orders.priceInvalid") : null}
       />
       {categories ? (
         <SelectField

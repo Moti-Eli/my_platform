@@ -13,8 +13,11 @@
  *
  * The selected day lives in the URL (?day=) via replaceState, so a refresh keeps
  * it and the back button doesn't walk through days.
+ *
+ * `openAdd` (Home's "+", `?add=1`) starts the screen with "Add shift" open; the
+ * flag is then removed from the URL so a refresh doesn't open it again.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
@@ -48,11 +51,17 @@ export function ShiftsScreen({
   day,
   onDayChange,
   onOpenShift,
+  openAdd,
+  onAddOpened,
 }: {
   /** The selected weekday from the URL, or null = today. */
   day: number | null;
   onDayChange: (weekday: number) => void;
   onOpenShift: (id: string) => void;
+  /** Start with "Add shift" open (the URL's one-time `add` signal). */
+  openAdd: boolean;
+  /** Called once the dialog is open — removes the signal from the URL. */
+  onAddOpened: () => void;
 }) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
@@ -68,11 +77,16 @@ export function ShiftsScreen({
   const dayShifts = shiftsOfDay(templates, selected, locale);
   const dayName = weekdayLong(selected, locale);
 
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(openAdd);
   const [confirmingCopy, setConfirmingCopy] = useState(false);
   const [copying, setCopying] = useState(false);
   const [copyError, setCopyError] = useState<WriteErrorCode | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // The dialog is already open (initial state) — only the URL needs cleaning.
+  useEffect(() => {
+    if (openAdd) onAddOpened();
+  }, [openAdd, onAddOpened]);
 
   const othersCount = templates.filter((tpl) => tpl.weekday !== selected).length;
 

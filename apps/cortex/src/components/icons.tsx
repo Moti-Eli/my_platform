@@ -274,6 +274,15 @@ export function ComposeIcon(props: IconProps) {
   );
 }
 
+/** Pencil — edit (e.g. the profile's edit badge). Distinct from ComposeIcon. */
+export function PencilIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4z" />
+    </svg>
+  );
+}
+
 /** Microphone — voice input (composer). */
 export function MicIcon(props: IconProps) {
   return (

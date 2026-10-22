@@ -132,6 +132,13 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       handler: (input, ctx) => logic.listEmployeePositions(input, ctx),
     }),
     defineIntent({
+      name: "shifts.list_my_positions",
+      description: "List the positions the current user can fill in the current organization",
+      input: z.object({}),
+      output: z.array(position),
+      handler: (input, ctx) => logic.listMyPositions(input, ctx),
+    }),
+    defineIntent({
       name: "shifts.assign_position",
       description: "Let an employee fill a position",
       input: z.object({ employeeId: z.string().min(1), positionId: z.string().min(1) }),

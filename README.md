@@ -11,15 +11,17 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 ## 📋 Current Status
 
 - **Shell:** tab bar, AI sheet and urgency bell (placeholders), catalog,
-  profile (photo upload), settings (language, theme, version), PWA install and
-  offline shell.
+  profile (status tags from the tools, name edit, photo upload), settings
+  (language, theme, version), PWA install and offline shell.
 - **Auth & tenancy:** Supabase login, multi-org with org switching, RBAC
   (roles → permissions), row-level access (`visibility` + `record_grants`)
   enforced by Postgres RLS.
 - **Tools** (`apps/cortex/src/tools/`): inventory, tasks (filters, week view,
   categories, urgency), notes, expenses, journal, staff, candidates (admin-only)
-  + questionnaire, time entries, orders (suppliers, catalog, WhatsApp order),
-  shifts (positions, employees, weekly shifts, staffing requirements).
+  + questionnaire, time entries, orders (suppliers, catalog with optional
+  product prices, WhatsApp order),
+  shifts (positions, employees, weekly shifts, staffing requirements, Home card
+  with today's shifts).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There

@@ -1082,6 +1082,22 @@ typecheck in CI). Git history keeps everything recoverable.
 
 ---
 
+## 35. The Profile Shows, the Tool Manages
+
+**Decision:** The profile screen holds no business data of its own. What it
+shows about a person in the active org comes from where that data is managed:
+"owner" from org admin status, shift positions from the shifts tool's own read
+intent (`shifts.list_my_positions`, via `runIntent`), never a direct read of a
+tool's tables. Later sections (a supplier's catalog, an employee's hours) follow
+the same shape. The only profile write is the user's own name, gated in the
+database by a column grant plus an own-row policy (`20261020000001`).
+
+**Reasoning:** One source of truth per fact. If the profile stored roles or a
+catalog, it would drift from the tool that manages them, and the Standard
+already forbids reading another tool's tables directly.
+
+---
+
 ## 36. Profile Photos: Private Bucket, Signed URLs, One Object per User
 
 **Decision:** Profile photos live in a private Supabase Storage bucket,
@@ -1090,8 +1106,6 @@ user write only their own folder and read their own photo plus those of people
 they share an active org with. `public.users.avatar_path` stores the path (not a
 URL), with a CHECK that pins it to the row's own folder. Pages sign a
 short-lived URL per view. The browser shrinks the image before upload.
-(Numbered #36 because #35, "the profile shows, the tool manages", lands with
-the stage-1a PR.)
 
 **Reasoning:** A public bucket would hand out permanent links anyone can
 forward. The read rule matches the existing `users` read policy, so who can see

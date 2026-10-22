@@ -372,7 +372,7 @@ export function CategorySuppliersLevel({
       {productFor ? (
         <ProductForm
           mode="modal"
-          initial={{ name: "", categoryId, defaultUnit: "" }}
+          initial={{ name: "", categoryId, defaultUnit: "", price: null }}
           supplierProducts={data.products.filter((p) => p.supplierId === productFor)}
           onSubmit={(draft) => writes.createProduct(productFor, draft)}
           onClose={() => setProductFor(null)}
@@ -534,7 +534,7 @@ export function ProductsLevel({
       {adding ? (
         <ProductForm
           mode="modal"
-          initial={{ name: "", categoryId, defaultUnit: "" }}
+          initial={{ name: "", categoryId, defaultUnit: "", price: null }}
           supplierProducts={supplierProducts}
           onSubmit={(draft) => writes.createProduct(supplierId, draft)}
           onClose={() => setAdding(false)}
@@ -580,6 +580,7 @@ export function ProductsLevel({
                       name: p.name,
                       categoryId: p.categoryId,
                       defaultUnit: p.defaultUnit,
+                      price: p.price,
                     }}
                     editingId={p.id}
                     supplierProducts={supplierProducts}
