@@ -49,6 +49,16 @@ const hasLength = (v: { startTime: string; endTime: string }) => v.startTime !==
 
 export function createShiftsIntents(logic: ShiftsLogic) {
   return [
+    // --- access -------------------------------------------------------------
+    defineIntent({
+      name: "shifts.my_access",
+      description:
+        "Whether the current user is a manager of the shifts tool and/or an employee taking part in shifts",
+      input: z.object({}),
+      output: z.object({ isAdmin: z.boolean(), isEmployee: z.boolean() }),
+      handler: (input, ctx) => logic.myAccess(input, ctx),
+    }),
+
     // --- positions ----------------------------------------------------------
     defineIntent({
       name: "shifts.list_positions",

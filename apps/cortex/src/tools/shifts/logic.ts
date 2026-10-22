@@ -8,7 +8,8 @@
  * Stage 1: POSITIONS (part 1), EMPLOYEES in the tool + which positions each can
  * fill (part 2), the WEEKLY SHIFT TEMPLATES with "copy a day to all days"
  * (part 3), and STAFFING REQUIREMENTS — how many of each position a shift
- * needs (part 4).
+ * needs (part 4). Stage 2 (availability) starts with `myAccess` — who the
+ * acting user is to the tool.
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
  * through the SAME per-user RLS client the staff tool uses (`getRls`, injected —
@@ -81,6 +82,14 @@ export interface ShiftRequirement {
   requiredCount: number;
 }
 
+/** The acting user's standing in the tool (stage 2, part 1: who sees what). */
+export interface MyAccess {
+  /** Org admin in the active org (from ctx — the shell's convenience flag). */
+  isAdmin: boolean;
+  /** Has a shift_employees row in the active org. */
+  isEmployee: boolean;
+}
+
 /** Every list_* takes no input — the org comes from ctx, not the caller. */
 export interface ListInput {}
 export interface IdInput {
@@ -148,6 +157,8 @@ export interface CopyDayResult {
 }
 
 export interface ShiftsLogic {
+  myAccess(input: ListInput, ctx: Ctx): Promise<MyAccess>;
+
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   createPosition(input: CreatePositionInput, ctx: Ctx): Promise<{ id: string }>;
   renamePosition(input: RenamePositionInput, ctx: Ctx): Promise<{ id: string }>;
@@ -236,6 +247,15 @@ export function createShiftsLogic({
   getRls: () => Promise<SupabaseClient>;
 }): ShiftsLogic {
   return {
+    // --- access -------------------------------------------------------------
+    async myAccess(_input, ctx) {
+      // What the screens OFFER, never what the DB allows (RLS decides that).
+      // shift_employees is readable by every org member, so this read works for
+      // a plain employee too.
+      const rows = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+      return { isAdmin: ctx.isAdmin, isEmployee: rows.length > 0 };
+    },
+
     // --- positions ----------------------------------------------------------
     async listPositions(_input, ctx) {
       const rows = await db.select(POSITIONS_TABLE, { org_id: ctx.orgId });

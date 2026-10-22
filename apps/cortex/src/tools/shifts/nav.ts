@@ -11,9 +11,11 @@
  *   ?shift=<id>          → one shift's edit screen
  *   ?view=employees      → employees in the tool
  *   ?view=positions      → job positions
+ *   ?week=next           → (employee's week screen) next week; absent = this week
  *
  * Switching section or opening a shift PUSHES a history entry (back returns).
- * Picking a day REPLACES the current entry — back must not walk through days.
+ * Picking a day or a week REPLACES the current entry — back must not walk
+ * through them.
  * `window.history.pushState/replaceState` are synced by Next into
  * `useSearchParams` with no server round-trip.
  */
@@ -24,6 +26,9 @@ import { useSearchParams } from "next/navigation";
 export const SHIFTS_ROUTE = "/tools/shifts";
 
 export type ShiftsSection = "shifts" | "employees" | "positions";
+
+/** The two weeks an employee can look at (decision: this week and the next). */
+export type WeekChoice = "current" | "next";
 
 export function shiftsHref(section: ShiftsSection): string {
   return section === "shifts" ? "" : `?view=${section}`;
@@ -46,6 +51,7 @@ export function useShiftsNav() {
   const dayParam = params.get("day");
   const day = dayParam !== null && /^[0-6]$/.test(dayParam) ? Number(dayParam) : null;
   const add = params.get("add") === "1";
+  const week: WeekChoice = params.get("week") === "next" ? "next" : "current";
 
   const section: ShiftsSection =
     view === "employees" || view === "positions" ? view : "shifts";
@@ -61,6 +67,14 @@ export function useShiftsNav() {
   }, []);
 
   const openShift = useCallback((id: string) => push(shiftHref(id)), [push]);
+
+  const setWeek = useCallback((next: WeekChoice) => {
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${next === "next" ? "?week=next" : ""}`,
+    );
+  }, []);
 
   /** Drops the one-time `add` signal, keeping the day (REPLACES — no new entry). */
   const clearAdd = useCallback(() => {
@@ -79,8 +93,10 @@ export function useShiftsNav() {
     day,
     shiftId: section === "shifts" ? shiftId : null,
     add: section === "shifts" && !shiftId && add,
+    week,
     go,
     setDay,
+    setWeek,
     openShift,
     clearAdd,
   };

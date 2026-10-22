@@ -21,7 +21,8 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   + questionnaire, time entries, orders (suppliers, catalog with optional
   product prices, WhatsApp order),
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
-  with today's shifts).
+  with today's shifts; stage 2 in progress: open to every member — an employee
+  sees their own week, a member not in the tool sees why).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There

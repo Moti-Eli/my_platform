@@ -7,6 +7,7 @@
  *
  * Restaurant staff + shift scheduling. Stage 1 is configuration: positions,
  * employees in the tool, weekly shift templates and staffing requirements.
+ * Stage 2: employees submit weekly availability; the manager sees the table.
  */
 import type { AppManifest } from "@platform/cortex-core";
 
@@ -18,13 +19,12 @@ export const manifest: AppManifest = {
   icon: "grid", // resolves to GridIcon — carried over from the catalog placeholder
   color: "coral", // palette token — carried over from the catalog placeholder
 
-  // ADMIN-ONLY SCREENS (stage 1). Writes on every shifts table require the
-  // `shifts.manage` permission (20261008000001), bound to NO role — so today only
-  // org admins pass. READS are open to every org member in the DB on purpose
-  // (stage 2: employees submit availability); only the screens are locked now.
-  // Same staleness warning as orders/candidates: once a non-admin role holds
-  // `shifts.manage`, this boolean must become a real permission check.
-  requiresAdmin: true,
+  // OPEN TO EVERY ORG MEMBER since stage 2: the route decides per user what to
+  // show (manager screens / the employee's own week / "not in the tool" — see
+  // the shifts page). RLS is the real boundary: READS are open to the org tree,
+  // every write on a shifts table needs `shifts.manage` (20261008000001), bound
+  // to NO role — so today only org admins pass. The `requiresAdmin` copy in
+  // app_definitions is updated by a stage-2 migration (part 2).
   permissions: [],
   roles: ["owner", "manager", "employee"],
   // New rows are born org-visible (the DB default; declared, not silent).

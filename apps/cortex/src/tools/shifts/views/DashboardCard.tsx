@@ -15,6 +15,11 @@
  * states. Home wraps the card in a `<Link>`, so every control here calls BOTH
  * `preventDefault` and `stopPropagation` (see the tasks card for why).
  *
+ * HIDDEN for an org member who is neither a manager nor in the tool (decision,
+ * stage 2): the tool is open to every member now, so the card asks
+ * `shifts.my_access` and renders nothing when the user has no part in shifts.
+ * While that answer loads it shows the usual skeleton frame.
+ *
  * "Today" is read only after hydration (`useSyncExternalStore`, server snapshot
  * null): the server's clock/time zone may disagree with the phone's around
  * midnight, and the reads are client-side anyway.
@@ -33,6 +38,7 @@ import { formatHours, isOvernight, todayWeekday, weekdayLong } from "../time";
 import { useClockFormat } from "../clockFormat";
 import { totalRequired } from "../staffing";
 import { SHIFTS_ROUTE, shiftHref, shiftsAddHref } from "../nav";
+import { useShiftAccess } from "@/lib/query/useShiftsStaff";
 import { SKELETON, useCountLabel } from "./shared";
 
 const noSubscribe = () => () => {};
@@ -45,8 +51,12 @@ export function DashboardCard(_props: ToolViewProps) {
   const today = useSyncExternalStore(noSubscribe, todayWeekday, () => null);
   const { templates, isLoading, isError } = useShiftTemplates();
   const { requirements, isLoading: reqLoading, isError: reqError } = useShiftRequirements();
+  const { access } = useShiftAccess();
 
-  const loading = isLoading || today === null;
+  // Neither a manager nor an employee in the tool → no card at all.
+  if (access && !access.isAdmin && !access.isEmployee) return null;
+
+  const loading = isLoading || today === null || access === null;
   const shifts = today === null ? [] : shiftsOfDay(templates, today, locale);
 
   return (

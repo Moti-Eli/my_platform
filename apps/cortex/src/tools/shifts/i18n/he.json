@@ -26,8 +26,6 @@
   "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
   "errorFailed": "משהו השתבש. נסה שוב.",
   "loadFailed": "הטעינה נכשלה",
-  "comingSoonTitle": "בקרוב",
-  "comingSoonShifts": "כאן יוגדרו המשמרות לכל יום בשבוע.",
   "employeesTitle": "עובדים",
   "employeesOne": "עובד אחד",
   "employeesMany": "עובדים",
@@ -98,5 +96,13 @@
   "addShiftToday": "הוסף משמרת להיום",
   "peopleOne": "אדם אחד",
   "peopleMany": "אנשים",
-  "peopleNotSet": "לא נקבע"
+  "peopleNotSet": "לא נקבע",
+  "mySubmission": "ההגשה שלי",
+  "weeksLabel": "שבועות",
+  "thisWeek": "השבוע",
+  "nextWeek": "שבוע הבא",
+  "noShiftsDay": "אין משמרות",
+  "availabilitySoon": "סימון הזמינות יתווסף בחלק הבא. בינתיים אפשר לראות את המשמרות של השבוע.",
+  "notInToolTitle": "אתה לא בכלי המשמרות",
+  "notInToolHint": "בקש מהמנהל להוסיף אותך לעובדים בכלי."
 }
