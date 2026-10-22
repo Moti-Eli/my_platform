@@ -138,6 +138,19 @@ all through `runIntent`, the one door.
   runs on real identity but not yet on a real database. The DB migration
   (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
   applied** — run `db push` yourself.
+- **Shifts (`src/tools/shifts/`), stage 2 — availability.** Open to every org
+  member: the page picks the manager screens, the employee's own week, or a
+  "you're not in the tool" screen (RLS stays the boundary). Submissions and marks
+  are born `private`, owned by the employee (migrations `20261022000001`–`06`).
+  **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
+  server action), not in the database — a deliberate, accepted risk: an employee
+  who calls Supabase directly with their own login could change their OWN
+  submission after the deadline; they can never see or touch anyone else's. If
+  that ever matters, add a `BEFORE INSERT/UPDATE/DELETE` trigger on
+  `shift_submissions` / `shift_availability_marks` that checks the week's
+  effective deadline (`shift_weeks` row or the Wednesday-18:00 default, plus
+  `shift_week_reopens`) in a new migration; nothing built so far has to change.
+  Deadlines are stored as absolute times and shown in the phone's time zone.
 - **Acceptance smoke** (no browser/DB needed):
 
   ```bash
