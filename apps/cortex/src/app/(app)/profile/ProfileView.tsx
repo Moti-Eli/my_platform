@@ -7,6 +7,11 @@
  * and a contact placeholder, then grouped settings-list sections. Every row leads
  * to a placeholder screen for now — no logic, and NO hardcoded app list (the
  * "apps summary" row will later read the registry via intents, like the chips).
+ *
+ * Under the name: the person's STATUS in the active org, as tags — "owner" for an
+ * org admin, plus one tag per shift position (the manager's own free-text names,
+ * from the shifts tool). Several at once is normal. A small badge on the avatar
+ * opens the edit-profile screen (name only for now).
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -24,6 +29,7 @@ import {
   ClockIcon,
   SparkIcon,
   GearIcon,
+  PencilIcon,
 } from "@/components/icons";
 import { useI18n, type MessageKey } from "@/i18n";
 
@@ -77,9 +83,11 @@ interface ProfileViewProps {
   orgName: string;
   /** Whether the user is an admin in the active org (from requireSession). */
   isAdmin: boolean;
+  /** The user's shift position names in the active org (shifts tool), in order. */
+  positions: string[];
 }
 
-export function ProfileView({ displayName, email, orgName, isAdmin }: ProfileViewProps) {
+export function ProfileView({ displayName, email, orgName, isAdmin, positions }: ProfileViewProps) {
   const { t } = useI18n();
   // The REAL name now, falling back to the email's local part when display_name
   // is null — never the old static i18n string.
@@ -113,29 +121,45 @@ export function ProfileView({ displayName, email, orgName, isAdmin }: ProfileVie
     >
       {/* Header: large tappable avatar + name + contact placeholder. */}
       <div className="flex flex-col items-center gap-sm pb-xs pt-lg">
-        <button
-          type="button"
-          onClick={changePhoto}
-          aria-label={t("profile.changePhoto")}
-          className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 type-display text-accent interactive motion-safe:active:scale-[0.97]"
-        >
-          {initial}
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={changePhoto}
+            aria-label={t("profile.changePhoto")}
+            className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 type-display text-accent interactive motion-safe:active:scale-[0.97]"
+          >
+            {initial}
+          </button>
+          {/* Edit badge — sits on the avatar's bottom inline-end edge. */}
+          <Link
+            href="/profile/edit"
+            aria-label={t("profile.editProfile")}
+            className="absolute bottom-0 end-0 flex h-9 w-9 items-center justify-center rounded-full bg-accent text-on-fill ring-2 ring-screen interactive motion-safe:active:scale-[0.97]"
+          >
+            <PencilIcon width={16} height={16} />
+          </Link>
+        </div>
         <div className="flex flex-col items-center gap-2xs">
           <span className="type-title text-ink">{name}</span>
           {/* Email is LTR even under an RTL layout. */}
           <span className="type-label text-muted" dir="ltr">{email}</span>
-          <div className="flex items-center gap-xs pt-2xs">
-            {/* Role: admin in the accent, member muted. */}
-            <span
-              className={`rounded-pill px-sm py-2xs type-caption ${
-                isAdmin ? "bg-accent/15 text-accent" : "bg-hairline text-muted"
-              }`}
-            >
-              {isAdmin ? t("profile.roleAdmin") : t("profile.roleMember")}
-            </span>
-            {orgName ? <span className="type-label text-muted">{orgName}</span> : null}
-          </div>
+          {orgName ? <span className="type-label text-muted">{orgName}</span> : null}
+          {/* Status tags: owner in the accent, shift positions muted. Wraps when
+              there are many; none at all when the user has no status here. */}
+          {isAdmin || positions.length > 0 ? (
+            <ul className="flex flex-wrap items-center justify-center gap-xs pt-2xs">
+              {isAdmin ? (
+                <li className="rounded-pill bg-accent/15 px-sm py-2xs type-caption text-accent">
+                  {t("profile.statusOwner")}
+                </li>
+              ) : null}
+              {positions.map((name) => (
+                <li key={name} className="rounded-pill bg-hairline px-sm py-2xs type-caption text-muted">
+                  {name}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </div>
 

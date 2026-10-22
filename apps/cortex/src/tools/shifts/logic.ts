@@ -161,6 +161,7 @@ export interface ShiftsLogic {
   removeEmployee(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
 
   listEmployeePositions(input: ListInput, ctx: Ctx): Promise<EmployeePosition[]>;
+  listMyPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   assignPosition(input: AssignPositionInput, ctx: Ctx): Promise<{ id: string }>;
   unassignPosition(input: IdInput, ctx: Ctx): Promise<{ id: string }>;
 
@@ -334,6 +335,25 @@ export function createShiftsLogic({
     async listEmployeePositions(_input, ctx) {
       const rows = await db.select(EMPLOYEE_POSITIONS_TABLE, { org_id: ctx.orgId });
       return rows.map(toEmployeePosition);
+    },
+
+    async listMyPositions(_input, ctx) {
+      // The ACTING user's positions in the active org — what the profile screen
+      // shows ("the tool manages, the profile shows"). Not in the tool, or in it
+      // with no positions → []. In display order, ties by name.
+      const [me] = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+      if (!me) return [];
+      const links = await db.select(EMPLOYEE_POSITIONS_TABLE, {
+        org_id: ctx.orgId,
+        employee_id: String(me.id),
+      });
+      if (links.length === 0) return [];
+      const mine = new Set(links.map((l) => String(l.position_id)));
+      const rows = await db.select(POSITIONS_TABLE, { org_id: ctx.orgId });
+      return rows
+        .map(toPosition)
+        .filter((p) => mine.has(p.id))
+        .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
     },
 
     async assignPosition(input, ctx) {
