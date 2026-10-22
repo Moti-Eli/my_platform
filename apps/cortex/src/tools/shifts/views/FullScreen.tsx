@@ -19,7 +19,7 @@ import { ShiftsBar } from "./ShiftsBar";
 // userId/orgId arrive as props but are NOT sent to the action — the server
 // derives identity from the session cookie.
 export function FullScreen(_props: ToolViewProps) {
-  const { section, day, shiftId, go, setDay, openShift } = useShiftsNav();
+  const { section, day, shiftId, add, go, setDay, openShift, clearAdd } = useShiftsNav();
 
   let screen;
   switch (section) {
@@ -33,7 +33,13 @@ export function FullScreen(_props: ToolViewProps) {
       screen = shiftId ? (
         <ShiftEditScreen shiftId={shiftId} onGoToPositions={() => go("positions")} />
       ) : (
-        <ShiftsScreen day={day} onDayChange={setDay} onOpenShift={openShift} />
+        <ShiftsScreen
+          day={day}
+          onDayChange={setDay}
+          onOpenShift={openShift}
+          openAdd={add}
+          onAddOpened={clearAdd}
+        />
       );
       break;
   }
