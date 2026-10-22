@@ -119,7 +119,12 @@ profile shows** (ARCHITECTURE.md #35).
   intent. A badge on the avatar opens `/profile/edit` (name only). Migration
   `20261020000001` (own-row `display_name` UPDATE) is NOT applied yet: dry-run +
   apply via the DB Migrations workflow after merge.
-- 1b (profile photo: storage bucket + policies + column): not started.
+- **1b (profile photo): IN PROGRESS** (`feat/profile-photo`, #11). Tapping the
+  large avatar opens choose / remove photo. The image is shrunk to 512px in the
+  browser, uploaded with the user's own session to the private `avatars` bucket
+  at `<user id>/avatar`, and the server records `avatar_path`. The profile page
+  signs a 1-hour URL per view. Migration `20261020000002` is NOT applied yet and
+  depends on `20261020000001` (it renames that policy).
 
 ## Decisions and why
 

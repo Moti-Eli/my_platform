@@ -1098,6 +1098,21 @@ already forbids reading another tool's tables directly.
 
 ---
 
+## 36. Profile Photos: Private Bucket, Signed URLs, One Object per User
+
+**Decision:** Profile photos live in a private Supabase Storage bucket,
+`avatars`, one object per user at `<user id>/avatar`. Storage policies let a
+user write only their own folder and read their own photo plus those of people
+they share an active org with. `public.users.avatar_path` stores the path (not a
+URL), with a CHECK that pins it to the row's own folder. Pages sign a
+short-lived URL per view. The browser shrinks the image before upload.
+
+**Reasoning:** A public bucket would hand out permanent links anyone can
+forward. The read rule matches the existing `users` read policy, so who can see
+your photo is who can already see your name.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
