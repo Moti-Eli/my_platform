@@ -167,6 +167,10 @@ not the org's name. See ARCHITECTURE.md #36.
   org, then a full load to "/" falls back to the user's first org. If the hide
   still fails after the pre-check passed, the list is already gone and the
   screen says the org must be hidden from the Organizations screen.
+- **1 (screens, part 4 — Home card): IN PROGRESS.** In a list's org: the list
+  name, how many items are left to buy and those items; tapping opens the list.
+  In any other org: "New list", opening the same modal (portalled out of Home's
+  card link). Stage 1 is complete once this lands.
 
 ## Decisions and why
 

@@ -37,5 +37,8 @@
   "deleteRefusedLastOrg": "The list can't be deleted: this is your only organization. Nothing was deleted.",
   "deleteRefusedOtherMembers": "The list can't be deleted because other people are on it. Nothing was deleted.",
   "deleteHideFailed": "The list was deleted, but its organization couldn't be hidden. You can hide it on the Organizations screen.",
-  "close": "Close"
+  "close": "Close",
+  "nothingLeft": "Nothing left to buy",
+  "leftToBuyOne": "1 item left to buy",
+  "leftToBuyMany": "{count} items left to buy"
 }
