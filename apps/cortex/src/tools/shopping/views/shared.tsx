@@ -10,7 +10,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n, type MessageKey } from "@/i18n";
 import type { IntentResult } from "@/cortex/actions";
-import { ChevronIcon, InfoIcon } from "@/components/icons";
+import { ChevronIcon, CloseIcon, ComposeIcon, InfoIcon } from "@/components/icons";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -113,6 +113,57 @@ export function EmptyCard({
   );
 }
 
+/** Row trailing actions: edit, then a two-tap delete (arm → confirm). */
+export function RowActions({
+  onEdit,
+  confirming,
+  onArmDelete,
+  onConfirmDelete,
+  disabled,
+}: {
+  onEdit: () => void;
+  confirming: boolean;
+  onArmDelete: () => void;
+  onConfirmDelete: () => void;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={t("shopping.edit")}
+        onClick={onEdit}
+        disabled={disabled}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+      >
+        <ComposeIcon width={16} height={16} />
+      </button>
+      {confirming ? (
+        <button
+          type="button"
+          aria-label={t("shopping.confirmDelete")}
+          onClick={onConfirmDelete}
+          disabled={disabled}
+          className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+        >
+          {t("shopping.confirmDelete")}
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={t("shopping.delete")}
+          onClick={onArmDelete}
+          disabled={disabled}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97]"
+        >
+          <CloseIcon width={16} height={16} />
+        </button>
+      )}
+    </>
+  );
+}
+
 /**
  * Modal shell — same overlay chrome and z-index as shifts' Modal (scrim at
  * z-[70] clears the TabBar; tap on the scrim or Escape closes). The panel is a
@@ -154,7 +205,7 @@ export function Modal({
   );
 }
 
-/** Primary + cancel buttons for a modal form. */
+/** Primary + cancel buttons for a modal or inline form. */
 export function FormActions({
   submitLabel,
   onCancel,

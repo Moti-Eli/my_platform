@@ -11,5 +11,21 @@
   "cancel": "Cancel",
   "loadFailed": "Loading failed",
   "errorDenied": "You don't have permission to make this change.",
-  "errorFailed": "Something went wrong. Try again."
+  "errorFailed": "Something went wrong. Try again.",
+  "emptyItemsTitle": "The list is empty",
+  "emptyItemsHint": "Add an item in the bar below.",
+  "allBought": "Everything's bought",
+  "boughtHeading": "Bought",
+  "addItem": "Add item",
+  "addItemPlaceholder": "What do you need?",
+  "itemName": "Item name",
+  "itemNameRequired": "Give the item a name",
+  "quantity": "Quantity",
+  "quantityPlaceholder": "Qty",
+  "checkItem": "Mark as bought",
+  "uncheckItem": "Put back on the list",
+  "edit": "Edit",
+  "delete": "Delete",
+  "confirmDelete": "Delete?",
+  "save": "Save"
 }

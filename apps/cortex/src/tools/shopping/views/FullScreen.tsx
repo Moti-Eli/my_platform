@@ -5,14 +5,14 @@
  *
  * Every list lives in its own org (ARCHITECTURE.md #36), so the screen depends on
  * the ACTIVE org:
- *   - a list org     → the list (stage 1 step 1: its name only; the full list
- *                      screen comes next)
+ *   - a list org     → the list screen (items; the ☰ menu comes next)
  *   - any other org  → "no list here" + "new list", which opens NewListModal
  */
 import { useState } from "react";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { useShoppingList } from "@/lib/query/useShoppingList";
+import { ListScreen } from "./ListScreen";
 import { NewListModal } from "./NewListModal";
 import { AddButton, EmptyCard, SKELETON, ToolHeader } from "./shared";
 
@@ -36,7 +36,9 @@ export function FullScreen(_props: ToolViewProps) {
         <div className={`h-32 w-full ${SKELETON}`} aria-hidden="true" />
       ) : isError ? (
         <EmptyCard titleKey="shopping.loadFailed" />
-      ) : list ? null : (
+      ) : list ? (
+        <ListScreen list={list} />
+      ) : (
         <EmptyCard
           titleKey="shopping.noListTitle"
           hintKey="shopping.noListHint"

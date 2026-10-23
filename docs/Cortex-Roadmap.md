@@ -156,8 +156,11 @@ not the org's name. See ARCHITECTURE.md #36.
   failure), catalog seed `20261023000001` NOT applied yet.
 - **1 (screens, part 1): IN PROGRESS.** `/tools/shopping`: in a list's org it
   shows the list name; in any other org "no list here" + "new list", whose modal
-  runs `shopping.create_list` and switches to the new org. The full list screen
-  (items, check off, delete) is next.
+  runs `shopping.create_list` and switches to the new org.
+- **1 (screens, part 2 — items): IN PROGRESS.** The list screen: items to buy,
+  then the checked-off ones; the circle ticks / unticks, ✎ edits inline, ✕ is a
+  two-tap delete; a floating bar adds name + quantity. The ☰ menu (rename /
+  delete list) is next.
 
 ## Decisions and why
 

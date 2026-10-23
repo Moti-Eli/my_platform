@@ -6,9 +6,19 @@
  */
 import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
-import { LIST_NAME_MAX, type ShoppingLogic } from "./logic";
+import { ITEM_NAME_MAX, LIST_NAME_MAX, QUANTITY_MAX, type ShoppingLogic } from "./logic";
 
 const list = z.object({ id: z.string(), name: z.string() });
+const item = z.object({
+  id: z.string(),
+  name: z.string(),
+  quantity: z.string(),
+  checked: z.boolean(),
+  createdAt: z.string(),
+});
+const itemName = z.string().trim().min(1).max(ITEM_NAME_MAX);
+const quantity = z.string().trim().max(QUANTITY_MAX);
+const id = z.object({ id: z.string() });
 
 export function createShoppingIntents(logic: ShoppingLogic) {
   return [
@@ -29,6 +39,43 @@ export function createShoppingIntents(logic: ShoppingLogic) {
       input: z.object({ name: z.string().trim().min(1).max(LIST_NAME_MAX) }),
       output: z.object({ listId: z.string(), orgId: z.string() }),
       handler: (input, ctx) => logic.createList(input, ctx),
+    }),
+
+    // --- items ----------------------------------------------------------------
+    defineIntent({
+      name: "shopping.list_items",
+      description: "List the items on the current organization's shopping list",
+      input: z.object({}),
+      output: z.array(item),
+      handler: (input, ctx) => logic.listItems(input, ctx),
+    }),
+    defineIntent({
+      name: "shopping.add_item",
+      description: "Add an item (name and optional free-text quantity) to the shopping list",
+      input: z.object({ listId: z.string(), name: itemName, quantity }),
+      output: z.object({ id: z.string(), createdAt: z.string() }),
+      handler: (input, ctx) => logic.addItem(input, ctx),
+    }),
+    defineIntent({
+      name: "shopping.update_item",
+      description: "Change an item's name and quantity",
+      input: z.object({ id: z.string(), name: itemName, quantity }),
+      output: id,
+      handler: (input, ctx) => logic.updateItem(input, ctx),
+    }),
+    defineIntent({
+      name: "shopping.set_checked",
+      description: "Check an item off as bought, or uncheck it",
+      input: z.object({ id: z.string(), checked: z.boolean() }),
+      output: id,
+      handler: (input, ctx) => logic.setChecked(input, ctx),
+    }),
+    defineIntent({
+      name: "shopping.delete_item",
+      description: "Delete an item from the shopping list",
+      input: id,
+      output: id,
+      handler: (input, ctx) => logic.deleteItem(input, ctx),
     }),
   ];
 }

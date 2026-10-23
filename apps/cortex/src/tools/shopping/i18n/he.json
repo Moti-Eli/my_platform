@@ -11,5 +11,21 @@
   "cancel": "ביטול",
   "loadFailed": "הטעינה נכשלה",
   "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
-  "errorFailed": "משהו השתבש. נסה שוב."
+  "errorFailed": "משהו השתבש. נסה שוב.",
+  "emptyItemsTitle": "הרשימה ריקה",
+  "emptyItemsHint": "הוסיפו פריט בפס למטה.",
+  "allBought": "הכול נקנה",
+  "boughtHeading": "נקנו",
+  "addItem": "הוסף פריט",
+  "addItemPlaceholder": "מה צריך?",
+  "itemName": "שם הפריט",
+  "itemNameRequired": "צריך לכתוב שם לפריט",
+  "quantity": "כמות",
+  "quantityPlaceholder": "כמות",
+  "checkItem": "סמן כנקנה",
+  "uncheckItem": "החזר לרשימה",
+  "edit": "עריכה",
+  "delete": "מחיקה",
+  "confirmDelete": "למחוק?",
+  "save": "שמור"
 }
