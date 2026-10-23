@@ -72,6 +72,10 @@ import { manifest as shiftsManifest } from "@/tools/shifts/manifest";
 import { createShiftsLogic } from "@/tools/shifts/logic";
 import { createShiftsIntents } from "@/tools/shifts/intents";
 import { createShiftsListeners } from "@/tools/shifts/events";
+import { manifest as shoppingManifest } from "@/tools/shopping/manifest";
+import { createShoppingLogic } from "@/tools/shopping/logic";
+import { createShoppingIntents } from "@/tools/shopping/intents";
+import { createShoppingListeners } from "@/tools/shopping/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -204,6 +208,19 @@ function build(): Runtime {
   });
   if (!getApp(shiftsManifest.id)) {
     registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
+  }
+  // Shopping — create_list provisions an org (service client), so it runs
+  // SERVER-SIDE ONLY; this client runtime only registers the tool so it can be
+  // listed, so createList is a throwing stub — exactly like candidates.invite.
+  const shoppingLogic = createShoppingLogic({
+    db,
+    emit: eventBus.emit,
+    createList: () => {
+      throw new Error("shopping.create_list runs server-side only");
+    },
+  });
+  if (!getApp(shoppingManifest.id)) {
+    registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),

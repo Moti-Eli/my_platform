@@ -146,6 +146,15 @@ not the org's name. See ARCHITECTURE.md #36.
   installs the tool there, switches to that org and lands in the new list.
 - Open: one screen that gathers all of a user's lists in one place. Today each
   list is reached by switching to its org.
+- Decided: deleting a list = delete the list and its items, THEN hide its org
+  (`hideOrganizationForCurrentUser`, a soft delete), in that order — hiding does
+  not cascade to tool rows.
+- Note for stage 2: hiding an org is refused when it is the user's last org or
+  when it has other members (then only "leave" is possible).
+- **1 (registration): IN PROGRESS.** Tool registered in both runtimes,
+  `shopping.create_list` (root org + tool install + list, compensating on
+  failure), catalog seed `20261023000001` NOT applied yet. No screens yet:
+  `/tools/shopping` shows the generic placeholder.
 
 ## Decisions and why
 
