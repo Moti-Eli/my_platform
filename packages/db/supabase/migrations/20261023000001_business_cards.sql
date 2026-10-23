@@ -49,7 +49,10 @@
 -- A SELECT policy exists for owners only (the storage API needs it to replace a
 -- file); there is none for anon, so nobody can LIST the bucket. 2 MB, images only.
 -- The folder is cast to uuid only after a CASE has checked its shape, so a stray
--- folder name can never make a policy raise.
+-- folder name can never make a policy raise. Every policy names the object's path
+-- as `storage.objects.name`, fully qualified: business_cards ALSO has a `name`
+-- column, and an unqualified `name` inside the EXISTS subquery would resolve to
+-- the CARD's name, letting a crafted card name unlock other cards' folders.
 --
 -- Deleting a card does not delete its file by itself: the app removes the image
 -- when it deletes the card.
@@ -149,10 +152,10 @@ create policy "card images: owners read own"
   using (
     bucket_id = 'card-images'
     and case
-      when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      when (storage.foldername(storage.objects.name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         then exists (
           select 1 from public.business_cards c
-          where c.id = ((storage.foldername(name))[1])::uuid
+          where c.id = ((storage.foldername(storage.objects.name))[1])::uuid
             and c.owner_id = (select auth.uid())
         )
       else false
@@ -164,10 +167,10 @@ create policy "card images: upload to own card"
   with check (
     bucket_id = 'card-images'
     and case
-      when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      when (storage.foldername(storage.objects.name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         then exists (
           select 1 from public.business_cards c
-          where c.id = ((storage.foldername(name))[1])::uuid
+          where c.id = ((storage.foldername(storage.objects.name))[1])::uuid
             and c.owner_id = (select auth.uid())
         )
       else false
@@ -179,10 +182,10 @@ create policy "card images: replace in own card"
   using (
     bucket_id = 'card-images'
     and case
-      when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      when (storage.foldername(storage.objects.name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         then exists (
           select 1 from public.business_cards c
-          where c.id = ((storage.foldername(name))[1])::uuid
+          where c.id = ((storage.foldername(storage.objects.name))[1])::uuid
             and c.owner_id = (select auth.uid())
         )
       else false
@@ -191,10 +194,10 @@ create policy "card images: replace in own card"
   with check (
     bucket_id = 'card-images'
     and case
-      when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      when (storage.foldername(storage.objects.name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         then exists (
           select 1 from public.business_cards c
-          where c.id = ((storage.foldername(name))[1])::uuid
+          where c.id = ((storage.foldername(storage.objects.name))[1])::uuid
             and c.owner_id = (select auth.uid())
         )
       else false
@@ -206,10 +209,10 @@ create policy "card images: delete from own card"
   using (
     bucket_id = 'card-images'
     and case
-      when (storage.foldername(name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      when (storage.foldername(storage.objects.name))[1] ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         then exists (
           select 1 from public.business_cards c
-          where c.id = ((storage.foldername(name))[1])::uuid
+          where c.id = ((storage.foldername(storage.objects.name))[1])::uuid
             and c.owner_id = (select auth.uid())
         )
       else false
