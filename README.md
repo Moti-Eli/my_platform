@@ -22,6 +22,7 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   product prices, WhatsApp order),
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
   with today's shifts).
+  Personal training: in progress, stage 1 tables only (migrations not applied yet).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There
