@@ -142,6 +142,10 @@ not the org's name. See ARCHITECTURE.md #36.
 - Open for stage 2: who may delete a whole list — only its owner, or every
   member? Today every member of the list's org may (no member but the owner
   exists in stage 1).
+- Decided (stage 1 screens): after "create", the app creates the list's org,
+  installs the tool there, switches to that org and lands in the new list.
+- Open: one screen that gathers all of a user's lists in one place. Today each
+  list is reached by switching to its org.
 
 ## Decisions and why
 
