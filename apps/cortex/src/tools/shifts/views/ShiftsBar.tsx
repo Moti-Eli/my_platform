@@ -4,7 +4,7 @@
  * Floating section switcher — the tasks filter bar's chrome (`sticky bottom-sm`
  * + `mt-auto`, translucent card, backdrop blur; see tasks' FilterBar header for
  * why sticky, not fixed): the hamburger at the edge, a hairline divider, then
- * the tool's three sections as segments: Shifts / Employees / Positions.
+ * the tool's sections as segments: Shifts / Employees / Positions / Availability.
  *
  * The hamburger opens a small menu above the bar — the same pattern as the
  * orders bar (things done occasionally, not daily). Today: "Manage org members",
@@ -25,6 +25,7 @@ const SECTIONS: Array<{ key: ShiftsSection; labelKey: MessageKey }> = [
   { key: "shifts", labelKey: "shifts.tabShifts" },
   { key: "employees", labelKey: "shifts.tabEmployees" },
   { key: "positions", labelKey: "shifts.tabPositions" },
+  { key: "availability", labelKey: "shifts.tabAvailability" },
 ];
 
 export function ShiftsBar({

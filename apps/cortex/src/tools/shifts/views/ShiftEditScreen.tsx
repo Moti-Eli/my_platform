@@ -132,7 +132,9 @@ export function ShiftEditScreen({
             });
             if (!res.ok) return res.code;
             queryClient.setQueryData<ShiftTemplate[]>(SHIFT_TEMPLATES_KEY, (prev) =>
-              (prev ?? []).map((tpl) => (tpl.id === shift.id ? { ...tpl, ...draft } : tpl)),
+              (prev ?? []).map((tpl) =>
+                tpl.id === shift.id ? { ...tpl, ...draft, updatedAt: new Date().toISOString() } : tpl,
+              ),
             );
             router.back();
             return null;
