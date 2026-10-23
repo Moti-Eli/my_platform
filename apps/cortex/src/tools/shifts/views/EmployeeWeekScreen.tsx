@@ -6,6 +6,8 @@
  * ahead), and the employee's MARKS on them (part 3):
  *
  *   tap a shift → can → can't (✗) → prefer (★) → can …   saved at once
+ *   questions   → the three built-in ones under the table (SubmissionAnswers,
+ *                 part 4), each change saved at once
  *   "Submit"    → stamps submitted_at; shown as "Submitted <time>". A change
  *                 after that shows "Update" until pressed again.
  *
@@ -47,6 +49,7 @@ import { effectiveDeadline, isWeekOpenFor } from "../deadline";
 import { useClockFormat } from "../clockFormat";
 import { shiftsOfDay, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { myWeekKey, useMyWeek } from "@/lib/query/useShiftAvailability";
+import { SubmissionAnswers } from "./SubmissionAnswers";
 import { EmptyCard, SKELETON, ToolHeader, WriteErrorBanner, useMounted, type WriteErrorCode } from "./shared";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -324,6 +327,18 @@ export function EmployeeWeekScreen({
               );
             })}
           </ul>
+
+          {/* The built-in questions (part 4); each change saves at once. */}
+          {weekKey !== null ? (
+            <SubmissionAnswers
+              // Re-key on the saved values so a server change resets the drafts.
+              key={`${submission?.minShifts ?? ""}|${submission?.maxShifts ?? ""}|${submission?.note ?? ""}`}
+              weekStart={weekKey}
+              submission={submission}
+              open={open}
+              onError={setWriteError}
+            />
+          ) : null}
 
           {/* Submit — status line + the one button. */}
           <div className="flex items-center justify-between gap-sm rounded-lg bg-card p-md">

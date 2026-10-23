@@ -10,7 +10,8 @@
  * (part 3), and STAFFING REQUIREMENTS — how many of each position a shift
  * needs (part 4). Stage 2 (availability): `myAccess` (who the acting user is
  * to the tool), then the EMPLOYEE's OWN week — read in one call (`myWeek`),
- * marks saved one tap at a time (`setMark`), and "Submit" (`submitWeek`). The
+ * marks saved one tap at a time (`setMark`), the built-in questions
+ * (`setAnswers`), and "Submit" (`submitWeek`). The
  * deadline is enforced HERE (`assertOpen`), not in RLS — see deadline.ts.
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
@@ -157,6 +158,18 @@ export interface SetMarkResult {
   submissionId: string;
   mark: AvailabilityMark | null;
 }
+/** The built-in questions' answers. Only the fields sent are changed; min and
+ * max always travel together (the pair is validated as one). */
+export interface SetAnswersInput extends WeekInput {
+  minShifts?: number | null;
+  maxShifts?: number | null;
+  doubleShift?: DoubleShift | null;
+  note?: string;
+}
+export interface SetAnswersResult {
+  submissionId: string;
+  updatedAt: string;
+}
 export interface SubmitWeekResult {
   submissionId: string;
   submittedAt: string;
@@ -241,6 +254,7 @@ export interface ShiftsLogic {
 
   myWeek(input: WeekInput, ctx: Ctx): Promise<MyWeek>;
   setMark(input: SetMarkInput, ctx: Ctx): Promise<SetMarkResult>;
+  setAnswers(input: SetAnswersInput, ctx: Ctx): Promise<SetAnswersResult>;
   submitWeek(input: WeekInput, ctx: Ctx): Promise<SubmitWeekResult>;
 
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
@@ -491,6 +505,23 @@ export function createShiftsLogic({
       }
       await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { updated_at: now });
       return { submissionId: submission.id, mark };
+    },
+
+    async setAnswers(input, ctx) {
+      // The built-in questions (part 4): each change saves at once. Only the
+      // fields present in the input are written; updated_at is bumped so
+      // "changed since submitting" is one comparison for the screen.
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      const now = new Date().toISOString();
+      const patch: DbRow = { updated_at: now };
+      if (input.minShifts !== undefined) patch.min_shifts = input.minShifts;
+      if (input.maxShifts !== undefined) patch.max_shifts = input.maxShifts;
+      if (input.doubleShift !== undefined) patch.double_shift = input.doubleShift;
+      if (input.note !== undefined) patch.note = input.note;
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, patch);
+      return { submissionId: submission.id, updatedAt: now };
     },
 
     async submitWeek(input, ctx) {

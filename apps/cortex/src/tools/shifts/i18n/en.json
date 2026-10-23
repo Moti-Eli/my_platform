@@ -118,5 +118,17 @@
   "changedSinceSubmit": "You have changes that aren't submitted yet",
   "errorWeekClosed": "The deadline has passed; the change was not saved.",
   "dbNotReadyTitle": "The database isn't ready for stage 2",
-  "dbNotReadyHint": "The availability tables don't exist in the database yet. Run the migrations (DB Migrations), then refresh."
+  "dbNotReadyHint": "The availability tables don't exist in the database yet. Run the migrations (DB Migrations), then refresh.",
+  "questionsTitle": "Questions",
+  "qShiftsCount": "How many shifts do you want this week?",
+  "qMin": "Minimum",
+  "qMax": "Maximum",
+  "qDouble": "Open to a double (two shifts in one day)?",
+  "dblYes": "Yes",
+  "dblNo": "No",
+  "dblIfNeeded": "Only if needed",
+  "qNote": "Note to the manager",
+  "notePlaceholder": "One line, optional",
+  "minMaxError": "The maximum can't be below the minimum",
+  "numberRange": "A number from 0 to 99"
 }

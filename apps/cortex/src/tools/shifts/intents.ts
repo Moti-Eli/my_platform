@@ -29,6 +29,11 @@ const employeePosition = z.object({
 const positionName = z.string().trim().min(1).max(POSITION_NAME_MAX);
 const id = z.object({ id: z.string() });
 
+/** The "note to the manager" cap (the table allows 500; the product says one line). */
+export const SUBMISSION_NOTE_MAX = 200;
+/** Mirrors shift_submissions.min_shifts / max_shifts CHECK (0–99). */
+export const SHIFTS_COUNT_MAX = 99;
+
 /** Mirrors shift_requirements.required_count CHECK (1–99; 0 = no row). */
 export const REQUIRED_MAX = 99;
 
@@ -108,6 +113,24 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       input: weekInput.extend({ templateId: z.string().min(1), mark: z.enum(["can", "cannot", "prefer"]) }),
       output: z.object({ submissionId: z.string(), mark: availabilityMark.nullable() }),
       handler: (input, ctx) => logic.setMark(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_answers",
+      description:
+        "Answer the built-in weekly questions for the current user: how many shifts (min/max, sent together), double shifts (yes/no/if_needed), a one-line note. Only the fields sent change. Refused after the deadline",
+      input: weekInput
+        .extend({
+          minShifts: z.number().int().min(0).max(SHIFTS_COUNT_MAX).nullable().optional(),
+          maxShifts: z.number().int().min(0).max(SHIFTS_COUNT_MAX).nullable().optional(),
+          doubleShift: z.enum(["yes", "no", "if_needed"]).nullable().optional(),
+          note: z.string().trim().max(SUBMISSION_NOTE_MAX).optional(),
+        })
+        .refine(
+          (v) => v.minShifts == null || v.maxShifts == null || v.minShifts <= v.maxShifts,
+          { message: "max must not be below min" },
+        ),
+      output: z.object({ submissionId: z.string(), updatedAt: z.string() }),
+      handler: (input, ctx) => logic.setAnswers(input, ctx),
     }),
     defineIntent({
       name: "shifts.submit_week",
