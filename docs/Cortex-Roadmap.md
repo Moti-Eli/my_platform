@@ -113,13 +113,21 @@ Build order: 1a basic profile, 1b photo, 2 business card, 3 tool data
 (supplier catalog, employee hours), 4 stories. Rule: **the tool manages, the
 profile shows** (ARCHITECTURE.md #35).
 
-- **1a (status tags + name edit): IN PROGRESS** (`feat/profile-basic`). Tags
-  under the name: "owner" for an org admin, plus the user's shift positions in
-  the active org, read through the shifts tool's own `shifts.list_my_positions`
-  intent. A badge on the avatar opens `/profile/edit` (name only). Migration
-  `20261020000001` (own-row `display_name` UPDATE) is NOT applied yet: dry-run +
-  apply via the DB Migrations workflow after merge.
+- **1a (status tags + name edit): DONE** (#10). Tags under the name: "owner"
+  for an org admin, plus the user's shift positions in the active org, read
+  through the shifts tool's own `shifts.list_my_positions` intent. A badge on the
+  avatar opens `/profile/edit` (name only). Migration `20261020000001` applied
+  2026-10-22.
 - 1b (profile photo: storage bucket + policies + column): not started.
+- **2 (business card): IN PROGRESS** (`feat/profile-card`). A card the user
+  creates (name required; role/field, phone, short description, image
+  optional). Table `business_cards` is personal (no org) and built for many
+  cards per person; the editor at `/profile/card` offers one. Each card has a
+  public page `/c/<slug>` (no sign-in, noindex) with a QR and a "join the app"
+  link to `/login?mode=signup`. anon reads only through
+  `get_public_business_card(slug)`; images in the public `card-images` bucket
+  under the card id. Not linked from the profile screen yet (a small separate
+  step after 1b). Migration `20261023000001` NOT applied yet.
 
 ## Decisions and why
 

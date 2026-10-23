@@ -1,5 +1,6 @@
 /**
- * Login — THE ONLY PUBLICLY-REACHABLE PAGE IN CORTEX.
+ * Login — a publicly-reachable page (with the business-card pages under
+ * `(public)`, which read only through their own public function).
  *
  * It carries an IDENTITY-ONLY redirect-if-authenticated guard, and deliberately
  * nothing more. The distinction matters:
@@ -36,15 +37,16 @@ import { AuthPanel } from "./AuthPanel";
 /**
  * `?error=expired` arrives here from /confirm when a recovery/OTP link was
  * expired or already used. We translate it into a single `login.*` key and hand
- * it to the panel to render as a quiet notice above the form — nothing else in
- * the query string is trusted or displayed.
+ * it to the panel to render as a quiet notice above the form. `?mode=signup`
+ * only chooses which form opens first — nothing else in the query string is
+ * trusted or displayed.
  */
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; mode?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, mode } = await searchParams;
 
   // Identity-only redirect-if-authenticated guard. See the header note: an
   // authenticated user is bounced to "/" (never requireSession here — that would
@@ -57,5 +59,12 @@ export default async function LoginPage({
     if (user) redirect("/");
   }
 
-  return <AuthPanel notice={error === "expired" ? "login.linkExpired" : null} />;
+  // `?mode=signup` (e.g. a business card's "join" button) opens the signup form;
+  // anything else opens login, as before.
+  return (
+    <AuthPanel
+      notice={error === "expired" ? "login.linkExpired" : null}
+      initialMode={mode === "signup" ? "signup" : "login"}
+    />
+  );
 }
