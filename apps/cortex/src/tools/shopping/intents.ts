@@ -41,6 +41,26 @@ export function createShoppingIntents(logic: ShoppingLogic) {
       handler: (input, ctx) => logic.createList(input, ctx),
     }),
 
+    defineIntent({
+      name: "shopping.rename_list",
+      description: "Rename the shopping list (the list's name only)",
+      input: z.object({ id: z.string(), name: z.string().trim().min(1).max(LIST_NAME_MAX) }),
+      output: id,
+      handler: (input, ctx) => logic.renameList(input, ctx),
+    }),
+    // Deletes the list and its items, then hides its org. Refused — with the
+    // list left intact — when the org is the user's last or has other members.
+    defineIntent({
+      name: "shopping.delete_list",
+      description: "Delete the shopping list with all its items and hide its organization",
+      input: id,
+      output: z.union([
+        z.object({ deleted: z.literal(true) }),
+        z.object({ error: z.enum(["lastOrg", "otherMembers", "hideFailed"]) }),
+      ]),
+      handler: (input, ctx) => logic.deleteList(input, ctx),
+    }),
+
     // --- items ----------------------------------------------------------------
     defineIntent({
       name: "shopping.list_items",

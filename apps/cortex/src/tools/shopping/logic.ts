@@ -55,6 +55,18 @@ export interface DeleteItemInput {
   id: string;
 }
 
+export interface RenameListInput {
+  id: string;
+  name: string;
+}
+export interface DeleteListInput {
+  id: string;
+}
+/** A refusal the screen explains; anything else is thrown (generic failure). */
+export type DeleteListResult =
+  | { deleted: true }
+  | { error: "lastOrg" | "otherMembers" | "hideFailed" };
+
 export interface CreateListInput {
   name: string;
 }
@@ -69,6 +81,8 @@ export interface ShoppingLogic {
   /** The active org's list, or null when the active org is not a list org. */
   getList(input: Record<string, never>, ctx: Ctx): Promise<List | null>;
   createList(input: CreateListInput, ctx: Ctx): Promise<CreateListResult>;
+  renameList(input: RenameListInput, ctx: Ctx): Promise<{ id: string }>;
+  deleteList(input: DeleteListInput, ctx: Ctx): Promise<DeleteListResult>;
   /** The active org's items (its one list's). */
   listItems(input: Record<string, never>, ctx: Ctx): Promise<Item[]>;
   addItem(input: AddItemInput, ctx: Ctx): Promise<{ id: string; createdAt: string }>;
@@ -97,12 +111,15 @@ export function createShoppingLogic({
   db,
   emit: _emit,
   createList,
+  deleteList,
 }: {
   db: CortexDb;
   emit: Emit;
   /** INJECTED — the server passes the real implementation; the client passes a
    *  throwing stub (createList never runs client-side). */
   createList: (input: CreateListInput, ctx: Ctx) => Promise<CreateListResult>;
+  /** INJECTED, same as createList — it hides the list's org (service client). */
+  deleteList: (input: DeleteListInput, ctx: Ctx) => Promise<DeleteListResult>;
 }): ShoppingLogic {
   return {
     async getList(_input, ctx) {
@@ -111,6 +128,18 @@ export function createShoppingLogic({
       return first ? toList(first) : null;
     },
     createList,
+
+    async renameList(input, _ctx) {
+      // The list's name only — the org's name never changes.
+      await db.update(
+        LISTS_TABLE,
+        { id: input.id },
+        { name: input.name, updated_at: new Date().toISOString() },
+      );
+      return { id: input.id };
+    },
+
+    deleteList,
 
     async listItems(_input, ctx) {
       const rows = await db.select(ITEMS_TABLE, { org_id: ctx.orgId });

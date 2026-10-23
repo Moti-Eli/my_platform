@@ -60,6 +60,7 @@ import { createShoppingLogic } from "@/tools/shopping/logic";
 import { createShoppingIntents } from "@/tools/shopping/intents";
 import { createShoppingListeners } from "@/tools/shopping/events";
 import { createShoppingCreateList } from "@/tools/shopping/create-list-logic";
+import { createShoppingDeleteList } from "@/tools/shopping/delete-list-logic";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -237,6 +238,8 @@ function build(): DataLayer {
     db,
     emit: eventBus.emit,
     createList: createShoppingCreateList({ getRls, service }),
+    // Deleting a list also hides its org (service client) — same seam.
+    deleteList: createShoppingDeleteList({ getRls, service }),
   });
   if (!getApp(shoppingManifest.id)) {
     registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));

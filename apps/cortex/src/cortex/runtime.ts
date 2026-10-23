@@ -218,6 +218,9 @@ function build(): Runtime {
     createList: () => {
       throw new Error("shopping.create_list runs server-side only");
     },
+    deleteList: () => {
+      throw new Error("shopping.delete_list runs server-side only");
+    },
   });
   if (!getApp(shoppingManifest.id)) {
     registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));

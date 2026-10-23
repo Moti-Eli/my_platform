@@ -5,13 +5,15 @@
  *
  * Every list lives in its own org (ARCHITECTURE.md #36), so the screen depends on
  * the ACTIVE org:
- *   - a list org     → the list screen (items; the ☰ menu comes next)
+ *   - a list org     → the list screen, with the ☰ menu (rename / delete) in
+ *                      the header
  *   - any other org  → "no list here" + "new list", which opens NewListModal
  */
 import { useState } from "react";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { useShoppingList } from "@/lib/query/useShoppingList";
+import { ListMenu } from "./ListMenu";
 import { ListScreen } from "./ListScreen";
 import { NewListModal } from "./NewListModal";
 import { AddButton, EmptyCard, SKELETON, ToolHeader } from "./shared";
@@ -28,6 +30,7 @@ export function FullScreen(_props: ToolViewProps) {
       <ToolHeader
         title={list ? list.name : t("shopping.name")}
         subtitle={list ? t("shopping.name") : undefined}
+        action={list ? <ListMenu list={list} /> : undefined}
       />
 
       {creating ? <NewListModal onClose={() => setCreating(false)} /> : null}

@@ -159,8 +159,14 @@ not the org's name. See ARCHITECTURE.md #36.
   runs `shopping.create_list` and switches to the new org.
 - **1 (screens, part 2 — items): IN PROGRESS.** The list screen: items to buy,
   then the checked-off ones; the circle ticks / unticks, ✎ edits inline, ✕ is a
-  two-tap delete; a floating bar adds name + quantity. The ☰ menu (rename /
-  delete list) is next.
+  two-tap delete; a floating bar adds name + quantity.
+- **1 (screens, part 3 — ☰ menu): IN PROGRESS.** Rename list (the list's name
+  only, never the org's) and delete list. `shopping.delete_list` first
+  pre-checks the two hide refusals (last org / other members) so a refusal
+  leaves the list intact, then deletes the list (items cascade), then hides the
+  org, then a full load to "/" falls back to the user's first org. If the hide
+  still fails after the pre-check passed, the list is already gone and the
+  screen says the org must be hidden from the Organizations screen.
 
 ## Decisions and why
 
