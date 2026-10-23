@@ -172,7 +172,7 @@ export function ShiftsScreen({
               const { id } = res.data as { id: string };
               queryClient.setQueryData<ShiftTemplate[]>(SHIFT_TEMPLATES_KEY, (prev) => [
                 ...(prev ?? []),
-                { id, weekday: selected, ...draft },
+                { id, weekday: selected, ...draft, updatedAt: new Date().toISOString() },
               ]);
               setAdding(false);
               return null;

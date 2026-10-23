@@ -11,7 +11,8 @@
  * needs (part 4). Stage 2 (availability): `myAccess` (who the acting user is
  * to the tool), then the EMPLOYEE's OWN week — read in one call (`myWeek`),
  * marks saved one tap at a time (`setMark`), the built-in questions
- * (`setAnswers`), and "Submit" (`submitWeek`). The
+ * (`setAnswers`), "Submit" (`submitWeek`), and the MANAGER's view of a
+ * week (`weekOverview`). The
  * deadline is enforced HERE (`assertOpen`), not in RLS — see deadline.ts.
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
@@ -81,6 +82,9 @@ export interface ShiftTemplate {
   startTime: string;
   /** "HH:MM" local time; earlier than startTime = ends the next day. */
   endTime: string;
+  /** ISO instant — later than an employee's submittedAt means "changed after
+   * they submitted" (stage 2). */
+  updatedAt: string;
 }
 
 /** How many people of one position a shift needs (a shift_requirements row). */
@@ -175,6 +179,14 @@ export interface SubmitWeekResult {
   submittedAt: string;
 }
 
+/** The manager's view of one week: everyone's submissions and marks (RLS: an
+ * org admin reads every private row; a plain member would get only their own). */
+export interface WeekOverview {
+  week: ShiftWeek | null;
+  submissions: Submission[];
+  marks: AvailabilityMark[];
+}
+
 /** The acting user's standing in the tool (stage 2, part 1: who sees what). */
 export interface MyAccess {
   /** Org admin in the active org (from ctx — the shell's convenience flag). */
@@ -256,6 +268,7 @@ export interface ShiftsLogic {
   setMark(input: SetMarkInput, ctx: Ctx): Promise<SetMarkResult>;
   setAnswers(input: SetAnswersInput, ctx: Ctx): Promise<SetAnswersResult>;
   submitWeek(input: WeekInput, ctx: Ctx): Promise<SubmitWeekResult>;
+  weekOverview(input: WeekInput, ctx: Ctx): Promise<WeekOverview>;
 
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   createPosition(input: CreatePositionInput, ctx: Ctx): Promise<{ id: string }>;
@@ -317,6 +330,7 @@ function toTemplate(row: DbRow): ShiftTemplate {
     name: String(row.name),
     startTime: hhmm(row.start_time),
     endTime: hhmm(row.end_time),
+    updatedAt: String(row.updated_at ?? ""),
   };
 }
 
@@ -533,6 +547,24 @@ export function createShiftsLogic({
       const now = new Date().toISOString();
       await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { submitted_at: now, updated_at: now });
       return { submissionId: submission.id, submittedAt: now };
+    },
+
+    async weekOverview(input, ctx) {
+      // The manager's table (stage 2, part 5). No admin check here: RLS decides
+      // — an org admin reads every employee's private submission (the admin
+      // branch of auth_user_can_read), anyone else only their own.
+      const [week] = await db.select(WEEKS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart });
+      const submissions = (
+        await db.select(SUBMISSIONS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart })
+      ).map(toSubmission);
+      // Marks have no week column: one read per submission (bounded by the
+      // number of employees), not one scan of every week's marks.
+      const marks = (
+        await Promise.all(
+          submissions.map((sub) => db.select(MARKS_TABLE, { submission_id: sub.id })),
+        )
+      ).flatMap((rows) => rows.map(toMark));
+      return { week: week ? toWeek(week) : null, submissions, marks };
     },
 
     // --- positions ----------------------------------------------------------

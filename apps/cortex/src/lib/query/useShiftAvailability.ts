@@ -11,7 +11,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
-import type { MyWeek } from "@/tools/shifts/logic";
+import type { MyWeek, WeekOverview } from "@/tools/shifts/logic";
 
 export const myWeekKey = (weekStart: string) => ["shifts", "myWeek", weekStart] as const;
 
@@ -28,4 +28,20 @@ export function useMyWeek(weekStart: string | null) {
     },
   });
   return { ...query, myWeek: query.data ?? null };
+}
+
+export const weekOverviewKey = (weekStart: string) => ["shifts", "weekOverview", weekStart] as const;
+
+/** The MANAGER's view of a week — everyone's submissions and marks. */
+export function useWeekOverview(weekStart: string | null) {
+  const query = useQuery({
+    queryKey: weekOverviewKey(weekStart ?? ""),
+    enabled: weekStart !== null,
+    queryFn: async (): Promise<WeekOverview> => {
+      const res = await runIntentAction("shifts.week_overview", { weekStart });
+      if (!res.ok) throw new Error(res.code);
+      return res.data as WeekOverview;
+    },
+  });
+  return { ...query, overview: query.data ?? null };
 }

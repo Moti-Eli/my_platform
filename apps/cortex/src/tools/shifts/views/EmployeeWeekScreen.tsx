@@ -23,41 +23,27 @@
  * `schemaMissing`, shown as its own explicit screen — so on a preview it is
  * clear that the database is behind, not that the code is broken.
  *
- * The chosen week lives in the URL (?week=next) via replaceState. "This week" is
- * read only after hydration (`useSyncExternalStore`, server snapshot null) — the
- * server's clock/time zone may disagree with the phone's around midnight.
+ * The chosen week lives in the URL (?week=next) via replaceState; the switch and
+ * the hydration-safe "this week" live in WeekSwitch.tsx (shared with the
+ * manager's table).
  */
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import { CloseIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
 import type { AvailabilityMark, Mark, MyWeek } from "../logic";
-import {
-  addDays,
-  dateOf,
-  formatDayMonth,
-  formatHours,
-  formatWeekRange,
-  isoDate,
-  isOvernight,
-  weekdayLong,
-  weekStartOf,
-} from "../time";
+import { addDays, formatDayMonth, formatHours, isoDate, isOvernight, weekdayLong } from "../time";
 import { effectiveDeadline, isWeekOpenFor } from "../deadline";
 import { useClockFormat } from "../clockFormat";
 import { shiftsOfDay, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { myWeekKey, useMyWeek } from "@/lib/query/useShiftAvailability";
 import { SubmissionAnswers } from "./SubmissionAnswers";
+import { WeekSwitch, chosenWeekStart, useThisWeek } from "./WeekSwitch";
 import { EmptyCard, SKELETON, ToolHeader, WriteErrorBanner, useMounted, type WriteErrorCode } from "./shared";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
-const WEEKS: WeekChoice[] = ["current", "next"];
-
-const noSubscribe = () => () => {};
-/** The Sunday of the device's current week, as "YYYY-MM-DD" (null on the server). */
-const readThisWeek = () => isoDate(weekStartOf(new Date()));
 
 /** can → cannot → prefer → can. */
 const NEXT: Record<Mark | "can", Mark | "can"> = { can: "cannot", cannot: "prefer", prefer: "can" };
@@ -74,9 +60,9 @@ export function EmployeeWeekScreen({
   const mounted = useMounted();
   const [clockFormat] = useClockFormat(locale);
   const { templates, isLoading: templatesLoading, isError: templatesError } = useShiftTemplates();
-  const thisWeek = useSyncExternalStore(noSubscribe, readThisWeek, () => null);
+  const thisWeek = useThisWeek();
 
-  const weekStart = thisWeek === null ? null : addDays(dateOf(thisWeek), week === "next" ? 7 : 0);
+  const weekStart = chosenWeekStart(thisWeek, week);
   const weekKey = weekStart === null ? null : isoDate(weekStart);
   const today = thisWeek === null ? null : isoDate(new Date());
 
@@ -208,32 +194,7 @@ export function EmployeeWeekScreen({
     <>
       <ToolHeader title={t("shifts.mySubmission")} subtitle={t("shifts.name")} />
 
-      {/* This week / next week — the same segmented look as the day strip. */}
-      <div role="tablist" aria-label={t("shifts.weeksLabel")} className="grid grid-cols-2 gap-2xs">
-        {WEEKS.map((w) => {
-          const active = w === week;
-          return (
-            <button
-              key={w}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onWeekChange(w)}
-              className={`flex h-10 items-center justify-center rounded-pill type-label interactive motion-safe:active:scale-[0.97] ${
-                active ? "bg-app-coral text-on-fill" : "bg-card text-ink"
-              }`}
-            >
-              {t(w === "next" ? "shifts.nextWeek" : "shifts.thisWeek")}
-            </button>
-          );
-        })}
-      </div>
-
-      {weekStart === null ? (
-        <span className={`h-4 w-24 ${SKELETON}`} aria-hidden="true" />
-      ) : (
-        <span className="type-label text-muted">{formatWeekRange(weekStart, locale)}</span>
-      )}
+      <WeekSwitch week={week} weekStart={weekStart} onChange={onWeekChange} />
 
       {schemaMissing ? (
         <EmptyCard titleKey="shifts.dbNotReadyTitle" hintKey="shifts.dbNotReadyHint" />

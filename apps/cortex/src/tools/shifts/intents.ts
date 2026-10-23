@@ -76,6 +76,7 @@ const template = z.object({
   name: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  updatedAt: z.string(),
 });
 /** Equal start/end is refused (the DB CHECK too); end < start = next day. */
 const hasLength = (v: { startTime: string; endTime: string }) => v.startTime !== v.endTime;
@@ -131,6 +132,18 @@ export function createShiftsIntents(logic: ShiftsLogic) {
         ),
       output: z.object({ submissionId: z.string(), updatedAt: z.string() }),
       handler: (input, ctx) => logic.setAnswers(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.week_overview",
+      description:
+        "The manager's view of a week (its Sunday as YYYY-MM-DD): the deadline settings, every employee's submission and marks",
+      input: weekInput,
+      output: z.object({
+        week: shiftWeek.nullable(),
+        submissions: z.array(submission),
+        marks: z.array(availabilityMark),
+      }),
+      handler: (input, ctx) => logic.weekOverview(input, ctx),
     }),
     defineIntent({
       name: "shifts.submit_week",

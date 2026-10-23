@@ -11,7 +11,9 @@
  *   ?shift=<id>          → one shift's edit screen
  *   ?view=employees      → employees in the tool
  *   ?view=positions      → job positions
- *   ?week=next           → (employee's week screen) next week; absent = this week
+ *   ?view=availability   → (manager) the week's availability table
+ *   ?week=next           → next week on the employee's screen / the availability
+ *                          table; absent = this week
  *
  * Switching section or opening a shift PUSHES a history entry (back returns).
  * Picking a day or a week REPLACES the current entry — back must not walk
@@ -25,7 +27,7 @@ import { useSearchParams } from "next/navigation";
 /** The tool's route (matches `TOOL_VIEWS.shifts.route`). */
 export const SHIFTS_ROUTE = "/tools/shifts";
 
-export type ShiftsSection = "shifts" | "employees" | "positions";
+export type ShiftsSection = "shifts" | "employees" | "positions" | "availability";
 
 /** The two weeks an employee can look at (decision: this week and the next). */
 export type WeekChoice = "current" | "next";
@@ -54,7 +56,7 @@ export function useShiftsNav() {
   const week: WeekChoice = params.get("week") === "next" ? "next" : "current";
 
   const section: ShiftsSection =
-    view === "employees" || view === "positions" ? view : "shifts";
+    view === "employees" || view === "positions" || view === "availability" ? view : "shifts";
 
   const push = useCallback((query: string) => {
     window.history.pushState(null, "", `${window.location.pathname}${query}`);
@@ -68,11 +70,16 @@ export function useShiftsNav() {
 
   const openShift = useCallback((id: string) => push(shiftHref(id)), [push]);
 
+  /** Keeps the section (`view`), replaces the week (no history entry). */
   const setWeek = useCallback((next: WeekChoice) => {
+    const params = new URLSearchParams(window.location.search);
+    if (next === "next") params.set("week", "next");
+    else params.delete("week");
+    const query = params.toString();
     window.history.replaceState(
       null,
       "",
-      `${window.location.pathname}${next === "next" ? "?week=next" : ""}`,
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
     );
   }, []);
 

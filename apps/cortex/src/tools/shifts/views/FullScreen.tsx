@@ -6,7 +6,8 @@
  * URL, `nav.ts`):
  *
  *   manager (org admin)      → the stage-1 sections (Shifts / Employees /
- *                              Positions) with the floating section bar.
+ *                              Positions) + the week's Availability table
+ *                              (stage 2), with the floating section bar.
  *   employee in the tool     → their own week (EmployeeWeekScreen), no bar.
  *   neither                  → "you're not in the shifts tool".
  *
@@ -23,6 +24,7 @@ import { ShiftEditScreen } from "./ShiftEditScreen";
 import { ShiftsBar } from "./ShiftsBar";
 import { EmployeeWeekScreen } from "./EmployeeWeekScreen";
 import { NotInToolScreen } from "./NotInToolScreen";
+import { AvailabilityScreen } from "./AvailabilityScreen";
 
 // userId/orgId arrive as props but are NOT sent to the action — the server
 // derives identity from the session cookie. The two flags are widened LOCALLY
@@ -49,6 +51,9 @@ export function FullScreen({
       break;
     case "employees":
       screen = <EmployeesScreen />;
+      break;
+    case "availability":
+      screen = <AvailabilityScreen week={week} onWeekChange={setWeek} />;
       break;
     case "shifts":
       screen = shiftId ? (

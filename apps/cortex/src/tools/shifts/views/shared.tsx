@@ -359,3 +359,51 @@ export function TextField({
     </label>
   );
 }
+
+/**
+ * A sheet that rises from the bottom — same scrim and close behaviour as
+ * {@link Dialog}, for a quick look at one item (an employee's answers) on a phone.
+ */
+export function BottomSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="ds-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-scrim" onClick={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="ds-panel flex max-h-[80%] w-full max-w-[480px] flex-col gap-sm overflow-y-auto rounded-t-xl bg-card p-lg pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lifted"
+      >
+        <div className="flex items-start justify-between gap-sm">
+          <h2 className="min-w-0 flex-1 truncate type-heading text-ink">{title}</h2>
+          <button
+            type="button"
+            aria-label={t("shifts.close")}
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive"
+          >
+            <CloseIcon width={16} height={16} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
