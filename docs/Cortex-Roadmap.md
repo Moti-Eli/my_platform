@@ -121,6 +121,30 @@ profile shows** (ARCHITECTURE.md #35).
   apply via the DB Migrations workflow after merge.
 - 1b (profile photo: storage bucket + policies + column): not started.
 
+### Shopping lists
+
+Lists for any purpose (home, office, event), shared by a small group, not an
+org. Build order: 1 personal list (create, items, check off, delete), 2 sharing
+by invite link, 3 memory (past items suggested again), 4 location reminder.
+
+Decided: **one list = one small ROOT organization**, created with
+`createOrganizationForCurrentUser` (no parent). Not a child org as in the
+candidates invite flow: a child org is read by its parent's members, so the
+owner's workplace would see their home list. Stage 2 "invite" = a membership in
+the list's org. The user sees the list name stored in the table, not the org's
+name.
+
+- Open (proposed, not yet approved): the org's name format. Proposal:
+  `<list name> · <6 random chars>`, to pass the per-user duplicate-name guard.
+
+- **1 (tables): IN PROGRESS** (`claude/cortex-shopping-lists-p354ax`). Migration
+  `20261022000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:
+  dry-run + apply via the DB Migrations workflow after merge. Catalog entry,
+  screens and permission key come later.
+- Open for stage 2: who may delete a whole list — only its owner, or every
+  member? Today every member of the list's org may (no member but the owner
+  exists in stage 1).
+
 ## Decisions and why
 
 Settled. Here because the reasoning is not visible in the code; without it the
