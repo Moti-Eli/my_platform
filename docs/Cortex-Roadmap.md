@@ -131,11 +131,9 @@ Decided: **one list = one small ROOT organization**, created with
 `createOrganizationForCurrentUser` (no parent). Not a child org as in the
 candidates invite flow: a child org is read by its parent's members, so the
 owner's workplace would see their home list. Stage 2 "invite" = a membership in
-the list's org. The user sees the list name stored in the table, not the org's
-name.
-
-- Open (proposed, not yet approved): the org's name format. Proposal:
-  `<list name> · <6 random chars>`, to pass the per-user duplicate-name guard.
+the list's org. The org's name is `<list name> · <6 random chars>` to pass the
+per-user duplicate-name guard; the user sees the list name stored in the table,
+not the org's name. See ARCHITECTURE.md #36.
 
 - **1 (tables): IN PROGRESS** (`claude/cortex-shopping-lists-p354ax`). Migration
   `20261022000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:

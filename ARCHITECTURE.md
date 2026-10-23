@@ -1098,6 +1098,25 @@ already forbids reading another tool's tables directly.
 
 ---
 
+## 36. A Shopping List Is a Small Root Organization
+
+**Decision (Moti):** Every shopping list lives in its OWN root organization (no
+`parent_id`), created with `createOrganizationForCurrentUser` (`@platform/auth`),
+one list per org (`shopping_lists_org_id_key`, migration `20261022000001`).
+Sharing a list (stage 2) means adding a membership to that org; no list row
+changes. NOT a child org as in the candidates invite flow (#31): a child org is
+read by its parent's members, so the owner's workplace would see their home list.
+The org's name is `<list name> · <6 random chars>`, to pass the per-user
+duplicate-name guard; the user sees the list name stored in `shopping_lists`.
+
+**Reasoning:** The access model is locked: org-tree membership blocks every read
+and write, and a record grant can only name someone already in the tree, so a
+list shared with people outside the owner's orgs cannot sit in any of them. Born
+in its own org from stage 1, a list never has to move, which matters because
+`org_id` and `visibility` are immutable.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
