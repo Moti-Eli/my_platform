@@ -55,6 +55,12 @@ import { manifest as shiftsManifest } from "@/tools/shifts/manifest";
 import { createShiftsLogic } from "@/tools/shifts/logic";
 import { createShiftsIntents } from "@/tools/shifts/intents";
 import { createShiftsListeners } from "@/tools/shifts/events";
+import { manifest as shoppingManifest } from "@/tools/shopping/manifest";
+import { createShoppingLogic } from "@/tools/shopping/logic";
+import { createShoppingIntents } from "@/tools/shopping/intents";
+import { createShoppingListeners } from "@/tools/shopping/events";
+import { createShoppingCreateList } from "@/tools/shopping/create-list-logic";
+import { createShoppingDeleteList } from "@/tools/shopping/delete-list-logic";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -224,6 +230,19 @@ function build(): DataLayer {
   const shiftsLogic = createShiftsLogic({ db, emit: eventBus.emit, getRls });
   if (!getApp(shiftsManifest.id)) {
     registerApp(shiftsManifest, createShiftsIntents(shiftsLogic), createShiftsListeners(shiftsLogic));
+  }
+  // Shopping — shopping.create_list is the privileged, server-only seam: the
+  // per-user RLS client (the "logged in" gate + the list insert) and the service
+  // client (root-org provisioning + the tool install). Same shape as candidates.
+  const shoppingLogic = createShoppingLogic({
+    db,
+    emit: eventBus.emit,
+    createList: createShoppingCreateList({ getRls, service }),
+    // Deleting a list also hides its org (service client) — same seam.
+    deleteList: createShoppingDeleteList({ getRls, service }),
+  });
+  if (!getApp(shoppingManifest.id)) {
+    registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);
