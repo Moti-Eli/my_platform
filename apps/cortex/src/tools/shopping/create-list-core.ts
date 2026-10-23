@@ -68,7 +68,11 @@ export async function createShoppingListCore(
 
   // (b) Install the tool in the new org. Resolve the definition by its SEEDED key
   //     (20261023000001): a missing seed row is a configuration error — compensate.
-  const defRes = await serviceDb.from("app_definitions").select("id").eq("key", "shopping").maybeSingle();
+  const defRes = await serviceDb
+    .from("app_definitions")
+    .select("id")
+    .eq("key", "shopping")
+    .maybeSingle();
   const definitionId = (defRes.data as { id: string } | null)?.id;
   if (defRes.error || !definitionId) {
     await compensate();

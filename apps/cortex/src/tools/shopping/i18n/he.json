@@ -1,3 +1,15 @@
 {
-  "name": "רשימות קניות"
+  "name": "רשימות קניות",
+  "noListTitle": "אין כאן רשימה",
+  "noListHint": "צרו רשימה חדשה — לבית, למשרד או לאירוע.",
+  "newList": "רשימה חדשה",
+  "newListTitle": "רשימה חדשה",
+  "listName": "שם הרשימה",
+  "listNamePlaceholder": "למשל: בית",
+  "listNameRequired": "צריך לתת לרשימה שם",
+  "create": "צור",
+  "cancel": "ביטול",
+  "loadFailed": "הטעינה נכשלה",
+  "errorDenied": "אין לך הרשאה לבצע את השינוי הזה.",
+  "errorFailed": "משהו השתבש. נסה שוב."
 }

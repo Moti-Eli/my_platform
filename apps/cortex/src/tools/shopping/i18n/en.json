@@ -1,3 +1,15 @@
 {
-  "name": "Shopping lists"
+  "name": "Shopping lists",
+  "noListTitle": "No list here",
+  "noListHint": "Create a new list — for home, the office or an event.",
+  "newList": "New list",
+  "newListTitle": "New list",
+  "listName": "List name",
+  "listNamePlaceholder": "e.g. Home",
+  "listNameRequired": "Give the list a name",
+  "create": "Create",
+  "cancel": "Cancel",
+  "loadFailed": "Loading failed",
+  "errorDenied": "You don't have permission to make this change.",
+  "errorFailed": "Something went wrong. Try again."
 }

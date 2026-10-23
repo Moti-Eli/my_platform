@@ -8,8 +8,18 @@ import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import { LIST_NAME_MAX, type ShoppingLogic } from "./logic";
 
+const list = z.object({ id: z.string(), name: z.string() });
+
 export function createShoppingIntents(logic: ShoppingLogic) {
   return [
+    // READ. The active org's list — null when the active org is not a list org.
+    defineIntent({
+      name: "shopping.get_list",
+      description: "Get the shopping list of the current organization, or null if it has none",
+      input: z.object({}),
+      output: list.nullable(),
+      handler: (input, ctx) => logic.getList(input, ctx),
+    }),
     // Creates the list's own root organization, installs this tool there and
     // inserts the list. The caller then switches to the returned org.
     defineIntent({
