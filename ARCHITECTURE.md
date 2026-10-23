@@ -1098,6 +1098,28 @@ already forbids reading another tool's tables directly.
 
 ---
 
+## 37. Business Cards: Personal, Public by Link, Read Through One Function
+
+**Decision:** A business card belongs to a person, not an organization:
+`public.business_cards` has `owner_id` and no `org_id`/`visibility`, so it is
+not a Cortex tool table. It is owner-only through RLS with column-limited
+insert and update; the slug in its public link is a random 16-hex code that only
+the database default sets. The public page `/c/<slug>` grants anon NOTHING on the
+table and reads through one security-definer function,
+`get_public_business_card(slug)`, which returns one card's display fields and
+never its id or owner. Card images live in a separate public-read bucket,
+`card-images`, under the card id, writable only into a card you own. QR codes use
+two theme-independent tokens (`code-ink` / `code-paper`) so they stay
+dark-on-light. (Numbered #37: #36, profile photos, lands with the stage-1b PR.)
+
+**Reasoning:** A person's card goes with them across orgs (a waiter who is also
+an artist). A direct anon SELECT on the table would let anyone holding the public
+key list every card and phone number; a by-slug function gives the page exactly
+one card. The private profile-photo bucket stays private; a card image is public
+by design.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
