@@ -150,7 +150,11 @@ all through `runIntent`, the one door.
   `shift_submissions` / `shift_availability_marks` that checks the week's
   effective deadline (`shift_weeks` row or the Wednesday-18:00 default, plus
   `shift_week_reopens`) in a new migration; nothing built so far has to change.
-  Deadlines are stored as absolute times and shown in the phone's time zone.
+  Deadlines are stored as absolute times and shown in the phone's time zone. The
+  DEFAULT deadline (no `shift_weeks` row: the Wednesday before the week, 18:00)
+  is a wall-clock time, so server and phone compute it in ONE business zone,
+  `SHIFTS_TIME_ZONE` in `src/tools/shifts/deadline.ts` — one zone per
+  deployment, not per org (known limitation).
 - **Acceptance smoke** (no browser/DB needed):
 
   ```bash

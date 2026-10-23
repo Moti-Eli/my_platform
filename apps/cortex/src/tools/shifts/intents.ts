@@ -37,6 +37,34 @@ export const SHIFT_NAME_MAX = 50;
 const weekday = z.number().int().min(0).max(6);
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const shiftName = z.string().trim().min(1).max(SHIFT_NAME_MAX);
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const weekInput = z.object({ weekStart: isoDay });
+const shiftWeek = z.object({ id: z.string(), weekStart: z.string(), deadlineAt: z.string() });
+const weekReopen = z.object({
+  id: z.string(),
+  employeeId: z.string(),
+  weekStart: z.string(),
+  reopenedUntil: z.string(),
+});
+const mark = z.enum(["cannot", "prefer"]);
+const availabilityMark = z.object({
+  id: z.string(),
+  submissionId: z.string(),
+  templateId: z.string(),
+  mark,
+});
+const submission = z.object({
+  id: z.string(),
+  employeeId: z.string(),
+  weekStart: z.string(),
+  minShifts: z.number().nullable(),
+  maxShifts: z.number().nullable(),
+  doubleShift: z.enum(["yes", "no", "if_needed"]).nullable(),
+  note: z.string(),
+  answers: z.record(z.string(), z.union([z.boolean(), z.number(), z.string()])),
+  submittedAt: z.string().nullable(),
+  updatedAt: z.string(),
+});
 const template = z.object({
   id: z.string(),
   weekday: z.number(),
@@ -57,6 +85,36 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       input: z.object({}),
       output: z.object({ isAdmin: z.boolean(), isEmployee: z.boolean() }),
       handler: (input, ctx) => logic.myAccess(input, ctx),
+    }),
+
+    // --- the employee's week (stage 2) --------------------------------------
+    defineIntent({
+      name: "shifts.my_week",
+      description:
+        "The current user's availability submission for a week (its Sunday as YYYY-MM-DD): the week's deadline settings, their submission and their marks",
+      input: weekInput,
+      output: z.object({
+        week: shiftWeek.nullable(),
+        reopen: weekReopen.nullable(),
+        submission: submission.nullable(),
+        marks: z.array(availabilityMark),
+      }),
+      handler: (input, ctx) => logic.myWeek(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_mark",
+      description:
+        "Mark one shift in the current user's week as cannot / prefer, or can (removes the mark). Refused after the week's deadline",
+      input: weekInput.extend({ templateId: z.string().min(1), mark: z.enum(["can", "cannot", "prefer"]) }),
+      output: z.object({ submissionId: z.string(), mark: availabilityMark.nullable() }),
+      handler: (input, ctx) => logic.setMark(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.submit_week",
+      description: "Submit (or re-submit) the current user's availability for a week. Refused after the deadline",
+      input: weekInput,
+      output: z.object({ submissionId: z.string(), submittedAt: z.string() }),
+      handler: (input, ctx) => logic.submitWeek(input, ctx),
     }),
 
     // --- positions ----------------------------------------------------------

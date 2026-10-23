@@ -85,7 +85,8 @@ export function AddButton({ label, onClick }: { label: string; onClick: () => vo
   );
 }
 
-/** The honest write-failure banner: denied/unavailable vs failed. */
+/** The honest write-failure banner: denied/unavailable vs failed, plus the two
+ * stage-2 cases (deadline passed; tables not migrated yet). */
 export function WriteErrorBanner({ code }: { code: WriteErrorCode | null }) {
   const { t } = useI18n();
   if (!code) return null;
@@ -95,7 +96,17 @@ export function WriteErrorBanner({ code }: { code: WriteErrorCode | null }) {
       className="flex items-start gap-xs rounded-md bg-danger/10 px-sm py-xs type-label text-danger"
     >
       <InfoIcon width={18} height={18} aria-hidden className="mt-2xs shrink-0" />
-      <span>{t(code === "failed" ? "shifts.errorFailed" : "shifts.errorDenied")}</span>
+      <span>
+        {t(
+          code === "weekClosed"
+            ? "shifts.errorWeekClosed"
+            : code === "schemaMissing"
+              ? "shifts.dbNotReadyHint"
+              : code === "failed"
+                ? "shifts.errorFailed"
+                : "shifts.errorDenied",
+        )}
+      </span>
     </p>
   );
 }

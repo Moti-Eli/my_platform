@@ -23,7 +23,12 @@ export type IntentResult<T = unknown> =
         // exactly what happened; see the mapping in runIntentAction.
         | "missingEmail"
         | "archived"
-        | "provisionFailed";
+        | "provisionFailed"
+        /** A tool table the code expects is not in the database yet (its
+         * migration has not been applied) — not a bug in the tool. */
+        | "schemaMissing"
+        /** Shifts: the week's submission deadline has passed. */
+        | "weekClosed";
     };
 
 /**
@@ -96,6 +101,14 @@ export async function runIntentAction(
     }
     if (/provisionFailed/.test(message)) {
       return { ok: false, code: "provisionFailed" };
+    }
+    if (/weekClosed/.test(message)) {
+      return { ok: false, code: "weekClosed" };
+    }
+    // PostgREST: "Could not find the table 'public.x' in the schema cache";
+    // Postgres: relation "x" does not exist.
+    if (/could not find the table|schema cache|relation .* does not exist/i.test(message)) {
+      return { ok: false, code: "schemaMissing" };
     }
 
     // A write to a tool table is denied by grants until the write step lands —

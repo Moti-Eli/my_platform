@@ -102,7 +102,21 @@
   "thisWeek": "השבוע",
   "nextWeek": "שבוע הבא",
   "noShiftsDay": "אין משמרות",
-  "availabilitySoon": "סימון הזמינות יתווסף בחלק הבא. בינתיים אפשר לראות את המשמרות של השבוע.",
   "notInToolTitle": "אתה לא בכלי המשמרות",
-  "notInToolHint": "בקש מהמנהל להוסיף אותך לעובדים בכלי."
+  "notInToolHint": "בקש מהמנהל להוסיף אותך לעובדים בכלי.",
+  "markCan": "יכול",
+  "markCannot": "לא יכול",
+  "markPrefer": "מעדיף",
+  "markLegend": "לחיצה על משמרת מחליפה: יכול ← לא יכול ← מעדיף",
+  "deadlineUntil": "אפשר להגיש עד {time}",
+  "deadlinePassed": "המועד עבר. פנה למנהל.",
+  "reopenedUntil": "נפתח מחדש עבורך עד {time}",
+  "submit": "הגש",
+  "updateSubmission": "עדכן",
+  "submittedAt": "הוגש ב-{time}",
+  "notSubmitted": "עוד לא הוגש",
+  "changedSinceSubmit": "יש שינויים שעוד לא הוגשו",
+  "errorWeekClosed": "המועד עבר, השינוי לא נשמר.",
+  "dbNotReadyTitle": "המסד עוד לא מוכן לשלב 2",
+  "dbNotReadyHint": "הטבלאות של הזמינות עדיין לא קיימות במסד הנתונים. צריך להריץ את המיגרציות (DB Migrations) ואז לרענן."
 }

@@ -102,7 +102,21 @@
   "thisWeek": "This week",
   "nextWeek": "Next week",
   "noShiftsDay": "No shifts",
-  "availabilitySoon": "Marking availability comes in the next part. For now you can see the week's shifts.",
   "notInToolTitle": "You're not in the shifts tool",
-  "notInToolHint": "Ask your manager to add you to the tool's employees."
+  "notInToolHint": "Ask your manager to add you to the tool's employees.",
+  "markCan": "Can",
+  "markCannot": "Can't",
+  "markPrefer": "Prefer",
+  "markLegend": "Tap a shift to cycle: can → can't → prefer",
+  "deadlineUntil": "Submit by {time}",
+  "deadlinePassed": "The deadline has passed. Talk to your manager.",
+  "reopenedUntil": "Reopened for you until {time}",
+  "submit": "Submit",
+  "updateSubmission": "Update",
+  "submittedAt": "Submitted {time}",
+  "notSubmitted": "Not submitted yet",
+  "changedSinceSubmit": "You have changes that aren't submitted yet",
+  "errorWeekClosed": "The deadline has passed; the change was not saved.",
+  "dbNotReadyTitle": "The database isn't ready for stage 2",
+  "dbNotReadyHint": "The availability tables don't exist in the database yet. Run the migrations (DB Migrations), then refresh."
 }
