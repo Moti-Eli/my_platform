@@ -40,10 +40,11 @@
 --   has owner_id + visibility because the shared RLS helpers and the trigger
 --   are keyed on them.
 --
--- (id, org_id) is unique on plans and days so the child rows reference them
--- with a COMPOSITE foreign key and the DB refuses a day in a different org
--- than its plan, or an exercise in a different org than its day (as in
--- shopping and orders). Deleting a plan deletes its days; deleting a day
+-- (id, org_id) is unique on all three tables. On plans and days it lets the
+-- child rows reference them with a COMPOSITE foreign key, so the DB refuses a
+-- day in a different org than its plan, or an exercise in a different org than
+-- its day (as in shopping and orders); on exercises it keeps the same shape
+-- for a future child table. Deleting a plan deletes its days; deleting a day
 -- deletes its exercises.
 --
 -- Does NOT touch anon or service_role. Touches no other table. No function is
@@ -151,6 +152,8 @@ create table public.plan_exercises (
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+
+  constraint plan_exercises_id_org_id_key unique (id, org_id),
 
   constraint plan_exercises_day_fk
     foreign key (day_id, org_id)
