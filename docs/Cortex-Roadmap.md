@@ -193,13 +193,13 @@ Build order: 1 manual plan (plan, days, exercises), 2 live workout screen,
 
 Decided: **one plan = one small ROOT organization**, created with
 `createOrganizationForCurrentUser` (no parent), the same model as the shopping
-lists (ARCHITECTURE.md #36, on `claude/cortex-shopping-lists-p354ax`). Every row
+lists (ARCHITECTURE.md #38). Every row
 of the tool's tables carries the plan's `org_id`; sharing a plan later (a coach,
 a training partner) = a membership in the plan's org.
 
 - **1 (tables): IN PROGRESS** (`ccr-1108186f-py7eqp`). Migration
-  `20261023000001` (`workout_plans`, `plan_days`, `plan_exercises`) and
-  `20261023000002` (`app_definitions` row for `training`) are NOT applied yet:
+  `20261028000003` (`workout_plans`, `plan_days`, `plan_exercises`) and
+  `20261028000004` (`app_definitions` row for `training`) are NOT applied yet:
   dry-run + apply via the DB Migrations workflow after merge. Tool files,
   screens, catalog stub removal (`fitness` in `stub-apps.ts`) and i18n come
   later.

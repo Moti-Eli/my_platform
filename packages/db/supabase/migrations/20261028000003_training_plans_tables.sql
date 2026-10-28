@@ -10,7 +10,7 @@
 -- -----------------------------------------------------------------------------
 -- ONE PLAN = ONE SMALL ROOT ORGANIZATION
 -- -----------------------------------------------------------------------------
--- Same model as the shopping lists (shopping_lists, ARCHITECTURE.md #36): the
+-- Same model as the shopping lists (shopping_lists, ARCHITECTURE.md #38): the
 -- access model is locked — org-tree membership is a BLOCKING AND on every read
 -- and write, and a record grant can only name someone already in the tree — so
 -- a plan shared with a coach or a training partner from outside the owner's

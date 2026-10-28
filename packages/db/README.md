@@ -382,7 +382,7 @@ full explanation.
   the list's org (`auth_user_can_read` / `auth_user_can_write`, no permission
   key); `owner_id` pinned on insert; immutability trigger on both tables. NOT
   applied yet.
-- `20261023000001_training_plans_tables.sql` — **Cortex Training tool, stage 1**:
+- `20261028000003_training_plans_tables.sql` — **Cortex Training tool, stage 1**:
   `workout_plans` + `plan_days` + `plan_exercises`. One plan per small ROOT
   organization (`unique (org_id)`), created with `createOrganizationForCurrentUser`,
   so the org is the plan's sharing boundary. Days reference their plan with a
@@ -391,7 +391,7 @@ full explanation.
   every member of the plan's org (`auth_user_can_read` / `auth_user_can_write`, no
   permission key); `owner_id` pinned on insert; immutability trigger on all three
   tables. NOT applied yet.
-- `20261023000002_seed_training_app_definition.sql` — seeds the `training` row in
+- `20261028000004_seed_training_app_definition.sql` — seeds the `training` row in
   `app_definitions` (category `personal`, `requiresAdmin` false). Idempotent via
   `on conflict (key) do nothing`. NOT applied yet.
 
