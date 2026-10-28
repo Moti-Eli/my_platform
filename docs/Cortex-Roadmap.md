@@ -185,6 +185,26 @@ not the org's name. See ARCHITECTURE.md #38.
   In any other org: "New list", opening the same modal (portalled out of Home's
   card link). Stage 1 is complete once this lands.
 
+### Personal training
+
+The `training` tool: a personal workout plan with training days and exercises.
+Build order: 1 manual plan (plan, days, exercises), 2 live workout screen,
+3 history, 4 goals, 5 AI.
+
+Decided: **one plan = one small ROOT organization**, created with
+`createOrganizationForCurrentUser` (no parent), the same model as the shopping
+lists (ARCHITECTURE.md #38). Every row
+of the tool's tables carries the plan's `org_id`; sharing a plan later (a coach,
+a training partner) = a membership in the plan's org.
+
+- **1 (tables): IN PROGRESS** (`ccr-1108186f-py7eqp`). Migration
+  `20261028000003` (`workout_plans`, `plan_days`, `plan_exercises`) and
+  `20261028000004` (`app_definitions` row for `training`) are NOT applied yet:
+  dry-run + apply via the DB Migrations workflow after merge. Tool files,
+  screens, catalog stub removal (`fitness` in `stub-apps.ts`) and i18n come
+  later.
+- Not in stage 1: workout logs, history and goals tables (stages 2–4).
+
 ## Decisions and why
 
 Settled. Here because the reasoning is not visible in the code; without it the
