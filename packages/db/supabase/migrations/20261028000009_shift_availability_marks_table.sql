@@ -16,7 +16,7 @@
 --     CHANGES keeps its marks; the app shows "changed after you submitted" by
 --     comparing shift_templates.updated_at with submitted_at.
 --
--- Access model = shift_submissions (20261022000004): BORN private, owned by the
+-- Access model = shift_submissions (20261028000008): BORN private, owned by the
 -- employee; read by the owner or an org admin, written by the owner only; no
 -- new function. Does NOT touch anon or service_role.
 -- =============================================================================
@@ -28,8 +28,10 @@ create table public.shift_availability_marks (
   owner_id uuid not null references public.users (id),
   org_id   uuid not null references public.organizations (id) on delete cascade,
 
+  -- Pinned to 'private': an 'org' row would be readable and writable by the
+  -- whole org tree. The immutability trigger keeps it from changing later.
   visibility text not null default 'private'
-    check (visibility in ('private', 'org', 'restricted')),
+    check (visibility = 'private'),
 
   submission_id uuid not null,
   template_id   uuid not null,

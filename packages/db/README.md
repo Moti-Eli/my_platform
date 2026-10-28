@@ -374,7 +374,7 @@ full explanation.
   non-vacuous by mutating the final predicate to `true` (7 assertions fail —
   every non-admin escalation; the admin, bootstrap-without-JWT, soft-delete, and
   `users.view` assertions correctly do not move, as they turn on other clauses).
-- `20261022000001_shift_weeks_table.sql` — **Shifts stage 2 (availability) begins:
+- `20261028000005_shift_weeks_table.sql` — **Shifts stage 2 (availability) begins:
   `shift_weeks`**, the manager's settings for one calendar week (`week_start` = the
   week's Sunday, `deadline_at`). A week with NO row means the defaults — deadline
   the Wednesday before at 18:00 — computed in tool code, not as a column default
@@ -387,22 +387,22 @@ full explanation.
   tool is open to every member since stage 2 part 1; the code manifest is the
   source of truth). **The deadline is enforced in tool code** (the server action is
   the only write path), deliberately not in RLS — stage 2 adds no security
-  function. Accepted risk, stated in `apps/cortex/README.md`: an employee calling
+  function. Accepted risk, stated in `apps/cortex/README.md` (lands with #12): an employee calling
   Supabase directly could edit their OWN submission late; a DB trigger can be
   added later without touching these tables.
-- `20261022000002_shift_questions_table.sql` — **`shift_questions`**, the manager's
+- `20261028000006_shift_questions_table.sql` — **`shift_questions`**, the manager's
   own questions for the weekly submission (`label`, `kind` ∈ yes_no | number |
   text, `position`, `is_active`). The three built-in questions live in tool code.
   Turned off, not deleted: answers are stored on the submission keyed by question
   id and must stay readable next to their question. Same access model as
   `shift_weeks`.
-- `20261022000003_shift_employees_id_org_user_key.sql` — **`unique (id, org_id,
+- `20261028000007_shift_employees_id_org_user_key.sql` — **`unique (id, org_id,
   user_id)` on `shift_employees`**, a composite-FK target and nothing else (the
   triple is trivially unique — `id` is the primary key). It lets
-  `20261022000004` pin a submission's `owner_id` to the employee's own `user_id`
+  `20261028000008` pin a submission's `owner_id` to the employee's own `user_id`
   with a plain foreign key, so no policy or function has to check it. A new
   migration: `20261008000002` is applied and is not edited.
-- `20261022000004_shift_submissions_table.sql` — **`shift_submissions`**, one
+- `20261028000008_shift_submissions_table.sql` — **`shift_submissions`**, one
   employee's weekly submission (one row per employee per week). **BORN
   `private`, owned by the employee** — the `time_entries` model, reusing the
   existing rules exactly: `auth_user_can_read`'s private branch lets the OWNER or
@@ -417,7 +417,7 @@ full explanation.
   (`shift_questions.id` → answer; few questions, always read with the row, never
   deleted — so no answers table), and `submitted_at` (set by "Submit"; null =
   saved, not submitted). `unique (id, org_id, owner_id)` as the marks' FK target.
-- `20261022000005_shift_availability_marks_table.sql` — **`shift_availability_marks`**,
+- `20261028000009_shift_availability_marks_table.sql` — **`shift_availability_marks`**,
   the employee's marks on the week's shifts: `mark` ∈ cannot | prefer, one row per
   (submission, shift) that was marked; **no row = can**. Composite FKs:
   `(submission_id, org_id, owner_id) → shift_submissions (id, org_id, owner_id)`
@@ -426,7 +426,7 @@ full explanation.
   deletes takes its marks with it; a shift the manager changes keeps them and the
   app flags "changed after you submitted" by comparing `updated_at` with
   `submitted_at`. Same private/owner access model as `shift_submissions`.
-- `20261022000006_shift_week_reopens_table.sql` — **`shift_week_reopens`**, "reopen
+- `20261028000010_shift_week_reopens_table.sql` — **`shift_week_reopens`**, "reopen
   for ONE employee" after a week's deadline (`employee_id`, `week_start`,
   `reopened_until`; one row per employee per week). A table rather than a column
   on the submission because the manager MAY NOT write an employee's private row

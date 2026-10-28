@@ -4,7 +4,7 @@
 --
 -- One employee's weekly submission: one row per (employee, week). The answers
 -- to the three built-in questions are columns; the marks on the shift table are
--- a child table (20261022000005); the answers to the manager's own questions
+-- a child table (20261028000009); the answers to the manager's own questions
 -- are a small JSON map (question id → answer) — few questions, always read with
 -- the submission, and a question is never deleted (only turned off), so a
 -- separate answers table would add a migration and queries for nothing.
@@ -23,7 +23,7 @@
 --
 -- THE OWNER IS THE EMPLOYEE, BY CONSTRUCTION: the composite FK
 --   (employee_id, org_id, owner_id) → shift_employees (id, org_id, user_id)
--- (target added by 20261022000003) means a row can only exist when owner_id IS
+-- (target added by 20261028000007) means a row can only exist when owner_id IS
 -- the employee's user. Removed from the tool → the submissions go too (cascade).
 --
 -- WHAT A ROW HOLDS
@@ -38,7 +38,7 @@
 --                once, but the manager's table counts a row as SUBMITTED only
 --                with this set (agreed: partial = not submitted).
 --
--- DEADLINE: enforced in tool code before every write (see 20261022000001).
+-- DEADLINE: enforced in tool code before every write (see 20261028000005).
 -- Does NOT touch anon or service_role.
 -- =============================================================================
 
@@ -49,8 +49,10 @@ create table public.shift_submissions (
   owner_id uuid not null references public.users (id),
   org_id   uuid not null references public.organizations (id) on delete cascade,
 
+  -- Pinned to 'private': an 'org' row would be readable and writable by the
+  -- whole org tree. The immutability trigger keeps it from changing later.
   visibility text not null default 'private'
-    check (visibility in ('private', 'org', 'restricted')),
+    check (visibility = 'private'),
 
   employee_id uuid not null,
   week_start  date not null
