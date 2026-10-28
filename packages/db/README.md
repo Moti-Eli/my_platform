@@ -374,6 +374,14 @@ full explanation.
   non-vacuous by mutating the final predicate to `true` (7 assertions fail —
   every non-admin escalation; the admin, bootstrap-without-JWT, soft-delete, and
   `users.view` assertions correctly do not move, as they turn on other clauses).
+- `20261028000001_shopping_lists_tables.sql` — **Cortex Shopping tool, stage 1**:
+  `shopping_lists` + `shopping_list_items`. One list per small ROOT organization
+  (`unique (org_id)`), created with `createOrganizationForCurrentUser`, so the org
+  is the list's sharing boundary. Items reference their list with a composite
+  `(list_id, org_id)` FK, cascade on list delete. Read/write for every member of
+  the list's org (`auth_user_can_read` / `auth_user_can_write`, no permission
+  key); `owner_id` pinned on insert; immutability trigger on both tables. NOT
+  applied yet.
 
 ## Local-only guard (every script that writes)
 
