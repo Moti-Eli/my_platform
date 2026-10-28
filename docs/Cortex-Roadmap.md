@@ -113,13 +113,77 @@ Build order: 1a basic profile, 1b photo, 2 business card, 3 tool data
 (supplier catalog, employee hours), 4 stories. Rule: **the tool manages, the
 profile shows** (ARCHITECTURE.md #35).
 
-- **1a (status tags + name edit): IN PROGRESS** (`feat/profile-basic`). Tags
-  under the name: "owner" for an org admin, plus the user's shift positions in
-  the active org, read through the shifts tool's own `shifts.list_my_positions`
-  intent. A badge on the avatar opens `/profile/edit` (name only). Migration
-  `20261020000001` (own-row `display_name` UPDATE) is NOT applied yet: dry-run +
-  apply via the DB Migrations workflow after merge.
-- 1b (profile photo: storage bucket + policies + column): not started.
+- **1a (status tags + name edit): DONE** (#10). Tags under the name: "owner"
+  for an org admin, plus the user's shift positions in the active org, read
+  through the shifts tool's own `shifts.list_my_positions` intent. A badge on the
+  avatar opens `/profile/edit` (name only). Migration `20261020000001` applied
+  2026-10-22.
+- **1b (profile photo): DONE** (#11). Tapping the
+  large avatar opens choose / remove photo. The image is shrunk to 512px in the
+  browser, uploaded with the user's own session to the private `avatars` bucket
+  at `<user id>/avatar`, and the server records `avatar_path`. The profile page
+  signs a 1-hour URL per view. Migration `20261020000002` is NOT applied yet and
+  depends on `20261020000001` (it renames that policy).
+- **2 (business card): DONE** (#16). A card the user
+  creates (name required; role/field, phone, short description, image
+  optional). Table `business_cards` is personal (no org) and built for many
+  cards per person; the editor at `/profile/card` offers one. Each card has a
+  public page `/c/<slug>` (no sign-in, noindex) with a QR and a "join the app"
+  link to `/login?mode=signup`. anon reads only through
+  `get_public_business_card(slug)`; images in the public `card-images` bucket
+  under the card id. Not linked from the profile screen yet (a small separate
+  step after 1b). Migration `20261023000001` NOT applied yet.
+
+### Shopping lists
+
+Lists for any purpose (home, office, event), shared by a small group, not an
+org. Build order: 1 personal list (create, items, check off, delete), 2 sharing
+by invite link, 3 memory (past items suggested again), 4 location reminder.
+
+Decided: **one list = one small ROOT organization**, created with
+`createOrganizationForCurrentUser` (no parent). Not a child org as in the
+candidates invite flow: a child org is read by its parent's members, so the
+owner's workplace would see their home list. Stage 2 "invite" = a membership in
+the list's org. The org's name is `<list name> · <6 random chars>` to pass the
+per-user duplicate-name guard; the user sees the list name stored in the table,
+not the org's name. See ARCHITECTURE.md #38.
+
+- **1 (tables): IN PROGRESS** (`claude/cortex-shopping-lists-p354ax`). Migration
+  `20261028000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:
+  dry-run + apply via the DB Migrations workflow after merge. Catalog entry,
+  screens and permission key come later.
+- Open for stage 2: who may delete a whole list — only its owner, or every
+  member? Today every member of the list's org may (no member but the owner
+  exists in stage 1).
+- Decided (stage 1 screens): after "create", the app creates the list's org,
+  installs the tool there, switches to that org and lands in the new list.
+- Open: one screen that gathers all of a user's lists in one place. Today each
+  list is reached by switching to its org.
+- Decided: deleting a list = delete the list and its items, THEN hide its org
+  (`hideOrganizationForCurrentUser`, a soft delete), in that order — hiding does
+  not cascade to tool rows.
+- Note for stage 2: hiding an org is refused when it is the user's last org or
+  when it has other members (then only "leave" is possible).
+- **1 (registration): IN PROGRESS.** Tool registered in both runtimes,
+  `shopping.create_list` (root org + tool install + list, compensating on
+  failure), catalog seed `20261028000002` NOT applied yet.
+- **1 (screens, part 1): IN PROGRESS.** `/tools/shopping`: in a list's org it
+  shows the list name; in any other org "no list here" + "new list", whose modal
+  runs `shopping.create_list` and switches to the new org.
+- **1 (screens, part 2 — items): IN PROGRESS.** The list screen: items to buy,
+  then the checked-off ones; the circle ticks / unticks, ✎ edits inline, ✕ is a
+  two-tap delete; a floating bar adds name + quantity.
+- **1 (screens, part 3 — ☰ menu): IN PROGRESS.** Rename list (the list's name
+  only, never the org's) and delete list. `shopping.delete_list` first
+  pre-checks the two hide refusals (last org / other members) so a refusal
+  leaves the list intact, then deletes the list (items cascade), then hides the
+  org, then a full load to "/" falls back to the user's first org. If the hide
+  still fails after the pre-check passed, the list is already gone and the
+  screen says the org must be hidden from the Organizations screen.
+- **1 (screens, part 4 — Home card): IN PROGRESS.** In a list's org: the list
+  name, how many items are left to buy and those items; tapping opens the list.
+  In any other org: "New list", opening the same modal (portalled out of Home's
+  card link). Stage 1 is complete once this lands.
 
 ### Personal training
 

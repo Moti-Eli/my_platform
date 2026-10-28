@@ -434,6 +434,14 @@ const fontSans =
  */
 export const brandColor = "#5B4CE0";
 
+/**
+ * Machine-readable codes (the business card's QR) — STRUCTURAL, not themeable.
+ * A scanner needs dark modules on a light field; an inverted code (light on dark,
+ * which a dark theme's ink/screen pair would produce) fails on many phones. So
+ * these two stay the same in every theme, like WhatsApp's always-white QR.
+ */
+const code = { ink: "#0B0B12", paper: "#FFFFFF" } as const;
+
 /** `:root` structural tokens (radii, font, typography) — shared by every theme. */
 export function baseStylesheet(): string {
   const typeVars = Object.entries(type)
@@ -458,6 +466,8 @@ export function baseStylesheet(): string {
   --ds-duration-fast:120ms;
   --ds-duration-base:200ms;
   --ds-ease:cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-code-ink:${code.ink};
+  --ds-code-paper:${code.paper};
 ${typeVars}
 ${spaceVars}
 }`;
