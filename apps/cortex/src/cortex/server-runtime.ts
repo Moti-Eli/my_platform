@@ -56,8 +56,8 @@ import { createShiftsLogic } from "@/tools/shifts/logic";
 import { createShiftsIntents } from "@/tools/shifts/intents";
 import { createShiftsListeners } from "@/tools/shifts/events";
 import { STUB_APPS } from "@/tools/stub-apps";
-import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getBaseUrl } from "@/lib/base-url";
 import { createCortexAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseCortexDb } from "./supabase-db";
 
@@ -118,18 +118,9 @@ function build(): DataLayer {
     return rls;
   };
 
-  // Resolved PER OPERATION (never frozen into the process-wide memo), because it
-  // reads request headers. The env override wins when set (e.g. a canonical public
-  // URL behind a proxy); otherwise we reconstruct the request origin. Used only by
+  // getBaseUrl (lib/base-url.ts) is resolved PER OPERATION, never frozen into the
+  // process-wide memo, because it reads request headers. Used here only by
   // candidates.invite, to build the candidate's portal link.
-  const getBaseUrl = async (): Promise<string> => {
-    const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-    if (envUrl) return envUrl.replace(/\/+$/, "");
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-    const proto = h.get("x-forwarded-proto") ?? "http";
-    return `${proto}://${host}`;
-  };
 
   const db = createSupabaseCortexDb({ getRls, service });
 

@@ -34,6 +34,9 @@
   --color-scrim: var(--ds-scrim);
   --color-ring: var(--ds-ring);
   --color-on-fill: var(--ds-on-fill);
+  /* Theme-independent: QR codes stay dark-on-light in every theme. */
+  --color-code-ink: var(--ds-code-ink);
+  --color-code-paper: var(--ds-code-paper);
 
   /* Family B — app identity palette */
   --color-app-violet: var(--ds-app-violet);
