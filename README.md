@@ -106,16 +106,17 @@ phone app).
 - `apply` checked → `supabase db push` applies the pending migrations.
 
 The job runs in the `production` GitHub Environment (Settings → Environments):
-required reviewer = the repo owner, deployment branches = `main`, and the three
+required reviewers = shivi586 and the repo owner, deployment branches = `main`, and the three
 secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
 stored as **environment** secrets. Any collaborator can start a run, but it waits
-for the owner's approval. It never runs on push or merge, so a schema change can't
+for a reviewer's approval. It never runs on push or merge, so a schema change can't
 ship by accident. See ARCHITECTURE.md #33.
 
-**Who deploys:** collaborators open PRs and get Vercel previews. Only the repo
-owner approves and merges to `main` (which is the production deploy) and
-approves migration runs. This is enforced by branch protection on `main` and by
-the `production` environment.
+**Who deploys:** shivi586 is the lead maintainer and merges to `main` (which is
+the production deploy) and approves migration runs; the repo owner (Moti-Eli) can
+too. Every change still goes through a PR with a green CI and a Vercel preview;
+branch protection on `main` requires the CI check, not a human approval. See
+ARCHITECTURE.md #39.
 
 ## 🔐 Secrets & Environment
 
