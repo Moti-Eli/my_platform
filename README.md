@@ -11,8 +11,9 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 ## 📋 Current Status
 
 - **Shell:** tab bar, AI sheet and urgency bell (placeholders), catalog,
-  profile (status tags from the tools, name edit), settings (language, theme,
-  version), PWA install and offline shell.
+  profile (status tags from the tools, name edit, photo upload, business card
+  with a public page + QR), settings (language, theme, version), PWA install and
+  offline shell.
 - **Auth & tenancy:** Supabase login, multi-org with org switching, RBAC
   (roles → permissions), row-level access (`visibility` + `record_grants`)
   enforced by Postgres RLS.
@@ -22,6 +23,10 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   product prices, WhatsApp order),
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
   with today's shifts).
+  shopping lists, stage 1 (personal lists: create, items, check off, rename,
+  delete, Home card; each list in its own small root org; migrations
+  `20261028000001` and `20261028000002` not applied yet).
+  Personal training: in progress, stage 1 tables only (migrations not applied yet).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There
