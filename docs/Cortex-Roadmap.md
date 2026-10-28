@@ -118,8 +118,13 @@ profile shows** (ARCHITECTURE.md #35).
   through the shifts tool's own `shifts.list_my_positions` intent. A badge on the
   avatar opens `/profile/edit` (name only). Migration `20261020000001` applied
   2026-10-22.
-- 1b (profile photo: storage bucket + policies + column): not started.
-- **2 (business card): IN PROGRESS** (`feat/profile-card`). A card the user
+- **1b (profile photo): DONE** (#11). Tapping the
+  large avatar opens choose / remove photo. The image is shrunk to 512px in the
+  browser, uploaded with the user's own session to the private `avatars` bucket
+  at `<user id>/avatar`, and the server records `avatar_path`. The profile page
+  signs a 1-hour URL per view. Migration `20261020000002` is NOT applied yet and
+  depends on `20261020000001` (it renames that policy).
+- **2 (business card): DONE** (#16). A card the user
   creates (name required; role/field, phone, short description, image
   optional). Table `business_cards` is personal (no org) and built for many
   cards per person; the editor at `/profile/card` offers one. Each card has a

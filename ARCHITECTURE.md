@@ -1098,6 +1098,19 @@ already forbids reading another tool's tables directly.
 
 ---
 
+## 36. Profile Photos: Private Bucket, Signed URLs, One Object per User
+
+**Decision:** Profile photos live in a private Supabase Storage bucket,
+`avatars`, one object per user at `<user id>/avatar`. Storage policies let a
+user write only their own folder and read their own photo plus those of people
+they share an active org with. `public.users.avatar_path` stores the path (not a
+URL), with a CHECK that pins it to the row's own folder. Pages sign a
+short-lived URL per view. The browser shrinks the image before upload.
+
+**Reasoning:** A public bucket would hand out permanent links anyone can
+forward. The read rule matches the existing `users` read policy, so who can see
+your photo is who can already see your name.
+
 ## 37. Business Cards: Personal, Public by Link, Read Through One Function
 
 **Decision:** A business card belongs to a person, not an organization:
@@ -1110,7 +1123,7 @@ table and reads through one security-definer function,
 never its id or owner. Card images live in a separate public-read bucket,
 `card-images`, under the card id, writable only into a card you own. QR codes use
 two theme-independent tokens (`code-ink` / `code-paper`) so they stay
-dark-on-light. (Numbered #37: #36, profile photos, lands with the stage-1b PR.)
+dark-on-light.
 
 **Reasoning:** A person's card goes with them across orgs (a waiter who is also
 an artist). A direct anon SELECT on the table would let anyone holding the public
