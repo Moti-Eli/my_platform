@@ -1061,8 +1061,9 @@ more than one maintainer, so applying migrations can't depend on one person's
 laptop and its local `.env`. Keeping it manual, and not run on merge, means a
 schema change is always a deliberate step: the dry run shows exactly what is
 pending first. The environment gate means any collaborator can prepare and
-trigger a run, but production changes only with the owner's approval. Repository
+trigger a run, but production changes only with a reviewer's approval. Repository
 secrets would not do this: any workflow pushed on a branch could read them.
+(Who the reviewers are changed in #39.)
 
 ---
 
@@ -1155,3 +1156,18 @@ in its own org from stage 1, a list never has to move, which matters because
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
 - **Performance optimization:** As the monorepo grows, Turborepo's remote caching can be leveraged for CI/CD speedup.
 - **API versioning:** Core business logic should be versioned when breaking changes occur to avoid cascading updates.
+
+---
+
+## 39. shivi586 Leads Day-to-Day: Merges, Migrations and Settings
+
+**Decision (Moti):** shivi586 is the lead maintainer. They merge PRs to `main`,
+approve `production` migration runs (a required reviewer next to the owner) and
+may change repo settings. `main` needs a PR and the green `Lint · Typecheck ·
+Build` check, not a human approval. This replaces the owner-only rule of #33 and
+the old CLAUDE.md.
+
+**Reasoning:** The owner has stepped back and shivi586 does most of the work, so
+waiting on the owner for every merge and migration only blocked progress. The PR
++ CI gate and the manual, dry-run-first migration workflow keep the safety that
+does not depend on a person.
