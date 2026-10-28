@@ -5,7 +5,7 @@
  * `"use server"`, no `"server-only"`. Both clients are injected, so a
  * verification harness can drive this exact function against a local stack.
  *
- * THE ORDER (ARCHITECTURE.md #36):
+ * THE ORDER (ARCHITECTURE.md #38):
  *   (a) create a ROOT org for the caller with `createOrganizationForCurrentUser`
  *       — NOT a child org: a child org is read by its parent's members, so the
  *       owner's workplace would see their home list. The org's name is
@@ -67,7 +67,7 @@ export async function createShoppingListCore(
   };
 
   // (b) Install the tool in the new org. Resolve the definition by its SEEDED key
-  //     (20261023000001): a missing seed row is a configuration error — compensate.
+  //     (20261028000002): a missing seed row is a configuration error — compensate.
   const defRes = await serviceDb
     .from("app_definitions")
     .select("id")

@@ -5,7 +5,7 @@
  * app-amber identity accent, same chrome and fixed height (~1/3 of the visible
  * viewport, from `--app-vh`) as the orders card.
  *
- * Every list lives in its own org (ARCHITECTURE.md #36), so the card depends on
+ * Every list lives in its own org (ARCHITECTURE.md #38), so the card depends on
  * the ACTIVE org:
  *   - a list org    → the list's name, how many items are left to buy, and those
  *                     items (scrolling inside the card). Tapping opens the list.

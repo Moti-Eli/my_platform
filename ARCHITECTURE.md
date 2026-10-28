@@ -1098,11 +1098,44 @@ already forbids reading another tool's tables directly.
 
 ---
 
-## 36. A Shopping List Is a Small Root Organization
+## 36. Profile Photos: Private Bucket, Signed URLs, One Object per User
+
+**Decision:** Profile photos live in a private Supabase Storage bucket,
+`avatars`, one object per user at `<user id>/avatar`. Storage policies let a
+user write only their own folder and read their own photo plus those of people
+they share an active org with. `public.users.avatar_path` stores the path (not a
+URL), with a CHECK that pins it to the row's own folder. Pages sign a
+short-lived URL per view. The browser shrinks the image before upload.
+
+**Reasoning:** A public bucket would hand out permanent links anyone can
+forward. The read rule matches the existing `users` read policy, so who can see
+your photo is who can already see your name.
+
+## 37. Business Cards: Personal, Public by Link, Read Through One Function
+
+**Decision:** A business card belongs to a person, not an organization:
+`public.business_cards` has `owner_id` and no `org_id`/`visibility`, so it is
+not a Cortex tool table. It is owner-only through RLS with column-limited
+insert and update; the slug in its public link is a random 16-hex code that only
+the database default sets. The public page `/c/<slug>` grants anon NOTHING on the
+table and reads through one security-definer function,
+`get_public_business_card(slug)`, which returns one card's display fields and
+never its id or owner. Card images live in a separate public-read bucket,
+`card-images`, under the card id, writable only into a card you own. QR codes use
+two theme-independent tokens (`code-ink` / `code-paper`) so they stay
+dark-on-light.
+
+**Reasoning:** A person's card goes with them across orgs (a waiter who is also
+an artist). A direct anon SELECT on the table would let anyone holding the public
+key list every card and phone number; a by-slug function gives the page exactly
+one card. The private profile-photo bucket stays private; a card image is public
+by design.
+
+## 38. A Shopping List Is a Small Root Organization
 
 **Decision (Moti):** Every shopping list lives in its OWN root organization (no
 `parent_id`), created with `createOrganizationForCurrentUser` (`@platform/auth`),
-one list per org (`shopping_lists_org_id_key`, migration `20261022000001`).
+one list per org (`shopping_lists_org_id_key`, migration `20261028000001`).
 Sharing a list (stage 2) means adding a membership to that org; no list row
 changes. NOT a child org as in the candidates invite flow (#31): a child org is
 read by its parent's members, so the owner's workplace would see their home list.

@@ -374,7 +374,7 @@ full explanation.
   non-vacuous by mutating the final predicate to `true` (7 assertions fail —
   every non-admin escalation; the admin, bootstrap-without-JWT, soft-delete, and
   `users.view` assertions correctly do not move, as they turn on other clauses).
-- `20261022000001_shopping_lists_tables.sql` — **Cortex Shopping tool, stage 1**:
+- `20261028000001_shopping_lists_tables.sql` — **Cortex Shopping tool, stage 1**:
   `shopping_lists` + `shopping_list_items`. One list per small ROOT organization
   (`unique (org_id)`), created with `createOrganizationForCurrentUser`, so the org
   is the list's sharing boundary. Items reference their list with a composite

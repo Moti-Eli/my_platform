@@ -7,7 +7,7 @@
 -- truth for runtime values.
 --
 -- Open to every member (no requiresAdmin): each list lives in its own small org
--- (ARCHITECTURE.md #36) and everyone on a list adds and checks items.
+-- (ARCHITECTURE.md #38) and everyone on a list adds and checks items.
 -- Idempotent via ON CONFLICT (key) DO NOTHING.
 -- =============================================================================
 

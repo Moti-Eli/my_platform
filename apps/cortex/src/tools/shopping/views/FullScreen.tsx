@@ -3,7 +3,7 @@
 /**
  * Shopping full screen (Standard §2 `views/FullScreen.tsx`, §8).
  *
- * Every list lives in its own org (ARCHITECTURE.md #36), so the screen depends on
+ * Every list lives in its own org (ARCHITECTURE.md #38), so the screen depends on
  * the ACTIVE org:
  *   - a list org     → the list screen, with the ☰ menu (rename / delete) in
  *                      the header

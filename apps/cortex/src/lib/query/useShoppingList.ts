@@ -6,7 +6,7 @@
  * every call) and turns a `!res.ok` into a thrown Error so `isError` is real.
  *
  * `list` is null when the active org is not a list org (every list lives in its
- * own org — ARCHITECTURE.md #36).
+ * own org — ARCHITECTURE.md #38).
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";

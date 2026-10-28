@@ -113,13 +113,26 @@ Build order: 1a basic profile, 1b photo, 2 business card, 3 tool data
 (supplier catalog, employee hours), 4 stories. Rule: **the tool manages, the
 profile shows** (ARCHITECTURE.md #35).
 
-- **1a (status tags + name edit): IN PROGRESS** (`feat/profile-basic`). Tags
-  under the name: "owner" for an org admin, plus the user's shift positions in
-  the active org, read through the shifts tool's own `shifts.list_my_positions`
-  intent. A badge on the avatar opens `/profile/edit` (name only). Migration
-  `20261020000001` (own-row `display_name` UPDATE) is NOT applied yet: dry-run +
-  apply via the DB Migrations workflow after merge.
-- 1b (profile photo: storage bucket + policies + column): not started.
+- **1a (status tags + name edit): DONE** (#10). Tags under the name: "owner"
+  for an org admin, plus the user's shift positions in the active org, read
+  through the shifts tool's own `shifts.list_my_positions` intent. A badge on the
+  avatar opens `/profile/edit` (name only). Migration `20261020000001` applied
+  2026-10-22.
+- **1b (profile photo): DONE** (#11). Tapping the
+  large avatar opens choose / remove photo. The image is shrunk to 512px in the
+  browser, uploaded with the user's own session to the private `avatars` bucket
+  at `<user id>/avatar`, and the server records `avatar_path`. The profile page
+  signs a 1-hour URL per view. Migration `20261020000002` is NOT applied yet and
+  depends on `20261020000001` (it renames that policy).
+- **2 (business card): DONE** (#16). A card the user
+  creates (name required; role/field, phone, short description, image
+  optional). Table `business_cards` is personal (no org) and built for many
+  cards per person; the editor at `/profile/card` offers one. Each card has a
+  public page `/c/<slug>` (no sign-in, noindex) with a QR and a "join the app"
+  link to `/login?mode=signup`. anon reads only through
+  `get_public_business_card(slug)`; images in the public `card-images` bucket
+  under the card id. Not linked from the profile screen yet (a small separate
+  step after 1b). Migration `20261023000001` NOT applied yet.
 
 ### Shopping lists
 
@@ -133,10 +146,10 @@ candidates invite flow: a child org is read by its parent's members, so the
 owner's workplace would see their home list. Stage 2 "invite" = a membership in
 the list's org. The org's name is `<list name> · <6 random chars>` to pass the
 per-user duplicate-name guard; the user sees the list name stored in the table,
-not the org's name. See ARCHITECTURE.md #36.
+not the org's name. See ARCHITECTURE.md #38.
 
 - **1 (tables): IN PROGRESS** (`claude/cortex-shopping-lists-p354ax`). Migration
-  `20261022000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:
+  `20261028000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:
   dry-run + apply via the DB Migrations workflow after merge. Catalog entry,
   screens and permission key come later.
 - Open for stage 2: who may delete a whole list — only its owner, or every
@@ -153,7 +166,7 @@ not the org's name. See ARCHITECTURE.md #36.
   when it has other members (then only "leave" is possible).
 - **1 (registration): IN PROGRESS.** Tool registered in both runtimes,
   `shopping.create_list` (root org + tool install + list, compensating on
-  failure), catalog seed `20261023000001` NOT applied yet.
+  failure), catalog seed `20261028000002` NOT applied yet.
 - **1 (screens, part 1): IN PROGRESS.** `/tools/shopping`: in a list's org it
   shows the list name; in any other org "no list here" + "new list", whose modal
   runs `shopping.create_list` and switches to the new org.
