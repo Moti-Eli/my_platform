@@ -7,8 +7,8 @@
  *
  * Every plan lives in its own org (ARCHITECTURE.md #38), so the card depends on
  * the ACTIVE org:
- *   - a plan org    → the plan's name, workouts per week and description.
- *                     Tapping opens the tool.
+ *   - a plan org    → the plan's name, how many training days it has, workouts
+ *                     per week and description. Tapping opens the tool.
  *   - any other org → "Create plan", which opens the same NewPlanModal as the
  *                     full screen.
  *
@@ -26,6 +26,7 @@ import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { PlusIcon, SparkIcon } from "@/components/icons";
 import { useTrainingPlan } from "@/lib/query/useTrainingPlan";
+import { useTrainingDays } from "@/lib/query/useTrainingDays";
 import { NewPlanModal } from "./NewPlanModal";
 import { SKELETON, useFrequencyLabel } from "./shared";
 
@@ -81,12 +82,11 @@ export function DashboardCard(_props: ToolViewProps) {
           <p className="type-label text-muted">{t("training.loadFailed")}</p>
         ) : plan ? (
           <div className="flex flex-col gap-2xs">
+            <DayCount />
             {freq ? <p className="type-label text-app-amber">{freq}</p> : null}
             {plan.description ? (
               <p className="whitespace-pre-line type-body text-muted">{plan.description}</p>
-            ) : (
-              <p className="type-label text-muted">{t("training.planEmptyHint")}</p>
-            )}
+            ) : null}
           </div>
         ) : (
           <p className="type-label text-muted">{t("training.noPlanHere")}</p>
@@ -106,5 +106,23 @@ export function DashboardCard(_props: ToolViewProps) {
           )
         : null}
     </div>
+  );
+}
+
+/** "N training days" — only mounted in a plan org. Reads the same days cache
+ *  as the plan screen. */
+function DayCount() {
+  const { t } = useI18n();
+  const { days, isLoading, isError } = useTrainingDays();
+  if (isLoading) return <span className={`block h-4 w-24 ${SKELETON}`} aria-hidden="true" />;
+  if (isError) return <p className="type-label text-muted">{t("training.loadFailed")}</p>;
+  return (
+    <p className="type-body text-ink">
+      {days.length === 0
+        ? t("training.daysNone")
+        : days.length === 1
+          ? t("training.daysOne")
+          : t("training.daysMany").replace("{count}", String(days.length))}
+    </p>
   );
 }

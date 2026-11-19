@@ -9,6 +9,13 @@ import { defineIntent } from "@platform/cortex-core";
 import {
   DAY_NAME_MAX,
   DAY_TYPES,
+  EXERCISE_NAME_MAX,
+  NOTES_MAX,
+  REPS_MAX,
+  REST_MAX,
+  SETS_MAX,
+  SETS_MIN,
+  WEIGHT_MAX,
   FREQUENCY_MAX,
   FREQUENCY_MIN,
   PLAN_DESCRIPTION_MAX,
@@ -38,6 +45,26 @@ const day = z.object({
   planId: z.string(),
   name: z.string(),
   dayType,
+  sortOrder: z.number(),
+});
+
+const exerciseFields = z.object({
+  name: z.string().trim().min(1).max(EXERCISE_NAME_MAX),
+  sets: z.number().int().min(SETS_MIN).max(SETS_MAX).nullable(),
+  reps: z.string().trim().max(REPS_MAX),
+  targetWeight: z.number().min(0).max(WEIGHT_MAX).nullable(),
+  restSeconds: z.number().int().min(0).max(REST_MAX).nullable(),
+  notes: z.string().trim().max(NOTES_MAX),
+});
+const exercise = z.object({
+  id: z.string(),
+  dayId: z.string(),
+  name: z.string(),
+  sets: z.number().nullable(),
+  reps: z.string(),
+  targetWeight: z.number().nullable(),
+  restSeconds: z.number().nullable(),
+  notes: z.string(),
   sortOrder: z.number(),
 });
 
@@ -131,6 +158,46 @@ export function createTrainingIntents(logic: TrainingLogic) {
       input: ids,
       output: ids,
       handler: (input, ctx) => logic.reorderDays(input, ctx),
+    }),
+
+    // --- exercises ----------------------------------------------------------
+    defineIntent({
+      name: "training.list_exercises",
+      description:
+        "List every exercise of the current organization's workout plan (all days), in order within each day",
+      input: z.object({}),
+      output: z.array(exercise),
+      handler: (input, ctx) => logic.listExercises(input, ctx),
+    }),
+    defineIntent({
+      name: "training.add_exercise",
+      description:
+        "Add an exercise to a training day (name, sets, reps, target weight in kg, rest in seconds, notes) at the end of the day",
+      input: exerciseFields.extend({ dayId: z.string() }),
+      output: exercise,
+      handler: (input, ctx) => logic.addExercise(input, ctx),
+    }),
+    defineIntent({
+      name: "training.update_exercise",
+      description: "Change an exercise's name, sets, reps, target weight, rest and notes",
+      input: exerciseFields.extend({ id: z.string() }),
+      output: id,
+      handler: (input, ctx) => logic.updateExercise(input, ctx),
+    }),
+    defineIntent({
+      name: "training.delete_exercise",
+      description: "Delete an exercise from a training day",
+      input: id,
+      output: id,
+      handler: (input, ctx) => logic.deleteExercise(input, ctx),
+    }),
+    defineIntent({
+      name: "training.reorder_exercises",
+      description:
+        "Set the order of one training day's exercises (the full list of that day's exercise ids, first to last)",
+      input: ids,
+      output: ids,
+      handler: (input, ctx) => logic.reorderExercises(input, ctx),
     }),
   ];
 }

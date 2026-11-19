@@ -102,6 +102,54 @@ export interface ReorderInput {
   ids: string[];
 }
 
+// --- exercises ----------------------------------------------------------------
+export const EXERCISES_TABLE = "plan_exercises";
+/** Mirrors plan_exercises CHECK constraints. */
+export const EXERCISE_NAME_MAX = 100;
+export const SETS_MIN = 1;
+export const SETS_MAX = 100;
+export const REPS_MAX = 20;
+/** numeric(6, 2) and >= 0 → 0 … 9999.99. */
+export const WEIGHT_MAX = 9999.99;
+export const REST_MAX = 3600;
+export const NOTES_MAX = 500;
+
+export interface Exercise {
+  id: string;
+  dayId: string;
+  name: string;
+  /** null = not set (e.g. cardio). */
+  sets: number | null;
+  /** Free text ("10", "8-12", "30s"); '' = none. */
+  reps: string;
+  /** Kilograms; null = none. */
+  targetWeight: number | null;
+  /** Seconds between sets; null = not set. */
+  restSeconds: number | null;
+  /** '' = none. */
+  notes: string;
+  sortOrder: number;
+}
+
+/** The editable fields of an exercise. */
+export interface ExerciseFields {
+  name: string;
+  sets: number | null;
+  reps: string;
+  targetWeight: number | null;
+  restSeconds: number | null;
+  notes: string;
+}
+export interface AddExerciseInput extends ExerciseFields {
+  dayId: string;
+}
+export interface UpdateExerciseInput extends ExerciseFields {
+  id: string;
+}
+export interface DeleteExerciseInput {
+  id: string;
+}
+
 export interface TrainingLogic {
   /** The active org's plan, or null when the active org is not a plan org. */
   getPlan(input: Record<string, never>, ctx: Ctx): Promise<Plan | null>;
@@ -119,6 +167,41 @@ export interface TrainingLogic {
   /** Deletes the day and (FK cascade) its exercises. */
   deleteDay(input: DeleteDayInput, ctx: Ctx): Promise<{ id: string }>;
   reorderDays(input: ReorderInput, ctx: Ctx): Promise<{ ids: string[] }>;
+
+  /** Every exercise of the active org's plan (all days), in display order per
+   *  day. One read serves both the day screen and the per-day counts. */
+  listExercises(input: Record<string, never>, ctx: Ctx): Promise<Exercise[]>;
+  addExercise(input: AddExerciseInput, ctx: Ctx): Promise<Exercise>;
+  updateExercise(input: UpdateExerciseInput, ctx: Ctx): Promise<{ id: string }>;
+  deleteExercise(input: DeleteExerciseInput, ctx: Ctx): Promise<{ id: string }>;
+  /** The full new order of ONE day's exercises, first to last. */
+  reorderExercises(input: ReorderInput, ctx: Ctx): Promise<{ ids: string[] }>;
+}
+
+function toExercise(row: DbRow): Exercise {
+  return {
+    id: String(row.id),
+    dayId: String(row.day_id),
+    name: String(row.name),
+    sets: toNumberOrNull(row.sets),
+    reps: String(row.reps ?? ""),
+    targetWeight: toNumberOrNull(row.target_weight),
+    restSeconds: toNumberOrNull(row.rest_seconds),
+    notes: String(row.notes ?? ""),
+    sortOrder: Number(row.sort_order ?? 0),
+  };
+}
+
+/** ExerciseFields → the table's columns. */
+function exerciseColumns(f: ExerciseFields) {
+  return {
+    name: f.name,
+    sets: f.sets,
+    reps: f.reps,
+    target_weight: f.targetWeight,
+    rest_seconds: f.restSeconds,
+    notes: f.notes,
+  };
 }
 
 /** Display order: sort_order, then creation (ties after an old insert). */
@@ -273,6 +356,53 @@ export function createTrainingLogic({
 
     async reorderDays(input, ctx) {
       await writeOrder(db, DAYS_TABLE, input.ids, ctx);
+      return { ids: input.ids };
+    },
+
+    // --- exercises ------------------------------------------------------------
+    async listExercises(_input, ctx) {
+      const rows = await db.select(EXERCISES_TABLE, { org_id: ctx.orgId });
+      return rows.sort(bySortOrder).map(toExercise);
+    },
+
+    async addExercise(input, ctx) {
+      // The composite FK (day_id, org_id) refuses an exercise whose day is in
+      // another org. New exercises go last in their day.
+      const existing = await db.select(EXERCISES_TABLE, { org_id: ctx.orgId, day_id: input.dayId });
+      const id = safeRandomUUID();
+      const now = new Date().toISOString();
+      const sortOrder = nextSortOrder(existing);
+      const { dayId, ...fields } = input;
+      await db.insert(EXERCISES_TABLE, {
+        id,
+        owner_id: ctx.userId,
+        org_id: ctx.orgId,
+        day_id: dayId,
+        ...exerciseColumns(fields),
+        sort_order: sortOrder,
+        created_at: now,
+        updated_at: now,
+      });
+      return { id, dayId, ...fields, sortOrder };
+    },
+
+    async updateExercise(input, ctx) {
+      const { id, ...fields } = input;
+      await db.update(
+        EXERCISES_TABLE,
+        { id, org_id: ctx.orgId },
+        { ...exerciseColumns(fields), updated_at: new Date().toISOString() },
+      );
+      return { id };
+    },
+
+    async deleteExercise(input, ctx) {
+      await db.delete(EXERCISES_TABLE, { id: input.id, org_id: ctx.orgId });
+      return { id: input.id };
+    },
+
+    async reorderExercises(input, ctx) {
+      await writeOrder(db, EXERCISES_TABLE, input.ids, ctx);
       return { ids: input.ids };
     },
   };

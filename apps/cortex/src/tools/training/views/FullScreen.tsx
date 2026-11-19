@@ -19,6 +19,8 @@ import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { useTrainingPlan } from "@/lib/query/useTrainingPlan";
 import { useTrainingDays } from "@/lib/query/useTrainingDays";
+import { useTrainingExercises } from "@/lib/query/useTrainingExercises";
+import { DayScreen, useExerciseSummary } from "./DayScreen";
 import { NewPlanModal } from "./NewPlanModal";
 import { DeletePlanDialog, RenamePlanModal } from "./PlanDialogs";
 import { PlanScreen } from "./PlanScreen";
@@ -37,6 +39,8 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
   const { t } = useI18n();
   const { plan, isLoading, isError } = useTrainingPlan();
   const { days } = useTrainingDays();
+  const exercisesQ = useTrainingExercises();
+  const summary = useExerciseSummary();
   const [screen, setScreen] = useState<Screen>({ kind: "plan" });
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [search, setSearch] = useState("");
@@ -96,12 +100,17 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
       ) : isError || !openPlan ? (
         <EmptyCard titleKey="training.loadFailed" />
       ) : openDay ? (
-        <EmptyCard titleKey="training.dayEmptyTitle" hintKey="training.dayEmptyHint" />
+        <DayScreen day={openDay} search={search} />
       ) : (
         <PlanScreen
           plan={openPlan}
           search={search}
           onOpenDay={(dayId) => go({ kind: "day", dayId })}
+          dayMeta={
+            exercisesQ.isSuccess
+              ? (day) => summary(exercisesQ.exercises.filter((e) => e.dayId === day.id))
+              : undefined
+          }
         />
       )}
 

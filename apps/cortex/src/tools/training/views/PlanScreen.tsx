@@ -15,7 +15,8 @@ import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import { ComposeIcon } from "@/components/icons";
 import { TRAINING_DAYS_KEY, useTrainingDays } from "@/lib/query/useTrainingDays";
-import type { Day, Plan } from "../logic";
+import { TRAINING_EXERCISES_KEY } from "@/lib/query/useTrainingExercises";
+import type { Day, Exercise, Plan } from "../logic";
 import { DAY_TYPE_KEY, DayModal, type DayDraft } from "./DayModal";
 import { EditPlanModal } from "./PlanDialogs";
 import {
@@ -81,6 +82,10 @@ export function PlanScreen({
       return;
     }
     setDays((prev) => prev.filter((d) => d.id !== id));
+    // The day's exercises went with it (FK cascade) — drop them from the cache.
+    queryClient.setQueryData<Exercise[]>(TRAINING_EXERCISES_KEY, (prev) =>
+      prev ? prev.filter((e) => e.dayId !== id) : prev,
+    );
   }
 
   async function move(index: number, step: -1 | 1) {

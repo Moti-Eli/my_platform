@@ -207,9 +207,18 @@ a training partner) = a membership in the plan's org.
   opens that plan (name + empty state); elsewhere "My plans" (`training.list_plans`
   — every plan in an org the user is an active member of). "New plan" (name,
   description, workouts per week) runs `training.create_plan` (root org + tool
-  install + plan, compensating on failure) and switches to the new org. Floating
-  bar: My plans / New plan. Home card: the active plan or "Create plan".
-- **1 (screens, part B): NOT STARTED.** Training days and exercises.
+  install + plan, compensating on failure) and switches to the new org. Home
+  card: the active plan or "Create plan".
+- **1 (screens, parts B + C): IN PROGRESS** (same branch). Floating bar = the
+  orders bar's ☰ + 🔍 (search filters the current screen's list); the ☰ menu
+  holds New plan, My plans, Rename, Delete plan. `training.delete_plan` is
+  owner-only, refuses (plan intact) on last org / other members, then deletes
+  the plan (days and exercises cascade) and hides the org — shopping's order.
+  Plan screen: editable name/description/frequency + training days (add with
+  name + strength/cardio, edit, delete, move up/down). Day screen: exercises
+  (name, sets, reps text, target kg, rest seconds, notes; add/edit/delete/move)
+  with an "N exercises · M sets" summary. Home card adds the day count.
+  Reorder = the full id list, `sort_order` = index.
 - Not in stage 1: workout logs, history and goals tables (stages 2–4).
 
 ## Decisions and why
