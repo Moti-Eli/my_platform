@@ -9,11 +9,26 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
-import type { Employee, EmployeePosition, OrgMember } from "@/tools/shifts/logic";
+import type { Employee, EmployeePosition, MyAccess, OrgMember } from "@/tools/shifts/logic";
 
 export const SHIFT_MEMBERS_KEY = ["shifts", "members"] as const;
 export const SHIFT_EMPLOYEES_KEY = ["shifts", "employees"] as const;
 export const SHIFT_EMPLOYEE_POSITIONS_KEY = ["shifts", "employeePositions"] as const;
+export const SHIFT_ACCESS_KEY = ["shifts", "access"] as const;
+
+/** The acting user's standing in the tool — what the Home card OFFERS (RLS
+ * still decides what the DB allows). */
+export function useShiftAccess() {
+  const query = useQuery({
+    queryKey: SHIFT_ACCESS_KEY,
+    queryFn: async (): Promise<MyAccess> => {
+      const res = await runIntentAction("shifts.my_access", {});
+      if (!res.ok) throw new Error(res.code);
+      return res.data as MyAccess;
+    },
+  });
+  return { ...query, access: query.data ?? null };
+}
 
 export function useOrgMembers() {
   const query = useQuery({

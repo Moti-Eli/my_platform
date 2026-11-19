@@ -29,6 +29,17 @@ const employeePosition = z.object({
 const positionName = z.string().trim().min(1).max(POSITION_NAME_MAX);
 const id = z.object({ id: z.string() });
 
+/** The "note to the manager" cap (the table allows 500; the product says one line). */
+export const SUBMISSION_NOTE_MAX = 200;
+/** Mirrors shift_submissions.min_shifts / max_shifts CHECK (0–99). */
+export const SHIFTS_COUNT_MAX = 99;
+
+/** The manager's questions (part 7): label ≤ 200 (shift_questions CHECK); a
+ * number answer 0–999; a text answer is one line, ≤ 200. */
+export const QUESTION_LABEL_MAX = 200;
+export const ANSWER_NUMBER_MAX = 999;
+export const ANSWER_TEXT_MAX = 200;
+
 /** Mirrors shift_requirements.required_count CHECK (1–99; 0 = no row). */
 export const REQUIRED_MAX = 99;
 
@@ -37,18 +48,200 @@ export const SHIFT_NAME_MAX = 50;
 const weekday = z.number().int().min(0).max(6);
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const shiftName = z.string().trim().min(1).max(SHIFT_NAME_MAX);
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const weekInput = z.object({ weekStart: isoDay });
+/** An absolute instant ("2026-11-26T16:00:00.000Z"). */
+const isoInstant = z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "not a date-time" });
+const shiftWeek = z.object({ id: z.string(), weekStart: z.string(), deadlineAt: z.string() });
+const weekReopen = z.object({
+  id: z.string(),
+  employeeId: z.string(),
+  weekStart: z.string(),
+  reopenedUntil: z.string(),
+});
+const mark = z.enum(["cannot", "prefer"]);
+const questionKind = z.enum(["yes_no", "number", "text"]);
+const questionLabel = z.string().trim().min(1).max(QUESTION_LABEL_MAX);
+const question = z.object({
+  id: z.string(),
+  label: z.string(),
+  kind: questionKind,
+  position: z.number(),
+  isActive: z.boolean(),
+});
+const availabilityMark = z.object({
+  id: z.string(),
+  submissionId: z.string(),
+  templateId: z.string(),
+  mark,
+});
+const submission = z.object({
+  id: z.string(),
+  employeeId: z.string(),
+  weekStart: z.string(),
+  minShifts: z.number().nullable(),
+  maxShifts: z.number().nullable(),
+  doubleShift: z.enum(["yes", "no", "if_needed"]).nullable(),
+  note: z.string(),
+  answers: z.record(z.string(), z.union([z.boolean(), z.number(), z.string()])),
+  submittedAt: z.string().nullable(),
+  updatedAt: z.string(),
+});
 const template = z.object({
   id: z.string(),
   weekday: z.number(),
   name: z.string(),
   startTime: z.string(),
   endTime: z.string(),
+  updatedAt: z.string(),
 });
 /** Equal start/end is refused (the DB CHECK too); end < start = next day. */
 const hasLength = (v: { startTime: string; endTime: string }) => v.startTime !== v.endTime;
 
 export function createShiftsIntents(logic: ShiftsLogic) {
   return [
+    // --- access -------------------------------------------------------------
+    defineIntent({
+      name: "shifts.my_access",
+      description:
+        "Whether the current user is a manager of the shifts tool and/or an employee taking part in shifts",
+      input: z.object({}),
+      output: z.object({ isAdmin: z.boolean(), isEmployee: z.boolean() }),
+      handler: (input, ctx) => logic.myAccess(input, ctx),
+    }),
+
+    // --- the employee's week (stage 2) --------------------------------------
+    defineIntent({
+      name: "shifts.open_weeks",
+      description:
+        "The next weeks (their Sundays as YYYY-MM-DD, nearest first) still open for submitting availability — a week whose deadline passed is skipped",
+      input: z.object({}),
+      output: z.object({ weeks: z.array(z.string()) }),
+      handler: (input, ctx) => logic.openWeeks(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.my_week",
+      description:
+        "The current user's availability submission for a week (its Sunday as YYYY-MM-DD): the week's deadline settings, their submission and their marks",
+      input: weekInput,
+      output: z.object({
+        week: shiftWeek.nullable(),
+        reopen: weekReopen.nullable(),
+        submission: submission.nullable(),
+        marks: z.array(availabilityMark),
+      }),
+      handler: (input, ctx) => logic.myWeek(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_mark",
+      description:
+        "Mark one shift in the current user's week as cannot / prefer, or can (removes the mark). Refused after the week's deadline",
+      input: weekInput.extend({ templateId: z.string().min(1), mark: z.enum(["can", "cannot", "prefer"]) }),
+      output: z.object({ submissionId: z.string(), mark: availabilityMark.nullable(), updatedAt: z.string() }),
+      handler: (input, ctx) => logic.setMark(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_answers",
+      description:
+        "Answer the built-in weekly questions for the current user: how many shifts (min/max, sent together), double shifts (yes/no/if_needed), a one-line note. Only the fields sent change. Refused after the deadline",
+      input: weekInput
+        .extend({
+          minShifts: z.number().int().min(0).max(SHIFTS_COUNT_MAX).nullable().optional(),
+          maxShifts: z.number().int().min(0).max(SHIFTS_COUNT_MAX).nullable().optional(),
+          doubleShift: z.enum(["yes", "no", "if_needed"]).nullable().optional(),
+          note: z.string().trim().max(SUBMISSION_NOTE_MAX).optional(),
+        })
+        .refine(
+          (v) => v.minShifts == null || v.maxShifts == null || v.minShifts <= v.maxShifts,
+          { message: "max must not be below min" },
+        ),
+      output: z.object({ submissionId: z.string(), updatedAt: z.string() }),
+      handler: (input, ctx) => logic.setAnswers(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.week_overview",
+      description:
+        "The manager's view of a week (its Sunday as YYYY-MM-DD): the deadline settings, every employee's submission and marks",
+      input: weekInput,
+      output: z.object({
+        week: shiftWeek.nullable(),
+        submissions: z.array(submission),
+        marks: z.array(availabilityMark),
+        reopens: z.array(weekReopen),
+      }),
+      handler: (input, ctx) => logic.weekOverview(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_week_deadline",
+      description:
+        "Manager: set the submission deadline for a week (its Sunday as YYYY-MM-DD). Now = close the week; a later time = reopen it for everyone",
+      input: weekInput.extend({ deadlineAt: isoInstant }),
+      output: shiftWeek,
+      handler: (input, ctx) => logic.setWeekDeadline(input, ctx),
+    }),
+    // --- the manager's own questions (part 7) --------------------------------
+    defineIntent({
+      name: "shifts.list_questions",
+      description: "The manager's own questions for the weekly availability submission, in order (active and turned off)",
+      input: z.object({}),
+      output: z.array(question),
+      handler: (input, ctx) => logic.listQuestions(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.create_question",
+      description: "Manager: add a question to the weekly submission — its text and kind (yes_no, number, text)",
+      input: z.object({ label: questionLabel, kind: questionKind }),
+      output: question,
+      handler: (input, ctx) => logic.createQuestion(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.rename_question",
+      description: "Manager: change a question's text",
+      input: z.object({ id: z.string().min(1), label: questionLabel }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.renameQuestion(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_question_active",
+      description: "Manager: turn a question on or off (questions are never deleted; old answers stay readable)",
+      input: z.object({ id: z.string().min(1), isActive: z.boolean() }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.setQuestionActive(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.reorder_questions",
+      description: "Manager: set the order of the questions (every id, in the new order)",
+      input: z.object({ ids: z.array(z.string().min(1)) }),
+      output: z.object({ count: z.number() }),
+      handler: (input, ctx) => logic.reorderQuestions(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_question_answer",
+      description:
+        "Answer one of the manager's questions for the current user's week (null clears it). Refused after the deadline",
+      input: weekInput.extend({
+        questionId: z.string().min(1),
+        value: z.union([z.boolean(), z.number(), z.string().trim().max(ANSWER_TEXT_MAX), z.null()]),
+      }),
+      output: z.object({ submissionId: z.string(), updatedAt: z.string() }),
+      handler: (input, ctx) => logic.setQuestionAnswer(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.reopen_employee",
+      description:
+        "Manager: let ONE employee change their submission for a closed week until a future time",
+      input: weekInput.extend({ employeeId: z.string().min(1), until: isoInstant }),
+      output: weekReopen,
+      handler: (input, ctx) => logic.reopenEmployee(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.submit_week",
+      description: "Submit (or re-submit) the current user's availability for a week. Refused after the deadline",
+      input: weekInput,
+      output: z.object({ submissionId: z.string(), submittedAt: z.string() }),
+      handler: (input, ctx) => logic.submitWeek(input, ctx),
+    }),
+
     // --- positions ----------------------------------------------------------
     defineIntent({
       name: "shifts.list_positions",

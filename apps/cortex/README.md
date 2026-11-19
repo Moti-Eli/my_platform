@@ -138,6 +138,48 @@ all through `runIntent`, the one door.
   runs on real identity but not yet on a real database. The DB migration
   (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
   applied** — run `db push` yourself.
+- **Shifts (`src/tools/shifts/`), stage 2 — availability: COMPLETE** (parts 1–8,
+  PR #12). Open to every org
+  member: the page picks the manager screens, the employee's own week, or a
+  "you're not in the tool" screen (RLS stays the boundary). Submissions and marks
+  are born `private`, owned by the employee (migrations `20261028000005`–`10`).
+  The employee is offered the next TWO weeks still open for submitting
+  (`shifts.open_weeks`; a week whose deadline passed is replaced by the one after
+  it); the manager's table shows this week and next plus those open weeks. A
+  manager who is also in the tool gets a "Mine" tab with their own week. The
+  employee has their own floating bar (My submission / Shifts, read-only);
+  future employee sections are one entry in `EMPLOYEE_SECTIONS` (ShiftsBar.tsx).
+  Week settings (part 6): the ⚙ on the availability table sets the week's
+  deadline, "close now" and "reopen for everyone" (`shifts.set_week_deadline`);
+  a closed week's person sheet offers "reopen for this employee"
+  (`shifts.reopen_employee`). The table reads open / closed / reopened; a
+  week counts as "reopened" when its deadline is later than the default one.
+  Submission questions (part 7): from the manager's menu — the three built-in
+  ones (read-only) and the manager's own (add with a kind yes/no, number or
+  short text; edit; reorder; turn on/off — never deleted). Employees answer the
+  active ones under the built-in ones (`shifts.set_question_answer`, into
+  `shift_submissions.answers`); the manager's sheet shows them, a turned-off
+  question's answer marked as such, no answer = "unknown".
+  Home card (part 8): under today's shifts, one line for the week being
+  collected — the employee's state (open until … / submitted ✓ / changes not
+  submitted) or the manager's "submitted X/Y"; tapping opens the matching screen.
+  **Open after stage 2:** a grid view of the manager's table (people × shifts,
+  for a wide screen); cancelling a personal reopen (today it can only be
+  moved); a week closed and reopened BEFORE its default deadline reads as
+  "open", not "reopened" (nothing records that it was closed — needs a column).
+  **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
+  server action), not in the database — a deliberate, accepted risk: an employee
+  who calls Supabase directly with their own login could change their OWN
+  submission after the deadline; they can never see or touch anyone else's. If
+  that ever matters, add a `BEFORE INSERT/UPDATE/DELETE` trigger on
+  `shift_submissions` / `shift_availability_marks` that checks the week's
+  effective deadline (`shift_weeks` row or the Thursday-18:00 default, plus
+  `shift_week_reopens`) in a new migration; nothing built so far has to change.
+  Deadlines are stored as absolute times and shown in the phone's time zone. The
+  DEFAULT deadline (no `shift_weeks` row: the Thursday before the week, 18:00)
+  is a wall-clock time, so server and phone compute it in ONE business zone,
+  `SHIFTS_TIME_ZONE` in `src/tools/shifts/deadline.ts` — one zone per
+  deployment, not per org (known limitation).
 - **Acceptance smoke** (no browser/DB needed):
 
   ```bash

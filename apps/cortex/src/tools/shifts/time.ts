@@ -70,3 +70,65 @@ export function formatHours(
 ): string {
   return `${formatTime(startTime, format, locale)}–${formatTime(endTime, format, locale)}`;
 }
+
+/** A local calendar date as "YYYY-MM-DD" (the device's day, never UTC — see
+ * time_entries' `today()` for why). */
+export function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** Is ISO instant `a` later than `b`? Compared as instants, not strings — the
+ * DB's "+00:00" and JS's "Z" spell the same moment differently. */
+export function isLaterThan(a: string, b: string): boolean {
+  return Date.parse(a) > Date.parse(b);
+}
+
+/** A Date as a `<input type="datetime-local">` value ("YYYY-MM-DDTHH:MM", the
+ * phone's local time). */
+export function toLocalInput(d: Date): string {
+  return `${isoDate(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** A datetime-local value → the instant (ISO), or null when empty/invalid. */
+export function fromLocalInput(value: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const d = new Date(value); // no zone suffix → the phone's local time
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Tomorrow at 18:00, the phone's local time — the default "until" for a reopen. */
+export function tomorrowAt18(now: Date = new Date()): Date {
+  const d = addDays(now, 1);
+  d.setHours(18, 0, 0, 0);
+  return d;
+}
+
+/** "YYYY-MM-DD" → a local-midnight Date. */
+export function dateOf(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+}
+
+export function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(d.getDate() + days);
+  return next;
+}
+
+/** The Sunday that starts the week `d` falls in (weeks start on Sunday, like
+ * `shift_templates.weekday`). */
+export function weekStartOf(d: Date): Date {
+  const start = addDays(d, -d.getDay());
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+/** "25.10" / "10/25" — a day in the week list. */
+export function formatDayMonth(d: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "numeric" }).format(d);
+}
+
+/** "25.10–31.10" — the week's Sunday to Saturday. */
+export function formatWeekRange(weekStart: Date, locale: string): string {
+  return `${formatDayMonth(weekStart, locale)}–${formatDayMonth(addDays(weekStart, 6), locale)}`;
+}

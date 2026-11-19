@@ -5,20 +5,12 @@
  * `<html lang/dir>` live when the language changes, and persists the choice to a
  * cookie so the next server render matches.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { type Locale, getDirection } from "./config";
 import { dictionaries, translate, type MessageKey } from "./dictionaries";
+import { I18nContext, type I18nContextValue } from "./context";
 import { LANG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
-
-interface I18nContextValue {
-  locale: Locale;
-  dir: "rtl" | "ltr";
-  t: (key: MessageKey) => string;
-  setLocale: (locale: Locale) => void;
-}
-
-const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({
   initialLocale,

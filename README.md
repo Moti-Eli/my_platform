@@ -22,7 +22,12 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   + questionnaire, time entries, orders (suppliers, catalog with optional
   product prices, WhatsApp order),
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
-  with today's shifts).
+  with today's shifts; stage 2 in progress: open to every member — an employee
+  marks (can / can't / prefer, from a choice sheet) and submits the next two open
+  weeks, with their own bar (My submission / Shifts), the manager sees the availability
+  table by shift and sets each week's deadline, closes / reopens it for everyone
+  or one employee, and adds own submission questions; deadline default Thursday
+  18:00 before the week).
   shopping lists, stage 1 (personal lists: create, items, check off, rename,
   delete, Home card; each list in its own small root org; migrations
   `20261028000001` and `20261028000002` not applied yet).

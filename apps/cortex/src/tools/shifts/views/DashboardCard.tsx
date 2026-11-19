@@ -15,11 +15,21 @@
  * states. Home wraps the card in a `<Link>`, so every control here calls BOTH
  * `preventDefault` and `stopPropagation` (see the tasks card for why).
  *
+ * HIDDEN for an org member who is neither a manager nor in the tool (decision,
+ * stage 2): the tool is open to every member now, so the card asks
+ * `shifts.my_access` and renders nothing when the user has no part in shifts.
+ * While that answer loads it shows the usual skeleton frame.
+ *
+ * Under the list (stage 2, part 8): one availability line for the week being
+ * collected — the employee's submission state, or the manager's "submitted
+ * X/Y" (CardSubmissionLine.tsx); tapping it opens the matching screen.
+ *
  * "Today" is read only after hydration (`useSyncExternalStore`, server snapshot
  * null): the server's clock/time zone may disagree with the phone's around
  * midnight, and the reads are client-side anyway.
  */
 import { useSyncExternalStore } from "react";
+import { CardSubmissionLine } from "./CardSubmissionLine";
 import { useRouter } from "next/navigation";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
@@ -33,6 +43,7 @@ import { formatHours, isOvernight, todayWeekday, weekdayLong } from "../time";
 import { useClockFormat } from "../clockFormat";
 import { totalRequired } from "../staffing";
 import { SHIFTS_ROUTE, shiftHref, shiftsAddHref } from "../nav";
+import { useShiftAccess } from "@/lib/query/useShiftsStaff";
 import { SKELETON, useCountLabel } from "./shared";
 
 const noSubscribe = () => () => {};
@@ -45,8 +56,12 @@ export function DashboardCard(_props: ToolViewProps) {
   const today = useSyncExternalStore(noSubscribe, todayWeekday, () => null);
   const { templates, isLoading, isError } = useShiftTemplates();
   const { requirements, isLoading: reqLoading, isError: reqError } = useShiftRequirements();
+  const { access } = useShiftAccess();
 
-  const loading = isLoading || today === null;
+  // Neither a manager nor an employee in the tool → no card at all.
+  if (access && !access.isAdmin && !access.isEmployee) return null;
+
+  const loading = isLoading || today === null || access === null;
   const shifts = today === null ? [] : shiftsOfDay(templates, today, locale);
 
   return (
@@ -68,18 +83,21 @@ export function DashboardCard(_props: ToolViewProps) {
             )}
           </div>
         </div>
-        <button
-          type="button"
-          aria-label={t("shifts.addShiftToday")}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            router.push(`${SHIFTS_ROUTE}${shiftsAddHref(todayWeekday())}`);
-          }}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-coral text-on-fill interactive motion-safe:active:scale-[0.97]"
-        >
-          <PlusIcon width={16} height={16} />
-        </button>
+        {/* "Add shift" is a manager action — an employee's tool has no such screen. */}
+        {access?.isAdmin ? (
+          <button
+            type="button"
+            aria-label={t("shifts.addShiftToday")}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`${SHIFTS_ROUTE}${shiftsAddHref(todayWeekday())}`);
+            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-coral text-on-fill interactive motion-safe:active:scale-[0.97]"
+          >
+            <PlusIcon width={16} height={16} />
+          </button>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -141,6 +159,13 @@ export function DashboardCard(_props: ToolViewProps) {
           <p className="type-label text-muted">{t("shifts.noShiftsToday")}</p>
         )}
       </div>
+
+      {/* Availability (stage 2): one line under the list, outside the scroll. */}
+      {access ? (
+        <div className="mt-sm shrink-0">
+          <CardSubmissionLine manager={access.isAdmin} />
+        </div>
+      ) : null}
     </div>
   );
 }

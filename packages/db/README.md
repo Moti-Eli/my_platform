@@ -397,7 +397,7 @@ full explanation.
 - `20261028000005_shift_weeks_table.sql` — **Shifts stage 2 (availability) begins:
   `shift_weeks`**, the manager's settings for one calendar week (`week_start` = the
   week's Sunday, `deadline_at`). A week with NO row means the defaults — deadline
-  the Wednesday before at 18:00 — computed in tool code, not as a column default
+  the Thursday before at 18:00 — computed in tool code, not as a column default
   (a Postgres default cannot depend on another column, and 18:00 is a local
   wall-clock time the device resolves). "Close now" = `deadline_at = now()`,
   "reopen for everyone" = a later time; one column, no extra state. Access as every

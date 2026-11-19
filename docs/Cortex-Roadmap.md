@@ -134,6 +134,27 @@ profile shows** (ARCHITECTURE.md #35).
   under the card id. Not linked from the profile screen yet (a small separate
   step after 1b). Migration `20261023000001` NOT applied yet.
 
+### Shifts
+
+The `shifts` tool (`apps/cortex/src/tools/shifts/`). Stage 1: positions,
+employees in the tool, weekly shifts, staffing requirements, Home card. Stage 2:
+availability.
+
+- **Stage 2 (availability): DONE** (#12; migrations `20261028000005`–`10`
+  applied, #14). Parts: 1 access for every member (manager screens / the
+  employee's own week / "not in the tool"); 2 tables; 3 the employee's marks
+  (can / can't / prefer, from a choice sheet); 4 the built-in questions; 5 the
+  manager's availability table by shift + answers sheet; 6 week settings
+  (deadline, close now, reopen for everyone or one employee); 7 the manager's
+  own questions (never deleted, only turned off); 8 Home card line. Default
+  deadline: the Thursday before the week, 18:00 (Asia/Jerusalem); the employee
+  is offered the next two weeks still open. A manager who is also in the tool
+  gets "Mine". The deadline is enforced in tool code, not RLS (accepted risk,
+  see apps/cortex/README.md).
+- Open after stage 2: a grid view of the table (people × shifts); cancelling a
+  personal reopen (only "move the until" today); a close-then-reopen before the
+  default deadline reads as "open", not "reopened" (would need a column).
+
 ### Shopping lists
 
 Lists for any purpose (home, office, event), shared by a small group, not an

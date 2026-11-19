@@ -8,7 +8,12 @@
  * Stage 1: POSITIONS (part 1), EMPLOYEES in the tool + which positions each can
  * fill (part 2), the WEEKLY SHIFT TEMPLATES with "copy a day to all days"
  * (part 3), and STAFFING REQUIREMENTS — how many of each position a shift
- * needs (part 4).
+ * needs (part 4). Stage 2 (availability): `myAccess` (who the acting user is
+ * to the tool), then the EMPLOYEE's OWN week — read in one call (`myWeek`),
+ * marks saved one tap at a time (`setMark`), the built-in questions
+ * (`setAnswers`), "Submit" (`submitWeek`), and the MANAGER's view of a
+ * week (`weekOverview`). The
+ * deadline is enforced HERE (`assertOpen`), not in RLS — see deadline.ts.
  *
  * THE ORG MEMBER LIST comes from `@platform/auth`'s `getOrganizationMembers`,
  * through the SAME per-user RLS client the staff tool uses (`getRls`, injected —
@@ -24,12 +29,20 @@
 import type { SupabaseClient } from "@platform/db";
 import { getOrganizationMembers } from "@platform/auth";
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
+import { isWeekOpenFor, openWeeks } from "./deadline";
+import { ANSWER_NUMBER_MAX, ANSWER_TEXT_MAX } from "./intents";
 
 export const POSITIONS_TABLE = "shift_positions";
 export const EMPLOYEES_TABLE = "shift_employees";
 export const EMPLOYEE_POSITIONS_TABLE = "shift_employee_positions";
 export const TEMPLATES_TABLE = "shift_templates";
 export const REQUIREMENTS_TABLE = "shift_requirements";
+// Stage 2 (migrations 20261022000001–06).
+export const WEEKS_TABLE = "shift_weeks";
+export const SUBMISSIONS_TABLE = "shift_submissions";
+export const MARKS_TABLE = "shift_availability_marks";
+export const REOPENS_TABLE = "shift_week_reopens";
+export const QUESTIONS_TABLE = "shift_questions";
 
 export type AccessLevel = "employee" | "shift_lead";
 
@@ -71,6 +84,9 @@ export interface ShiftTemplate {
   startTime: string;
   /** "HH:MM" local time; earlier than startTime = ends the next day. */
   endTime: string;
+  /** ISO instant — later than an employee's submittedAt means "changed after
+   * they submitted" (stage 2). */
+  updatedAt: string;
 }
 
 /** How many people of one position a shift needs (a shift_requirements row). */
@@ -79,6 +95,162 @@ export interface ShiftRequirement {
   templateId: string;
   positionId: string;
   requiredCount: number;
+}
+
+/** The manager's settings for one week (a shift_weeks row). No row = defaults. */
+export interface ShiftWeek {
+  id: string;
+  /** The week's Sunday, "YYYY-MM-DD". */
+  weekStart: string;
+  /** ISO instant. */
+  deadlineAt: string;
+}
+
+/** "Reopen for one employee" (a shift_week_reopens row). */
+export interface WeekReopen {
+  id: string;
+  employeeId: string;
+  weekStart: string;
+  /** ISO instant. */
+  reopenedUntil: string;
+}
+
+export type DoubleShift = "yes" | "no" | "if_needed";
+
+/** One employee's weekly submission (a shift_submissions row). */
+export interface Submission {
+  id: string;
+  employeeId: string;
+  weekStart: string;
+  minShifts: number | null;
+  maxShifts: number | null;
+  doubleShift: DoubleShift | null;
+  note: string;
+  /** shift_questions.id → answer. */
+  answers: Record<string, boolean | number | string>;
+  /** ISO instant; null = saved, not submitted. */
+  submittedAt: string | null;
+  /** ISO instant — later than submittedAt means "changed since submitting". */
+  updatedAt: string;
+}
+
+/** A mark on one shift. No row = can. */
+export type Mark = "cannot" | "prefer";
+export interface AvailabilityMark {
+  id: string;
+  submissionId: string;
+  templateId: string;
+  mark: Mark;
+}
+
+/** Everything the employee's week screen needs, in one read. */
+export interface MyWeek {
+  week: ShiftWeek | null;
+  reopen: WeekReopen | null;
+  submission: Submission | null;
+  marks: AvailabilityMark[];
+}
+
+export interface WeekInput {
+  /** The week's Sunday, "YYYY-MM-DD". */
+  weekStart: string;
+}
+export interface SetMarkInput extends WeekInput {
+  templateId: string;
+  /** "can" removes the mark (no row). */
+  mark: Mark | "can";
+}
+export interface SetMarkResult {
+  submissionId: string;
+  mark: AvailabilityMark | null;
+  /** The submission's new updated_at — the SERVER's clock, so "changed since
+   * submitting" never depends on the phone's clock. */
+  updatedAt: string;
+}
+/** The built-in questions' answers. Only the fields sent are changed; min and
+ * max always travel together (the pair is validated as one). */
+export interface SetAnswersInput extends WeekInput {
+  minShifts?: number | null;
+  maxShifts?: number | null;
+  doubleShift?: DoubleShift | null;
+  note?: string;
+}
+export interface SetAnswersResult {
+  submissionId: string;
+  updatedAt: string;
+}
+export interface SubmitWeekResult {
+  submissionId: string;
+  submittedAt: string;
+}
+
+/** The manager's view of one week: everyone's submissions and marks (RLS: an
+ * org admin reads every private row; a plain member would get only their own). */
+export interface WeekOverview {
+  week: ShiftWeek | null;
+  submissions: Submission[];
+  marks: AvailabilityMark[];
+  /** Per-employee reopens for this week (any, current or expired). */
+  reopens: WeekReopen[];
+}
+
+/** The manager's own question for the weekly submission (part 7) — a
+ * shift_questions row. Never deleted from the UI, only turned off: answers on
+ * submissions keep referring to it by id. */
+export type QuestionKind = "yes_no" | "number" | "text";
+export interface ShiftQuestion {
+  id: string;
+  label: string;
+  kind: QuestionKind;
+  position: number;
+  isActive: boolean;
+}
+export interface CreateQuestionInput {
+  label: string;
+  kind: QuestionKind;
+}
+export interface RenameQuestionInput {
+  id: string;
+  label: string;
+}
+export interface SetQuestionActiveInput {
+  id: string;
+  isActive: boolean;
+}
+export interface ReorderQuestionsInput {
+  /** Every question id, in the new order. */
+  ids: string[];
+}
+/** One answer to one of the manager's questions; null clears it. */
+export interface SetQuestionAnswerInput extends WeekInput {
+  questionId: string;
+  value: boolean | number | string | null;
+}
+
+/** The manager's week settings (part 6). "Close now" = now; "reopen for
+ * everyone" = a later instant. One row per week, created on first use. */
+export interface SetWeekDeadlineInput extends WeekInput {
+  /** ISO instant. */
+  deadlineAt: string;
+}
+/** "Reopen for one employee" until a FUTURE instant (moving it if one exists). */
+export interface ReopenEmployeeInput extends WeekInput {
+  employeeId: string;
+  /** ISO instant, later than now. */
+  until: string;
+}
+
+/** The weeks still open for submitting, nearest first (the Sundays, "YYYY-MM-DD"). */
+export interface OpenWeeks {
+  weeks: string[];
+}
+
+/** The acting user's standing in the tool (stage 2, part 1: who sees what). */
+export interface MyAccess {
+  /** Org admin in the active org (from ctx — the shell's convenience flag). */
+  isAdmin: boolean;
+  /** Has a shift_employees row in the active org. */
+  isEmployee: boolean;
 }
 
 /** Every list_* takes no input — the org comes from ctx, not the caller. */
@@ -148,6 +320,24 @@ export interface CopyDayResult {
 }
 
 export interface ShiftsLogic {
+  myAccess(input: ListInput, ctx: Ctx): Promise<MyAccess>;
+
+  openWeeks(input: ListInput, ctx: Ctx): Promise<OpenWeeks>;
+  myWeek(input: WeekInput, ctx: Ctx): Promise<MyWeek>;
+  setMark(input: SetMarkInput, ctx: Ctx): Promise<SetMarkResult>;
+  setAnswers(input: SetAnswersInput, ctx: Ctx): Promise<SetAnswersResult>;
+  submitWeek(input: WeekInput, ctx: Ctx): Promise<SubmitWeekResult>;
+  weekOverview(input: WeekInput, ctx: Ctx): Promise<WeekOverview>;
+  setWeekDeadline(input: SetWeekDeadlineInput, ctx: Ctx): Promise<ShiftWeek>;
+  reopenEmployee(input: ReopenEmployeeInput, ctx: Ctx): Promise<WeekReopen>;
+
+  listQuestions(input: ListInput, ctx: Ctx): Promise<ShiftQuestion[]>;
+  createQuestion(input: CreateQuestionInput, ctx: Ctx): Promise<ShiftQuestion>;
+  renameQuestion(input: RenameQuestionInput, ctx: Ctx): Promise<{ id: string }>;
+  setQuestionActive(input: SetQuestionActiveInput, ctx: Ctx): Promise<{ id: string }>;
+  reorderQuestions(input: ReorderQuestionsInput, ctx: Ctx): Promise<{ count: number }>;
+  setQuestionAnswer(input: SetQuestionAnswerInput, ctx: Ctx): Promise<SetAnswersResult>;
+
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   createPosition(input: CreatePositionInput, ctx: Ctx): Promise<{ id: string }>;
   renamePosition(input: RenamePositionInput, ctx: Ctx): Promise<{ id: string }>;
@@ -208,6 +398,7 @@ function toTemplate(row: DbRow): ShiftTemplate {
     name: String(row.name),
     startTime: hhmm(row.start_time),
     endTime: hhmm(row.end_time),
+    updatedAt: String(row.updated_at ?? ""),
   };
 }
 
@@ -217,6 +408,61 @@ function toRequirement(row: DbRow): ShiftRequirement {
     templateId: String(row.template_id),
     positionId: String(row.position_id),
     requiredCount: Number(row.required_count),
+  };
+}
+
+/** Postgres `date` comes back as "YYYY-MM-DD" (sometimes longer) — keep the date. */
+const isoDay = (v: unknown) => String(v ?? "").slice(0, 10);
+
+function toWeek(row: DbRow): ShiftWeek {
+  return { id: String(row.id), weekStart: isoDay(row.week_start), deadlineAt: String(row.deadline_at) };
+}
+
+function toReopen(row: DbRow): WeekReopen {
+  return {
+    id: String(row.id),
+    employeeId: String(row.employee_id),
+    weekStart: isoDay(row.week_start),
+    reopenedUntil: String(row.reopened_until),
+  };
+}
+
+function toSubmission(row: DbRow): Submission {
+  const ds = row.double_shift;
+  return {
+    id: String(row.id),
+    employeeId: String(row.employee_id),
+    weekStart: isoDay(row.week_start),
+    minShifts: row.min_shifts == null ? null : Number(row.min_shifts),
+    maxShifts: row.max_shifts == null ? null : Number(row.max_shifts),
+    doubleShift: ds === "yes" || ds === "no" || ds === "if_needed" ? ds : null,
+    note: row.note == null ? "" : String(row.note),
+    answers:
+      row.answers && typeof row.answers === "object"
+        ? (row.answers as Record<string, boolean | number | string>)
+        : {},
+    submittedAt: row.submitted_at == null ? null : String(row.submitted_at),
+    updatedAt: String(row.updated_at),
+  };
+}
+
+function toQuestion(row: DbRow): ShiftQuestion {
+  const kind = row.kind === "number" || row.kind === "text" ? row.kind : "yes_no";
+  return {
+    id: String(row.id),
+    label: String(row.label),
+    kind,
+    position: Number(row.position ?? 0),
+    isActive: row.is_active !== false,
+  };
+}
+
+function toMark(row: DbRow): AvailabilityMark {
+  return {
+    id: String(row.id),
+    submissionId: String(row.submission_id),
+    templateId: String(row.template_id),
+    mark: row.mark === "prefer" ? "prefer" : "cannot",
   };
 }
 
@@ -235,7 +481,314 @@ export function createShiftsLogic({
   /** The per-user RLS client factory — server-side only (throws on the client). */
   getRls: () => Promise<SupabaseClient>;
 }): ShiftsLogic {
+  // --- stage-2 helpers (the acting EMPLOYEE's own rows) -------------------
+  /** The acting user's shift_employees row, or a thrown "notInTool". */
+  async function myEmployeeRow(ctx: Ctx): Promise<{ id: string }> {
+    const [me] = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+    if (!me) throw new Error("shifts: notInTool");
+    return { id: String(me.id) };
+  }
+
+  async function weekSettings(weekStart: string, employeeId: string, ctx: Ctx) {
+    const [week] = await db.select(WEEKS_TABLE, { org_id: ctx.orgId, week_start: weekStart });
+    const [reopen] = await db.select(REOPENS_TABLE, {
+      org_id: ctx.orgId,
+      employee_id: employeeId,
+      week_start: weekStart,
+    });
+    return { week: week ? toWeek(week) : null, reopen: reopen ? toReopen(reopen) : null };
+  }
+
+  /** THE deadline check (the server action is the only write path). */
+  async function assertOpen(weekStart: string, employeeId: string, ctx: Ctx) {
+    const { week, reopen } = await weekSettings(weekStart, employeeId, ctx);
+    if (!isWeekOpenFor(new Date(), weekStart, week, reopen)) throw new Error("shifts: weekClosed");
+  }
+
+  async function mySubmission(weekStart: string, employeeId: string, ctx: Ctx) {
+    const [row] = await db.select(SUBMISSIONS_TABLE, {
+      org_id: ctx.orgId,
+      employee_id: employeeId,
+      week_start: weekStart,
+    });
+    return row ? toSubmission(row) : null;
+  }
+
+  /** The employee's submission row for the week, created on first use. BORN
+   * private, owned by the employee (stamped explicitly — the DB default is the
+   * fail-safe half, as on time_entries). */
+  async function ensureSubmission(weekStart: string, employeeId: string, ctx: Ctx) {
+    const existing = await mySubmission(weekStart, employeeId, ctx);
+    if (existing) return existing;
+    const id = safeRandomUUID();
+    const now = new Date().toISOString();
+    try {
+      await db.insert(SUBMISSIONS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        visibility: "private",
+        employee_id: employeeId,
+        week_start: weekStart,
+      });
+    } catch (err) {
+      // Two first taps at once (two shifts marked quickly): both saw no row and
+      // the second insert hit unique (employee_id, week_start). Use the winner's.
+      const raced = await mySubmission(weekStart, employeeId, ctx);
+      if (raced) return raced;
+      throw err;
+    }
+    return {
+      id,
+      employeeId,
+      weekStart,
+      minShifts: null,
+      maxShifts: null,
+      doubleShift: null,
+      note: "",
+      answers: {},
+      submittedAt: null,
+      updatedAt: now,
+    } satisfies Submission;
+  }
+
   return {
+    // --- access -------------------------------------------------------------
+    async myAccess(_input, ctx) {
+      // What the screens OFFER, never what the DB allows (RLS decides that).
+      // shift_employees is readable by every org member, so this read works for
+      // a plain employee too.
+      const rows = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+      return { isAdmin: ctx.isAdmin, isEmployee: rows.length > 0 };
+    },
+
+    // --- the employee's week (stage 2) --------------------------------------
+    async openWeeks(_input, ctx) {
+      // The SAME rule assertOpen enforces, run forward from this week: the
+      // manager's week rows, else the default; plus the acting user's own
+      // reopens when they are in the tool (a manager who is not has none).
+      const weeks = (await db.select(WEEKS_TABLE, { org_id: ctx.orgId })).map(toWeek);
+      const [me] = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+      const reopens = me
+        ? (await db.select(REOPENS_TABLE, { org_id: ctx.orgId, employee_id: String(me.id) })).map(toReopen)
+        : [];
+      return { weeks: openWeeks(new Date(), weeks, reopens) };
+    },
+
+    async myWeek(input, ctx) {
+      // RLS already narrows submissions/marks to the OWNER (private rows); the
+      // employee_id / owner filters are context, not security.
+      const me = await myEmployeeRow(ctx);
+      const { week, reopen } = await weekSettings(input.weekStart, me.id, ctx);
+      const submission = await mySubmission(input.weekStart, me.id, ctx);
+      const marks = submission
+        ? (await db.select(MARKS_TABLE, { submission_id: submission.id })).map(toMark)
+        : [];
+      return { week, reopen, submission, marks };
+    },
+
+    async setMark(input, ctx) {
+      // One tap = one call: "can" deletes the row, else update-or-insert. The
+      // submission's updated_at is bumped too, so "changed since submitting" is
+      // one comparison for the screen.
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      const now = new Date().toISOString();
+      const [existing] = await db.select(MARKS_TABLE, {
+        submission_id: submission.id,
+        template_id: input.templateId,
+      });
+      let mark: AvailabilityMark | null = null;
+      if (input.mark === "can") {
+        if (existing) await db.delete(MARKS_TABLE, { id: String(existing.id) });
+      } else if (existing) {
+        await db.update(MARKS_TABLE, { id: String(existing.id) }, { mark: input.mark, updated_at: now });
+        mark = { ...toMark(existing), mark: input.mark };
+      } else {
+        const id = safeRandomUUID();
+        await db.insert(MARKS_TABLE, {
+          id,
+          ...ownership(ctx, now),
+          visibility: "private",
+          submission_id: submission.id,
+          template_id: input.templateId,
+          mark: input.mark,
+        });
+        mark = { id, submissionId: submission.id, templateId: input.templateId, mark: input.mark };
+      }
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { updated_at: now });
+      return { submissionId: submission.id, mark, updatedAt: now };
+    },
+
+    async setAnswers(input, ctx) {
+      // The built-in questions (part 4): each change saves at once. Only the
+      // fields present in the input are written; updated_at is bumped so
+      // "changed since submitting" is one comparison for the screen.
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      const now = new Date().toISOString();
+      const patch: DbRow = { updated_at: now };
+      if (input.minShifts !== undefined) patch.min_shifts = input.minShifts;
+      if (input.maxShifts !== undefined) patch.max_shifts = input.maxShifts;
+      if (input.doubleShift !== undefined) patch.double_shift = input.doubleShift;
+      if (input.note !== undefined) patch.note = input.note;
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, patch);
+      return { submissionId: submission.id, updatedAt: now };
+    },
+
+    async submitWeek(input, ctx) {
+      // "Submit" / "Update": stamps submitted_at (and updated_at, the same
+      // instant, so the submission reads as not-changed-since).
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      const now = new Date().toISOString();
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { submitted_at: now, updated_at: now });
+      return { submissionId: submission.id, submittedAt: now };
+    },
+
+    async weekOverview(input, ctx) {
+      // The manager's table (stage 2, part 5). No admin check here: RLS decides
+      // — an org admin reads every employee's private submission (the admin
+      // branch of auth_user_can_read), anyone else only their own.
+      const [week] = await db.select(WEEKS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart });
+      const submissions = (
+        await db.select(SUBMISSIONS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart })
+      ).map(toSubmission);
+      // Marks have no week column: one read per submission (bounded by the
+      // number of employees), not one scan of every week's marks.
+      const marks = (
+        await Promise.all(
+          submissions.map((sub) => db.select(MARKS_TABLE, { submission_id: sub.id })),
+        )
+      ).flatMap((rows) => rows.map(toMark));
+      const reopens = (
+        await db.select(REOPENS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart })
+      ).map(toReopen);
+      return { week: week ? toWeek(week) : null, submissions, marks, reopens };
+    },
+
+    // --- the manager's week settings (stage 2, part 6) -----------------------
+    // Writes need `shifts.manage` (RLS) — a non-manager's call is denied there.
+    async setWeekDeadline(input, ctx) {
+      const now = new Date().toISOString();
+      const [existing] = await db.select(WEEKS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart });
+      if (existing) {
+        const id = String(existing.id);
+        await db.update(WEEKS_TABLE, { id }, { deadline_at: input.deadlineAt, updated_at: now });
+        return { id, weekStart: input.weekStart, deadlineAt: input.deadlineAt };
+      }
+      const id = safeRandomUUID();
+      await db.insert(WEEKS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        week_start: input.weekStart,
+        deadline_at: input.deadlineAt,
+      });
+      return { id, weekStart: input.weekStart, deadlineAt: input.deadlineAt };
+    },
+
+    async reopenEmployee(input, ctx) {
+      if (!(new Date(input.until) > new Date())) throw new Error("shifts: reopenInPast");
+      const now = new Date().toISOString();
+      const [existing] = await db.select(REOPENS_TABLE, {
+        org_id: ctx.orgId,
+        employee_id: input.employeeId,
+        week_start: input.weekStart,
+      });
+      if (existing) {
+        const id = String(existing.id);
+        await db.update(REOPENS_TABLE, { id }, { reopened_until: input.until, updated_at: now });
+        return { id, employeeId: input.employeeId, weekStart: input.weekStart, reopenedUntil: input.until };
+      }
+      const id = safeRandomUUID();
+      await db.insert(REOPENS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        employee_id: input.employeeId,
+        week_start: input.weekStart,
+        reopened_until: input.until,
+      });
+      return { id, employeeId: input.employeeId, weekStart: input.weekStart, reopenedUntil: input.until };
+    },
+
+    // --- the manager's own questions (stage 2, part 7) -----------------------
+    // Read by every member (employees answer them); writes need `shifts.manage`
+    // (RLS). No delete — turning a question off keeps its answers readable.
+    async listQuestions(_input, ctx) {
+      const rows = await db.select(QUESTIONS_TABLE, { org_id: ctx.orgId });
+      return rows.map(toQuestion).sort((a, b) => a.position - b.position);
+    },
+
+    async createQuestion(input, ctx) {
+      const existing = await db.select(QUESTIONS_TABLE, { org_id: ctx.orgId });
+      const position = existing.reduce((max, r) => Math.max(max, Number(r.position ?? 0) + 1), 0);
+      const id = safeRandomUUID();
+      await db.insert(QUESTIONS_TABLE, {
+        id,
+        ...ownership(ctx, new Date().toISOString()),
+        label: input.label,
+        kind: input.kind,
+        position,
+        is_active: true,
+      });
+      return { id, label: input.label, kind: input.kind, position, isActive: true };
+    },
+
+    async renameQuestion(input, _ctx) {
+      await db.update(QUESTIONS_TABLE, { id: input.id }, { label: input.label, updated_at: new Date().toISOString() });
+      return { id: input.id };
+    },
+
+    async setQuestionActive(input, _ctx) {
+      await db.update(
+        QUESTIONS_TABLE,
+        { id: input.id },
+        { is_active: input.isActive, updated_at: new Date().toISOString() },
+      );
+      return { id: input.id };
+    },
+
+    async reorderQuestions(input, _ctx) {
+      // As reorderPositions: each row gets its index; not atomic, and a partial
+      // order is simply rewritten by the next reorder.
+      const now = new Date().toISOString();
+      for (const [index, id] of input.ids.entries()) {
+        await db.update(QUESTIONS_TABLE, { id }, { position: index, updated_at: now });
+      }
+      return { count: input.ids.length };
+    },
+
+    async setQuestionAnswer(input, ctx) {
+      // The employee's own submission, like the built-in answers: refused after
+      // the deadline. The question must be one of this org's ACTIVE questions,
+      // and the value must fit its kind.
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const [row] = await db.select(QUESTIONS_TABLE, { id: input.questionId, org_id: ctx.orgId });
+      if (!row) throw new Error("shifts: questionNotFound");
+      const question = toQuestion(row);
+      if (!question.isActive) throw new Error("shifts: questionOff");
+      const v = input.value;
+      const fits =
+        v === null ||
+        (question.kind === "yes_no" && typeof v === "boolean") ||
+        (question.kind === "number" && typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= ANSWER_NUMBER_MAX) ||
+        (question.kind === "text" && typeof v === "string" && v.length <= ANSWER_TEXT_MAX);
+      if (!fits) throw new Error("shifts: answerInvalid");
+
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      // Read-modify-write of the answers map; the screen sends one save at a time.
+      const fresh = (await mySubmission(input.weekStart, me.id, ctx)) ?? submission;
+      const answers = { ...fresh.answers };
+      if (v === null || v === "") delete answers[question.id];
+      else answers[question.id] = v;
+      const now = new Date().toISOString();
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { answers, updated_at: now });
+      return { submissionId: submission.id, updatedAt: now };
+    },
+
     // --- positions ----------------------------------------------------------
     async listPositions(_input, ctx) {
       const rows = await db.select(POSITIONS_TABLE, { org_id: ctx.orgId });
