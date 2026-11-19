@@ -200,9 +200,16 @@ a training partner) = a membership in the plan's org.
 - **1 (tables): IN PROGRESS** (`ccr-1108186f-py7eqp`). Migration
   `20261028000003` (`workout_plans`, `plan_days`, `plan_exercises`) and
   `20261028000004` (`app_definitions` row for `training`) are NOT applied yet:
-  dry-run + apply via the DB Migrations workflow after merge. Tool files,
-  screens, catalog stub removal (`fitness` in `stub-apps.ts`) and i18n come
-  later.
+  dry-run + apply via the DB Migrations workflow after merge. (Verified present
+  in the DB on 2026-11-19.)
+- **1 (screens, part A): IN PROGRESS** (`claude/cortex-training-stage1`). Tool
+  files + i18n, `fitness` stub removed. `/tools/training`: in a plan's org it
+  opens that plan (name + empty state); elsewhere "My plans" (`training.list_plans`
+  — every plan in an org the user is an active member of). "New plan" (name,
+  description, workouts per week) runs `training.create_plan` (root org + tool
+  install + plan, compensating on failure) and switches to the new org. Floating
+  bar: My plans / New plan. Home card: the active plan or "Create plan".
+- **1 (screens, part B): NOT STARTED.** Training days and exercises.
 - Not in stage 1: workout logs, history and goals tables (stages 2–4).
 
 ## Decisions and why

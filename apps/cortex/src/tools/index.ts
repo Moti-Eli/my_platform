@@ -17,6 +17,7 @@ import { DashboardCard as QuestionnaireDashboardCard } from "./questionnaire/vie
 import { DashboardCard as OrdersDashboardCard } from "./orders/views/DashboardCard";
 import { DashboardCard as ShiftsDashboardCard } from "./shifts/views/DashboardCard";
 import { DashboardCard as ShoppingDashboardCard } from "./shopping/views/DashboardCard";
+import { DashboardCard as TrainingDashboardCard } from "./training/views/DashboardCard";
 
 /**
  * The identity every tool view is handed by the shell.
@@ -53,4 +54,5 @@ export const TOOL_VIEWS: Record<string, ToolUI> = {
   orders: { DashboardCard: OrdersDashboardCard, route: "/tools/orders" },
   shifts: { DashboardCard: ShiftsDashboardCard, route: "/tools/shifts" },
   shopping: { DashboardCard: ShoppingDashboardCard, route: "/tools/shopping" },
+  training: { DashboardCard: TrainingDashboardCard, route: "/tools/training" },
 };
