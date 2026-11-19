@@ -145,7 +145,9 @@ all through `runIntent`, the one door.
   The employee is offered the next TWO weeks still open for submitting
   (`shifts.open_weeks`; a week whose deadline passed is replaced by the one after
   it); the manager's table shows this week and next plus those open weeks. A
-  manager who is also in the tool gets a "Mine" tab with their own week.
+  manager who is also in the tool gets a "Mine" tab with their own week. The
+  employee has their own floating bar (My submission / Shifts, read-only);
+  future employee sections are one entry in `EMPLOYEE_SECTIONS` (ShiftsBar.tsx).
   **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
   server action), not in the database — a deliberate, accepted risk: an employee
   who calls Supabase directly with their own login could change their OWN

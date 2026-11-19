@@ -11,7 +11,9 @@
  *                              manager who is ALSO in the tool gets "My
  *                              submission" too (their own week, counted in
  *                              the table like everyone else).
- *   employee in the tool     → their own week (EmployeeWeekScreen), no bar.
+ *   employee in the tool     → their own bar (EmployeeBar): "My submission"
+ *                              (EmployeeWeekScreen, the default) and "Shifts"
+ *                              (the regular shifts, read-only).
  *   neither                  → "you're not in the shifts tool".
  *
  * `isAdmin` / `isEmployee` only decide what to OFFER (like time_entries'
@@ -24,8 +26,9 @@ import { PositionsScreen } from "./PositionsScreen";
 import { EmployeesScreen } from "./EmployeesScreen";
 import { ShiftsScreen } from "./ShiftsScreen";
 import { ShiftEditScreen } from "./ShiftEditScreen";
-import { ShiftsBar } from "./ShiftsBar";
+import { EmployeeBar, ShiftsBar } from "./ShiftsBar";
 import { EmployeeWeekScreen } from "./EmployeeWeekScreen";
+import { EmployeeShiftsScreen } from "./EmployeeShiftsScreen";
 import { NotInToolScreen } from "./NotInToolScreen";
 import { AvailabilityScreen } from "./AvailabilityScreen";
 
@@ -36,14 +39,34 @@ export function FullScreen({
   isAdmin,
   isEmployee,
 }: ToolViewProps & { isAdmin: boolean; isEmployee: boolean }) {
-  const { section, day, shiftId, add, week, go, setDay, setWeek, openShift, clearAdd } =
-    useShiftsNav();
+  const {
+    section,
+    employeeSection,
+    day,
+    shiftId,
+    add,
+    week,
+    go,
+    goEmployee,
+    setDay,
+    setWeek,
+    openShift,
+    clearAdd,
+  } = useShiftsNav();
 
   if (!isAdmin) {
-    return isEmployee ? (
-      <EmployeeWeekScreen week={week} onWeekChange={setWeek} />
-    ) : (
-      <NotInToolScreen />
+    if (!isEmployee) return <NotInToolScreen />;
+    return (
+      <>
+        <div key={employeeSection} className="contents">
+          {employeeSection === "week" ? (
+            <EmployeeShiftsScreen />
+          ) : (
+            <EmployeeWeekScreen week={week} onWeekChange={setWeek} />
+          )}
+        </div>
+        <EmployeeBar section={employeeSection} onChange={goEmployee} />
+      </>
     );
   }
 

@@ -13,6 +13,10 @@
  *   ?view=positions      → job positions
  *   ?view=availability   → (manager) the week's availability table
  *   ?view=mine           → (manager who is also an employee) their own week
+ *
+ * An EMPLOYEE's sections (their own bar): (none) → "My submission";
+ * ?view=week → the week's regular shifts, read-only. Future employee sections
+ * (my schedule, hours, pay, history) are new EmployeeSection values here.
  *   ?week=<YYYY-MM-DD>   → the chosen week (its Sunday) on the employee's screen /
  *                          the availability table; absent = the screen's default
  *                          (the old `?week=next` is still understood)
@@ -30,6 +34,13 @@ import { useSearchParams } from "next/navigation";
 export const SHIFTS_ROUTE = "/tools/shifts";
 
 export type ShiftsSection = "shifts" | "employees" | "positions" | "availability" | "mine";
+
+/** An employee's sections. "mine" (their submission) is the default. */
+export type EmployeeSection = "mine" | "week";
+
+function employeeHref(section: EmployeeSection): string {
+  return section === "mine" ? "" : `?view=${section}`;
+}
 
 /** The week asked for in the URL: a Sunday ("YYYY-MM-DD"), "next", or null =
  * the screen's default. Each screen resolves it against the weeks it offers. */
@@ -70,6 +81,8 @@ export function useShiftsNav() {
   }, []);
 
   const go = useCallback((next: ShiftsSection) => push(shiftsHref(next)), [push]);
+  const goEmployee = useCallback((next: EmployeeSection) => push(employeeHref(next)), [push]);
+  const employeeSection: EmployeeSection = view === "week" ? "week" : "mine";
 
   const setDay = useCallback((weekday: number) => {
     window.history.replaceState(null, "", `${window.location.pathname}?day=${weekday}`);
@@ -108,7 +121,9 @@ export function useShiftsNav() {
     shiftId: section === "shifts" ? shiftId : null,
     add: section === "shifts" && !shiftId && add,
     week,
+    employeeSection,
     go,
+    goEmployee,
     setDay,
     setWeek,
     openShift,

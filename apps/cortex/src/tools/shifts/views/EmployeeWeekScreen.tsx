@@ -6,7 +6,8 @@
  * (`shifts.open_weeks`; a week whose deadline passed is replaced by the one
  * after it — decision), and the employee's MARKS on them (part 3):
  *
- *   tap a shift → can → can't (✗) → prefer (★) → can …   saved at once
+ *   tap a shift → a sheet with the three choices, can / can't (✗) / prefer (★),
+ *                 the current one highlighted; choosing closes it and saves
  *   questions   → the three built-in ones under the table (SubmissionAnswers,
  *                 part 4), each change saved at once
  *   "Submit"    → stamps submitted_at; shown as "Submitted <time>". A change
@@ -33,7 +34,7 @@ import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
-import { CloseIcon, StarIcon } from "@/components/icons";
+import { CheckIcon, CloseIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
 import type { AvailabilityMark, Mark, MyWeek } from "../logic";
 import {
@@ -52,12 +53,23 @@ import { shiftsOfDay, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { myWeekKey, useMyWeek, useOpenWeeks } from "@/lib/query/useShiftAvailability";
 import { SubmissionAnswers } from "./SubmissionAnswers";
 import { WeekSwitch, chosenWeek, useThisWeek, weekOptions } from "./WeekSwitch";
-import { EmptyCard, SKELETON, ToolHeader, WriteErrorBanner, useMounted, type WriteErrorCode } from "./shared";
+import {
+  BottomSheet,
+  EmptyCard,
+  SKELETON,
+  ToolHeader,
+  WriteErrorBanner,
+  useMounted,
+  type WriteErrorCode,
+} from "./shared";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
 
-/** can → cannot → prefer → can. */
-const NEXT: Record<Mark | "can", Mark | "can"> = { can: "cannot", cannot: "prefer", prefer: "can" };
+/** The choices in the mark sheet, in order. */
+const CHOICES: Array<Mark | "can"> = ["can", "cannot", "prefer"];
+
+const markLabelKey = (mark: Mark | "can") =>
+  mark === "cannot" ? "shifts.markCannot" : mark === "prefer" ? "shifts.markPrefer" : "shifts.markCan";
 
 export function EmployeeWeekScreen({
   week,
@@ -87,6 +99,8 @@ export function EmployeeWeekScreen({
   // One write in flight per shift (the ref is the synchronous truth for the guard).
   const pendingRef = useRef<Set<string>>(new Set());
   const [pending, setPending] = useState<ReadonlySet<string>>(() => new Set());
+  // The shift whose mark sheet is open.
+  const [picking, setPicking] = useState<{ id: string; title: string } | null>(null);
 
   // Deadline — computed from the same rule the server enforces.
   const now = new Date();
@@ -111,11 +125,11 @@ export function EmployeeWeekScreen({
     [queryClient],
   );
 
-  async function cycleMark(templateId: string) {
+  async function chooseMark(templateId: string, next: Mark | "can") {
     if (weekKey === null || !myWeek || !open || pendingRef.current.has(templateId)) return;
+    if (next === markOf(templateId)) return; // same choice — nothing to save
     const key = weekKey;
     const before = myWeek.marks;
-    const next = NEXT[markOf(templateId)];
     const nextPending = new Set(pendingRef.current).add(templateId);
     pendingRef.current = nextPending;
     setPending(nextPending);
@@ -266,20 +280,17 @@ export function EmployeeWeekScreen({
                       {dayShifts.map((s) => {
                         const mark = markOf(s.id);
                         const busy = pending.has(s.id);
-                        const stateLabel = t(
-                          mark === "cannot"
-                            ? "shifts.markCannot"
-                            : mark === "prefer"
-                              ? "shifts.markPrefer"
-                              : "shifts.markCan",
-                        );
+                        const stateLabel = t(markLabelKey(mark));
                         return (
                           <li key={s.id}>
                             <button
                               type="button"
                               disabled={!open || busy}
                               aria-label={`${s.name}: ${stateLabel}`}
-                              onClick={() => void cycleMark(s.id)}
+                              aria-haspopup="dialog"
+                              onClick={() =>
+                                setPicking({ id: s.id, title: `${s.name} · ${weekdayLong(wd, locale)}` })
+                              }
                               className={`flex w-full items-center justify-between gap-sm py-sm text-start interactive motion-safe:active:scale-[0.99] ${
                                 !open ? "opacity-[var(--ds-disabled-opacity)]" : ""
                               }`}
@@ -344,9 +355,71 @@ export function EmployeeWeekScreen({
               </button>
             ) : null}
           </div>
+
+          {picking ? (
+            <MarkSheet
+              title={picking.title}
+              current={markOf(picking.id)}
+              onClose={() => setPicking(null)}
+              onChoose={(mark) => {
+                const id = picking.id;
+                setPicking(null);
+                void chooseMark(id, mark);
+              }}
+            />
+          ) : null}
         </>
       )}
     </>
+  );
+}
+
+/** The three choices for one shift, from the bottom; the current one is filled. */
+function MarkSheet({
+  title,
+  current,
+  onClose,
+  onChoose,
+}: {
+  title: string;
+  current: Mark | "can";
+  onClose: () => void;
+  onChoose: (mark: Mark | "can") => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <BottomSheet title={title} onClose={onClose}>
+      <div role="radiogroup" aria-label={title} className="flex flex-col gap-xs">
+        {CHOICES.map((mark) => {
+          const active = mark === current;
+          return (
+            <button
+              key={mark}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChoose(mark)}
+              className={`flex h-12 items-center gap-sm rounded-pill px-md type-label interactive motion-safe:active:scale-[0.98] ${
+                active
+                  ? mark === "cannot"
+                    ? "bg-danger text-on-fill"
+                    : "bg-app-coral text-on-fill"
+                  : "bg-screen text-ink"
+              }`}
+            >
+              {mark === "cannot" ? (
+                <CloseIcon width={18} height={18} aria-hidden />
+              ) : mark === "prefer" ? (
+                <StarIcon width={18} height={18} aria-hidden />
+              ) : (
+                <CheckIcon width={18} height={18} aria-hidden />
+              )}
+              {t(markLabelKey(mark))}
+            </button>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 }
 
