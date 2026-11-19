@@ -20,11 +20,16 @@
  * `shifts.my_access` and renders nothing when the user has no part in shifts.
  * While that answer loads it shows the usual skeleton frame.
  *
+ * Under the list (stage 2, part 8): one availability line for the week being
+ * collected — the employee's submission state, or the manager's "submitted
+ * X/Y" (CardSubmissionLine.tsx); tapping it opens the matching screen.
+ *
  * "Today" is read only after hydration (`useSyncExternalStore`, server snapshot
  * null): the server's clock/time zone may disagree with the phone's around
  * midnight, and the reads are client-side anyway.
  */
 import { useSyncExternalStore } from "react";
+import { CardSubmissionLine } from "./CardSubmissionLine";
 import { useRouter } from "next/navigation";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
@@ -154,6 +159,13 @@ export function DashboardCard(_props: ToolViewProps) {
           <p className="type-label text-muted">{t("shifts.noShiftsToday")}</p>
         )}
       </div>
+
+      {/* Availability (stage 2): one line under the list, outside the scroll. */}
+      {access ? (
+        <div className="mt-sm shrink-0">
+          <CardSubmissionLine manager={access.isAdmin} />
+        </div>
+      ) : null}
     </div>
   );
 }

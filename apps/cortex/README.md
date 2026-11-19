@@ -138,7 +138,8 @@ all through `runIntent`, the one door.
   runs on real identity but not yet on a real database. The DB migration
   (`packages/db/.../20260714000002_inventory_items.sql`) is written but **not
   applied** — run `db push` yourself.
-- **Shifts (`src/tools/shifts/`), stage 2 — availability.** Open to every org
+- **Shifts (`src/tools/shifts/`), stage 2 — availability: COMPLETE** (parts 1–8,
+  PR #12). Open to every org
   member: the page picks the manager screens, the employee's own week, or a
   "you're not in the tool" screen (RLS stays the boundary). Submissions and marks
   are born `private`, owned by the employee (migrations `20261028000005`–`10`).
@@ -159,6 +160,13 @@ all through `runIntent`, the one door.
   active ones under the built-in ones (`shifts.set_question_answer`, into
   `shift_submissions.answers`); the manager's sheet shows them, a turned-off
   question's answer marked as such, no answer = "unknown".
+  Home card (part 8): under today's shifts, one line for the week being
+  collected — the employee's state (open until … / submitted ✓ / changes not
+  submitted) or the manager's "submitted X/Y"; tapping opens the matching screen.
+  **Open after stage 2:** a grid view of the manager's table (people × shifts,
+  for a wide screen); cancelling a personal reopen (today it can only be
+  moved); a week closed and reopened BEFORE its default deadline reads as
+  "open", not "reopened" (nothing records that it was closed — needs a column).
   **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
   server action), not in the database — a deliberate, accepted risk: an employee
   who calls Supabase directly with their own login could change their OWN
