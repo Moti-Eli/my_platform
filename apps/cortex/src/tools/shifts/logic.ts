@@ -30,6 +30,7 @@ import type { SupabaseClient } from "@platform/db";
 import { getOrganizationMembers } from "@platform/auth";
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 import { isWeekOpenFor, openWeeks } from "./deadline";
+import { ANSWER_NUMBER_MAX, ANSWER_TEXT_MAX } from "./intents";
 
 export const POSITIONS_TABLE = "shift_positions";
 export const EMPLOYEES_TABLE = "shift_employees";
@@ -41,6 +42,7 @@ export const WEEKS_TABLE = "shift_weeks";
 export const SUBMISSIONS_TABLE = "shift_submissions";
 export const MARKS_TABLE = "shift_availability_marks";
 export const REOPENS_TABLE = "shift_week_reopens";
+export const QUESTIONS_TABLE = "shift_questions";
 
 export type AccessLevel = "employee" | "shift_lead";
 
@@ -192,6 +194,39 @@ export interface WeekOverview {
   reopens: WeekReopen[];
 }
 
+/** The manager's own question for the weekly submission (part 7) — a
+ * shift_questions row. Never deleted from the UI, only turned off: answers on
+ * submissions keep referring to it by id. */
+export type QuestionKind = "yes_no" | "number" | "text";
+export interface ShiftQuestion {
+  id: string;
+  label: string;
+  kind: QuestionKind;
+  position: number;
+  isActive: boolean;
+}
+export interface CreateQuestionInput {
+  label: string;
+  kind: QuestionKind;
+}
+export interface RenameQuestionInput {
+  id: string;
+  label: string;
+}
+export interface SetQuestionActiveInput {
+  id: string;
+  isActive: boolean;
+}
+export interface ReorderQuestionsInput {
+  /** Every question id, in the new order. */
+  ids: string[];
+}
+/** One answer to one of the manager's questions; null clears it. */
+export interface SetQuestionAnswerInput extends WeekInput {
+  questionId: string;
+  value: boolean | number | string | null;
+}
+
 /** The manager's week settings (part 6). "Close now" = now; "reopen for
  * everyone" = a later instant. One row per week, created on first use. */
 export interface SetWeekDeadlineInput extends WeekInput {
@@ -295,6 +330,13 @@ export interface ShiftsLogic {
   weekOverview(input: WeekInput, ctx: Ctx): Promise<WeekOverview>;
   setWeekDeadline(input: SetWeekDeadlineInput, ctx: Ctx): Promise<ShiftWeek>;
   reopenEmployee(input: ReopenEmployeeInput, ctx: Ctx): Promise<WeekReopen>;
+
+  listQuestions(input: ListInput, ctx: Ctx): Promise<ShiftQuestion[]>;
+  createQuestion(input: CreateQuestionInput, ctx: Ctx): Promise<ShiftQuestion>;
+  renameQuestion(input: RenameQuestionInput, ctx: Ctx): Promise<{ id: string }>;
+  setQuestionActive(input: SetQuestionActiveInput, ctx: Ctx): Promise<{ id: string }>;
+  reorderQuestions(input: ReorderQuestionsInput, ctx: Ctx): Promise<{ count: number }>;
+  setQuestionAnswer(input: SetQuestionAnswerInput, ctx: Ctx): Promise<SetAnswersResult>;
 
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   createPosition(input: CreatePositionInput, ctx: Ctx): Promise<{ id: string }>;
@@ -401,6 +443,17 @@ function toSubmission(row: DbRow): Submission {
         : {},
     submittedAt: row.submitted_at == null ? null : String(row.submitted_at),
     updatedAt: String(row.updated_at),
+  };
+}
+
+function toQuestion(row: DbRow): ShiftQuestion {
+  const kind = row.kind === "number" || row.kind === "text" ? row.kind : "yes_no";
+  return {
+    id: String(row.id),
+    label: String(row.label),
+    kind,
+    position: Number(row.position ?? 0),
+    isActive: row.is_active !== false,
   };
 }
 
@@ -658,6 +711,82 @@ export function createShiftsLogic({
         reopened_until: input.until,
       });
       return { id, employeeId: input.employeeId, weekStart: input.weekStart, reopenedUntil: input.until };
+    },
+
+    // --- the manager's own questions (stage 2, part 7) -----------------------
+    // Read by every member (employees answer them); writes need `shifts.manage`
+    // (RLS). No delete — turning a question off keeps its answers readable.
+    async listQuestions(_input, ctx) {
+      const rows = await db.select(QUESTIONS_TABLE, { org_id: ctx.orgId });
+      return rows.map(toQuestion).sort((a, b) => a.position - b.position);
+    },
+
+    async createQuestion(input, ctx) {
+      const existing = await db.select(QUESTIONS_TABLE, { org_id: ctx.orgId });
+      const position = existing.reduce((max, r) => Math.max(max, Number(r.position ?? 0) + 1), 0);
+      const id = safeRandomUUID();
+      await db.insert(QUESTIONS_TABLE, {
+        id,
+        ...ownership(ctx, new Date().toISOString()),
+        label: input.label,
+        kind: input.kind,
+        position,
+        is_active: true,
+      });
+      return { id, label: input.label, kind: input.kind, position, isActive: true };
+    },
+
+    async renameQuestion(input, _ctx) {
+      await db.update(QUESTIONS_TABLE, { id: input.id }, { label: input.label, updated_at: new Date().toISOString() });
+      return { id: input.id };
+    },
+
+    async setQuestionActive(input, _ctx) {
+      await db.update(
+        QUESTIONS_TABLE,
+        { id: input.id },
+        { is_active: input.isActive, updated_at: new Date().toISOString() },
+      );
+      return { id: input.id };
+    },
+
+    async reorderQuestions(input, _ctx) {
+      // As reorderPositions: each row gets its index; not atomic, and a partial
+      // order is simply rewritten by the next reorder.
+      const now = new Date().toISOString();
+      for (const [index, id] of input.ids.entries()) {
+        await db.update(QUESTIONS_TABLE, { id }, { position: index, updated_at: now });
+      }
+      return { count: input.ids.length };
+    },
+
+    async setQuestionAnswer(input, ctx) {
+      // The employee's own submission, like the built-in answers: refused after
+      // the deadline. The question must be one of this org's ACTIVE questions,
+      // and the value must fit its kind.
+      const me = await myEmployeeRow(ctx);
+      await assertOpen(input.weekStart, me.id, ctx);
+      const [row] = await db.select(QUESTIONS_TABLE, { id: input.questionId, org_id: ctx.orgId });
+      if (!row) throw new Error("shifts: questionNotFound");
+      const question = toQuestion(row);
+      if (!question.isActive) throw new Error("shifts: questionOff");
+      const v = input.value;
+      const fits =
+        v === null ||
+        (question.kind === "yes_no" && typeof v === "boolean") ||
+        (question.kind === "number" && typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= ANSWER_NUMBER_MAX) ||
+        (question.kind === "text" && typeof v === "string" && v.length <= ANSWER_TEXT_MAX);
+      if (!fits) throw new Error("shifts: answerInvalid");
+
+      const submission = await ensureSubmission(input.weekStart, me.id, ctx);
+      // Read-modify-write of the answers map; the screen sends one save at a time.
+      const fresh = (await mySubmission(input.weekStart, me.id, ctx)) ?? submission;
+      const answers = { ...fresh.answers };
+      if (v === null || v === "") delete answers[question.id];
+      else answers[question.id] = v;
+      const now = new Date().toISOString();
+      await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { answers, updated_at: now });
+      return { submissionId: submission.id, updatedAt: now };
     },
 
     // --- positions ----------------------------------------------------------

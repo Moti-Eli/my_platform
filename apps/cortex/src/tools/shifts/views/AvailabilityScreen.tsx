@@ -31,7 +31,7 @@ import { useState } from "react";
 import { useI18n } from "@/i18n";
 import { ClockIcon, CloseIcon, GearIcon, InfoIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
-import type { AvailabilityMark, ShiftTemplate, Submission, WeekReopen } from "../logic";
+import type { AvailabilityMark, ShiftQuestion, ShiftTemplate, Submission, WeekReopen } from "../logic";
 import { runIntentAction } from "@/cortex/actions";
 import {
   dateOf,
@@ -51,6 +51,7 @@ import { memberName, visibleEmployees, type VisibleEmployee } from "../people";
 import { shiftsOfDay, useShiftRequirements, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { useOrgMembers, useShiftEmployees } from "@/lib/query/useShiftsStaff";
 import { useOpenWeeks, useWeekOverview } from "@/lib/query/useShiftAvailability";
+import { useShiftQuestions } from "@/lib/query/useShiftQuestions";
 import {
   BottomSheet,
   EmptyCard,
@@ -96,6 +97,7 @@ export function AvailabilityScreen({
   const { requirements } = useShiftRequirements();
   const employeesQ = useShiftEmployees();
   const membersQ = useOrgMembers();
+  const questionsQ = useShiftQuestions();
   const { overview, isLoading: overviewLoading, error: overviewError } = useWeekOverview(weekKey);
   const schemaMissing = overviewError instanceof Error && overviewError.message === "schemaMissing";
 
@@ -106,6 +108,7 @@ export function AvailabilityScreen({
     templatesQ.isLoading ||
     employeesQ.isLoading ||
     membersQ.isLoading ||
+    questionsQ.isLoading ||
     overviewLoading;
   const failed =
     templatesQ.isError || employeesQ.isError || membersQ.isError || openWeeksError || Boolean(overviewError);
@@ -309,6 +312,7 @@ export function AvailabilityScreen({
               person={openPerson}
               templates={templatesQ.templates}
               fmtTime={fmtTime}
+              questions={questionsQ.questions}
               weekStart={weekKey}
               weekClosed={status?.kind === "closed"}
               reopen={overview.reopens.find((r) => r.employeeId === openPerson.employee.id) ?? null}
@@ -344,6 +348,7 @@ function PersonSheet({
   person,
   templates,
   fmtTime,
+  questions,
   weekStart,
   weekClosed,
   reopen,
@@ -352,6 +357,8 @@ function PersonSheet({
   person: Person;
   templates: readonly ShiftTemplate[];
   fmtTime: (d: Date) => string;
+  /** The manager's own questions (loaded with the table, so the sheet opens complete). */
+  questions: readonly ShiftQuestion[];
   weekStart: string | null;
   /** The week is closed for everyone → offer "reopen for this employee". */
   weekClosed: boolean;
@@ -396,6 +403,28 @@ function PersonSheet({
           value={!s ? unknown : s.note.trim() === "" ? t("shifts.noteNone") : s.note}
           muted={!s || s.note.trim() === ""}
         />
+        {/* The manager's own questions: every active one, plus any turned-off
+            one this person answered (marked). No answer → "unknown". */}
+        {questions
+          .filter((q) => q.isActive || (s !== null && q.id in s.answers))
+          .map((q) => {
+            const v = s?.answers[q.id];
+            const shown =
+              v === undefined
+                ? unknown
+                : typeof v === "boolean"
+                  ? t(v ? "shifts.dblYes" : "shifts.dblNo")
+                  : String(v);
+            return (
+              <Answer
+                key={q.id}
+                label={q.label}
+                value={shown}
+                muted={v === undefined}
+                off={!q.isActive}
+              />
+            );
+          })}
       </dl>
       {changed.length > 0 ? (
         <p className="flex items-start gap-xs rounded-md bg-app-coral/15 px-sm py-xs type-caption text-app-coral">
@@ -496,10 +525,27 @@ function ReopenForEmployee({
   );
 }
 
-function Answer({ label, value, muted }: { label: string; value: string; muted: boolean }) {
+function Answer({
+  label,
+  value,
+  muted,
+  off = false,
+}: {
+  label: string;
+  value: string;
+  muted: boolean;
+  /** The question was turned off after this answer was given. */
+  off?: boolean;
+}) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2xs">
-      <dt className="type-caption text-muted">{label}</dt>
+      <dt className="flex flex-wrap items-center gap-xs type-caption text-muted">
+        {label}
+        {off ? (
+          <span className="rounded-pill bg-screen px-xs py-2xs type-caption text-muted">{t("shifts.questionOff")}</span>
+        ) : null}
+      </dt>
       <dd className={`type-body ${muted ? "text-muted" : "text-ink"}`}>{value}</dd>
     </div>
   );

@@ -153,6 +153,12 @@ all through `runIntent`, the one door.
   a closed week's person sheet offers "reopen for this employee"
   (`shifts.reopen_employee`). The table reads open / closed / reopened; a
   week counts as "reopened" when its deadline is later than the default one.
+  Submission questions (part 7): from the manager's menu — the three built-in
+  ones (read-only) and the manager's own (add with a kind yes/no, number or
+  short text; edit; reorder; turn on/off — never deleted). Employees answer the
+  active ones under the built-in ones (`shifts.set_question_answer`, into
+  `shift_submissions.answers`); the manager's sheet shows them, a turned-off
+  question's answer marked as such, no answer = "unknown".
   **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
   server action), not in the database — a deliberate, accepted risk: an employee
   who calls Supabase directly with their own login could change their OWN

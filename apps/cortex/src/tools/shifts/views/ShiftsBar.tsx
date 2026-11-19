@@ -8,7 +8,8 @@
  *
  *   ShiftsBar    (manager)  Shifts / Employees / Positions / Availability, plus
  *                           "Mine" for a manager who is also in the tool.
- *                           Menu: "Manage org members" → the staff tool
+ *                           Menu: "Submission questions" (?view=questions)
+ *                           and "Manage org members" → the staff tool
  *                           (employees are added to shifts only FROM the org's
  *                           members; a plain link, staff itself is not touched).
  *   EmployeeBar  (employee) My submission / Shifts (read-only). Future sections
@@ -72,7 +73,10 @@ export function ShiftsBar({
       sections={MANAGER_SECTIONS.filter((s) => s.key !== "mine" || showMine)}
       active={section}
       onChange={onChange}
-      menu={[{ labelKey: "shifts.manageMembers", onSelect: () => router.push(STAFF_ROUTE) }]}
+      menu={[
+        { labelKey: "shifts.menuQuestions", onSelect: () => onChange("questions") },
+        { labelKey: "shifts.manageMembers", onSelect: () => router.push(STAFF_ROUTE) },
+      ]}
     />
   );
 }

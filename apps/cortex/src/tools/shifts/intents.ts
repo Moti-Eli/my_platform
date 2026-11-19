@@ -34,6 +34,12 @@ export const SUBMISSION_NOTE_MAX = 200;
 /** Mirrors shift_submissions.min_shifts / max_shifts CHECK (0–99). */
 export const SHIFTS_COUNT_MAX = 99;
 
+/** The manager's questions (part 7): label ≤ 200 (shift_questions CHECK); a
+ * number answer 0–999; a text answer is one line, ≤ 200. */
+export const QUESTION_LABEL_MAX = 200;
+export const ANSWER_NUMBER_MAX = 999;
+export const ANSWER_TEXT_MAX = 200;
+
 /** Mirrors shift_requirements.required_count CHECK (1–99; 0 = no row). */
 export const REQUIRED_MAX = 99;
 
@@ -54,6 +60,15 @@ const weekReopen = z.object({
   reopenedUntil: z.string(),
 });
 const mark = z.enum(["cannot", "prefer"]);
+const questionKind = z.enum(["yes_no", "number", "text"]);
+const questionLabel = z.string().trim().min(1).max(QUESTION_LABEL_MAX);
+const question = z.object({
+  id: z.string(),
+  label: z.string(),
+  kind: questionKind,
+  position: z.number(),
+  isActive: z.boolean(),
+});
 const availabilityMark = z.object({
   id: z.string(),
   submissionId: z.string(),
@@ -163,6 +178,53 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       input: weekInput.extend({ deadlineAt: isoInstant }),
       output: shiftWeek,
       handler: (input, ctx) => logic.setWeekDeadline(input, ctx),
+    }),
+    // --- the manager's own questions (part 7) --------------------------------
+    defineIntent({
+      name: "shifts.list_questions",
+      description: "The manager's own questions for the weekly availability submission, in order (active and turned off)",
+      input: z.object({}),
+      output: z.array(question),
+      handler: (input, ctx) => logic.listQuestions(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.create_question",
+      description: "Manager: add a question to the weekly submission — its text and kind (yes_no, number, text)",
+      input: z.object({ label: questionLabel, kind: questionKind }),
+      output: question,
+      handler: (input, ctx) => logic.createQuestion(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.rename_question",
+      description: "Manager: change a question's text",
+      input: z.object({ id: z.string().min(1), label: questionLabel }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.renameQuestion(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_question_active",
+      description: "Manager: turn a question on or off (questions are never deleted; old answers stay readable)",
+      input: z.object({ id: z.string().min(1), isActive: z.boolean() }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.setQuestionActive(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.reorder_questions",
+      description: "Manager: set the order of the questions (every id, in the new order)",
+      input: z.object({ ids: z.array(z.string().min(1)) }),
+      output: z.object({ count: z.number() }),
+      handler: (input, ctx) => logic.reorderQuestions(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_question_answer",
+      description:
+        "Answer one of the manager's questions for the current user's week (null clears it). Refused after the deadline",
+      input: weekInput.extend({
+        questionId: z.string().min(1),
+        value: z.union([z.boolean(), z.number(), z.string().trim().max(ANSWER_TEXT_MAX), z.null()]),
+      }),
+      output: z.object({ submissionId: z.string(), updatedAt: z.string() }),
+      handler: (input, ctx) => logic.setQuestionAnswer(input, ctx),
     }),
     defineIntent({
       name: "shifts.reopen_employee",

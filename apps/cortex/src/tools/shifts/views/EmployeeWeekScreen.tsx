@@ -51,6 +51,7 @@ import { effectiveDeadline, isWeekOpenFor } from "../deadline";
 import { useClockFormat } from "../clockFormat";
 import { shiftsOfDay, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { myWeekKey, useMyWeek, useOpenWeeks } from "@/lib/query/useShiftAvailability";
+import { useShiftQuestions } from "@/lib/query/useShiftQuestions";
 import { SubmissionAnswers } from "./SubmissionAnswers";
 import { WeekSwitch, chosenWeek, useThisWeek, weekOptions } from "./WeekSwitch";
 import {
@@ -218,7 +219,10 @@ export function EmployeeWeekScreen({
       minute: "2-digit",
     }).format(d);
 
-  const loading = templatesLoading || weekLoading || weekStart === null;
+  // The manager's questions render inside SubmissionAnswers; wait for them so
+  // the screen doesn't grow a moment after it appears.
+  const { isLoading: questionsLoading } = useShiftQuestions();
+  const loading = templatesLoading || weekLoading || questionsLoading || weekStart === null;
 
   return (
     <>

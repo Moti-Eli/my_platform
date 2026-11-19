@@ -13,16 +13,21 @@
  * A save patches the shared week cache (fields + updatedAt), so the screen's
  * "changes not submitted yet" line reacts the same way it does for marks.
  *
- * Locked (`open === false`) = every control disabled, nothing is sent. The
- * manager's own questions (part 7) will render below these.
+ * Locked (`open === false`) = every control disabled, nothing is sent.
+ *
+ * Below them, the manager's own ACTIVE questions (part 7), same look: yes/no as
+ * a segmented choice (saved on tap), number / short text as inputs (saved on
+ * blur / Enter; empty clears). `shifts.set_question_answer`, through the same
+ * one-at-a-time queue, patching `submission.answers` in the shared cache.
  */
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import type { DoubleShift, MyWeek, Submission } from "../logic";
-import { SHIFTS_COUNT_MAX, SUBMISSION_NOTE_MAX } from "../intents";
+import { ANSWER_NUMBER_MAX, ANSWER_TEXT_MAX, SHIFTS_COUNT_MAX, SUBMISSION_NOTE_MAX } from "../intents";
 import { myWeekKey } from "@/lib/query/useShiftAvailability";
+import { useShiftQuestions } from "@/lib/query/useShiftQuestions";
 import { inputClass, invalidRing, useMounted, type WriteErrorCode } from "./shared";
 
 const DOUBLE: DoubleShift[] = ["yes", "no", "if_needed"];
@@ -54,6 +59,17 @@ export function SubmissionAnswers({
   const [maxDraft, setMaxDraft] = useState(numToText(submission?.maxShifts));
   const [noteDraft, setNoteDraft] = useState(submission?.note ?? "");
   const [rangeError, setRangeError] = useState<"range" | "minMax" | null>(null);
+
+  // The manager's ACTIVE questions; drafts for the typed ones, seeded once.
+  const { questions } = useShiftQuestions();
+  const activeQuestions = questions.filter((q) => q.isActive);
+  const [drafts, setDrafts] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      Object.entries(submission?.answers ?? {})
+        .filter(([, v]) => typeof v !== "boolean")
+        .map(([id, v]) => [id, String(v)]),
+    ),
+  );
 
   function save(patch: AnswersPatch) {
     if (!open) return;
@@ -105,6 +121,47 @@ export function SubmissionAnswers({
     setRangeError(null);
     if (min === (submission?.minShifts ?? null) && max === (submission?.maxShifts ?? null)) return;
     save({ minShifts: min, maxShifts: max });
+  }
+
+  /** One of the manager's questions: queued like the built-in saves. */
+  function saveAnswer(questionId: string, value: boolean | number | string | null) {
+    if (!open) return;
+    queue.current = queue.current
+      .then(() => sendAnswer(questionId, value))
+      .catch(() => {
+        if (mounted.current) onError("failed");
+      });
+  }
+
+  async function sendAnswer(questionId: string, value: boolean | number | string | null) {
+    onError(null);
+    const res = await runIntentAction("shifts.set_question_answer", { weekStart, questionId, value });
+    if (res.ok) {
+      const { submissionId, updatedAt } = res.data as { submissionId: string; updatedAt: string };
+      queryClient.setQueryData<MyWeek>(myWeekKey(weekStart), (prev) => {
+        if (!prev) return prev;
+        const base = prev.submission ?? emptySubmission(submissionId, weekStart);
+        const answers = { ...base.answers };
+        if (value === null || value === "") delete answers[questionId];
+        else answers[questionId] = value;
+        return { ...prev, submission: { ...base, answers, updatedAt } };
+      });
+    } else if (mounted.current) {
+      onError(res.code);
+      if (res.code === "weekClosed") {
+        void queryClient.invalidateQueries({ queryKey: myWeekKey(weekStart) });
+      }
+    }
+  }
+
+  /** A typed answer (number / short text), on blur / Enter; empty clears it. */
+  function commitAnswer(questionId: string, isNumber: boolean) {
+    const text = (drafts[questionId] ?? "").replace(/\s+/g, " ").trim();
+    const value: number | string | null =
+      text === "" ? null : isNumber ? Math.min(Number(text), ANSWER_NUMBER_MAX) : text.slice(0, ANSWER_TEXT_MAX);
+    const saved = submission?.answers[questionId] ?? null;
+    if (value === saved) return;
+    saveAnswer(questionId, value);
   }
 
   function commitNote() {
@@ -210,6 +267,64 @@ export function SubmissionAnswers({
           className={inputClass}
         />
       </label>
+
+      {/* The manager's own questions (part 7) — the active ones, in order. */}
+      {activeQuestions.map((q) => {
+        const saved = submission?.answers[q.id];
+        if (q.kind === "yes_no") {
+          return (
+            <div key={q.id} className="flex flex-col gap-xs">
+              <span className="type-label text-ink">{q.label}</span>
+              <div role="radiogroup" aria-label={q.label} className="grid grid-cols-2 gap-2xs">
+                {([true, false] as const).map((v) => {
+                  const active = saved === v;
+                  return (
+                    <button
+                      key={String(v)}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      disabled={disabled}
+                      onClick={() => {
+                        if (!active) saveAnswer(q.id, v);
+                      }}
+                      className={`flex h-10 items-center justify-center rounded-pill px-xs type-label interactive motion-safe:active:scale-[0.97] ${
+                        active ? "bg-app-coral text-on-fill" : "bg-screen text-ink"
+                      }`}
+                    >
+                      {t(v ? "shifts.dblYes" : "shifts.dblNo")}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        }
+        const isNumber = q.kind === "number";
+        const draft = drafts[q.id] ?? "";
+        return (
+          <label key={q.id} className="flex flex-col gap-2xs type-label text-ink">
+            {q.label}
+            <input
+              type="text"
+              inputMode={isNumber ? "numeric" : undefined}
+              pattern={isNumber ? "[0-9]*" : undefined}
+              value={draft}
+              disabled={disabled}
+              maxLength={isNumber ? String(ANSWER_NUMBER_MAX).length : ANSWER_TEXT_MAX}
+              placeholder={t("shifts.answerPlaceholder")}
+              onChange={(e) =>
+                setDrafts((prev) => ({ ...prev, [q.id]: isNumber ? e.target.value.replace(/\D/g, "") : e.target.value }))
+              }
+              onBlur={() => commitAnswer(q.id, isNumber)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className={`${inputClass} ${isNumber ? "text-center" : ""}`}
+            />
+          </label>
+        );
+      })}
     </section>
   );
 }

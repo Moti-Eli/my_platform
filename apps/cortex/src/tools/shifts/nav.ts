@@ -13,6 +13,7 @@
  *   ?view=positions      → job positions
  *   ?view=availability   → (manager) the week's availability table
  *   ?view=mine           → (manager who is also an employee) their own week
+ *   ?view=questions      → (manager) the submission questions (from the menu)
  *
  * An EMPLOYEE's sections (their own bar): (none) → "My submission";
  * ?view=week → the week's regular shifts, read-only. Future employee sections
@@ -33,7 +34,7 @@ import { useSearchParams } from "next/navigation";
 /** The tool's route (matches `TOOL_VIEWS.shifts.route`). */
 export const SHIFTS_ROUTE = "/tools/shifts";
 
-export type ShiftsSection = "shifts" | "employees" | "positions" | "availability" | "mine";
+export type ShiftsSection = "shifts" | "employees" | "positions" | "availability" | "mine" | "questions";
 
 /** An employee's sections. "mine" (their submission) is the default. */
 export type EmployeeSection = "mine" | "week";
@@ -72,7 +73,11 @@ export function useShiftsNav() {
     weekParam === "next" || (weekParam !== null && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) ? weekParam : null;
 
   const section: ShiftsSection =
-    view === "employees" || view === "positions" || view === "availability" || view === "mine"
+    view === "employees" ||
+    view === "positions" ||
+    view === "availability" ||
+    view === "mine" ||
+    view === "questions"
       ? view
       : "shifts";
 

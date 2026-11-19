@@ -29,6 +29,7 @@ import { ShiftEditScreen } from "./ShiftEditScreen";
 import { EmployeeBar, ShiftsBar } from "./ShiftsBar";
 import { EmployeeWeekScreen } from "./EmployeeWeekScreen";
 import { EmployeeShiftsScreen } from "./EmployeeShiftsScreen";
+import { QuestionsScreen } from "./QuestionsScreen";
 import { NotInToolScreen } from "./NotInToolScreen";
 import { AvailabilityScreen } from "./AvailabilityScreen";
 
@@ -77,6 +78,9 @@ export function FullScreen({
   switch (current) {
     case "mine":
       screen = <EmployeeWeekScreen week={week} onWeekChange={setWeek} />;
+      break;
+    case "questions":
+      screen = <QuestionsScreen />;
       break;
     case "positions":
       screen = <PositionsScreen />;
