@@ -7,14 +7,16 @@
  * depends on the ACTIVE org:
  *   - a plan org    → that plan (details + training days)
  *   - any other org → "My plans", the list of every plan the user is in
- * From the plan, a day opens the day screen; the header's back steps up one
- * level (day → plan, My plans → plan) and leaves the tool from the top.
+ * From the plan, a day opens the day screen. The screen lives in the URL
+ * (nav.ts): every move pushes a history entry, so back — the phone's or the
+ * header's — returns one level, and a refresh stays on the same screen.
  *
  * The floating bar (☰ + 🔍, the orders bar's shape) carries every occasional
  * action: New plan, My plans, Rename, Delete plan (owner only). Search filters
  * the list on the current screen and is cleared whenever the screen changes.
  */
 import { useState } from "react";
+import { trainingHref, useTrainingNav } from "../nav";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { useTrainingPlan } from "@/lib/query/useTrainingPlan";
@@ -29,8 +31,6 @@ import { TrainingBar, type BarMenuItem } from "./TrainingBar";
 import { EmptyCard, SKELETON, ToolHeader } from "./shared";
 
 type Overlay = "new" | "rename" | "delete" | null;
-/** "plan" = the active org's plan (or My plans when it has none). */
-type Screen = { kind: "plan" } | { kind: "plans" } | { kind: "day"; dayId: string };
 
 // userId is NOT sent to any action — the server derives identity from the
 // session cookie. It is used only to show "Delete plan" to the owner (the
@@ -38,22 +38,26 @@ type Screen = { kind: "plan" } | { kind: "plans" } | { kind: "day"; dayId: strin
 export function FullScreen({ userId, orgId }: ToolViewProps) {
   const { t } = useI18n();
   const { plan, isLoading, isError } = useTrainingPlan();
-  const { days } = useTrainingDays();
+  const daysQ = useTrainingDays();
+  const days = daysQ.days;
   const exercisesQ = useTrainingExercises();
   const summary = useExerciseSummary();
-  const [screen, setScreen] = useState<Screen>({ kind: "plan" });
+  const { screen, go } = useTrainingNav();
   const [overlay, setOverlay] = useState<Overlay>(null);
-  const [search, setSearch] = useState("");
-
-  function go(next: Screen) {
-    setSearch("");
-    setScreen(next);
-  }
+  // The search belongs to the screen it was typed on: a different screen sees
+  // an empty search (no effect needed to clear it).
+  const screenKey = trainingHref(screen);
+  const [searchState, setSearchState] = useState({ key: screenKey, text: "" });
+  const search = searchState.key === screenKey ? searchState.text : "";
+  const setSearch = (text: string) => setSearchState({ key: screenKey, text });
 
   const listView = screen.kind === "plans" || (!isLoading && !isError && !plan);
   const openPlan = !listView ? plan : null;
   const openDay =
     openPlan && screen.kind === "day" ? (days.find((d) => d.id === screen.dayId) ?? null) : null;
+  // A day in the URL whose days are still loading — wait instead of flashing
+  // the plan screen.
+  const dayPending = openPlan && screen.kind === "day" && daysQ.isLoading;
 
   const menu: BarMenuItem[] = [
     { labelKey: "training.newPlan", onSelect: () => setOverlay("new") },
@@ -66,18 +70,12 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
     }
   }
 
-  // Back steps up inside the tool; from the top it leaves (router.back()).
-  const onBack =
-    (screen.kind === "plans" && plan) || screen.kind === "day"
-      ? () => go({ kind: "plan" })
-      : undefined;
-
   return (
     <>
+      {/* Back = router.back(): every in-tool move pushed a history entry. */}
       <ToolHeader
         title={openDay ? openDay.name : openPlan ? openPlan.name : t("training.myPlans")}
         subtitle={openDay && openPlan ? openPlan.name : t("training.name")}
-        onBack={onBack}
       />
 
       {overlay === "new" ? <NewPlanModal onClose={() => setOverlay(null)} /> : null}
@@ -95,7 +93,7 @@ export function FullScreen({ userId, orgId }: ToolViewProps) {
           onOpenActive={() => go({ kind: "plan" })}
           onNewPlan={() => setOverlay("new")}
         />
-      ) : isLoading ? (
+      ) : isLoading || dayPending ? (
         <div className={`h-32 w-full ${SKELETON}`} aria-hidden="true" />
       ) : isError || !openPlan ? (
         <EmptyCard titleKey="training.loadFailed" />
