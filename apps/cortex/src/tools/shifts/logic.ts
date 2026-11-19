@@ -29,7 +29,7 @@
 import type { SupabaseClient } from "@platform/db";
 import { getOrganizationMembers } from "@platform/auth";
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
-import { isWeekOpenFor } from "./deadline";
+import { isWeekOpenFor, openWeeks } from "./deadline";
 
 export const POSITIONS_TABLE = "shift_positions";
 export const EMPLOYEES_TABLE = "shift_employees";
@@ -161,6 +161,9 @@ export interface SetMarkInput extends WeekInput {
 export interface SetMarkResult {
   submissionId: string;
   mark: AvailabilityMark | null;
+  /** The submission's new updated_at — the SERVER's clock, so "changed since
+   * submitting" never depends on the phone's clock. */
+  updatedAt: string;
 }
 /** The built-in questions' answers. Only the fields sent are changed; min and
  * max always travel together (the pair is validated as one). */
@@ -185,6 +188,11 @@ export interface WeekOverview {
   week: ShiftWeek | null;
   submissions: Submission[];
   marks: AvailabilityMark[];
+}
+
+/** The weeks still open for submitting, nearest first (the Sundays, "YYYY-MM-DD"). */
+export interface OpenWeeks {
+  weeks: string[];
 }
 
 /** The acting user's standing in the tool (stage 2, part 1: who sees what). */
@@ -264,6 +272,7 @@ export interface CopyDayResult {
 export interface ShiftsLogic {
   myAccess(input: ListInput, ctx: Ctx): Promise<MyAccess>;
 
+  openWeeks(input: ListInput, ctx: Ctx): Promise<OpenWeeks>;
   myWeek(input: WeekInput, ctx: Ctx): Promise<MyWeek>;
   setMark(input: SetMarkInput, ctx: Ctx): Promise<SetMarkResult>;
   setAnswers(input: SetAnswersInput, ctx: Ctx): Promise<SetAnswersResult>;
@@ -443,13 +452,21 @@ export function createShiftsLogic({
     if (existing) return existing;
     const id = safeRandomUUID();
     const now = new Date().toISOString();
-    await db.insert(SUBMISSIONS_TABLE, {
-      id,
-      ...ownership(ctx, now),
-      visibility: "private",
-      employee_id: employeeId,
-      week_start: weekStart,
-    });
+    try {
+      await db.insert(SUBMISSIONS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        visibility: "private",
+        employee_id: employeeId,
+        week_start: weekStart,
+      });
+    } catch (err) {
+      // Two first taps at once (two shifts marked quickly): both saw no row and
+      // the second insert hit unique (employee_id, week_start). Use the winner's.
+      const raced = await mySubmission(weekStart, employeeId, ctx);
+      if (raced) return raced;
+      throw err;
+    }
     return {
       id,
       employeeId,
@@ -475,6 +492,18 @@ export function createShiftsLogic({
     },
 
     // --- the employee's week (stage 2) --------------------------------------
+    async openWeeks(_input, ctx) {
+      // The SAME rule assertOpen enforces, run forward from this week: the
+      // manager's week rows, else the default; plus the acting user's own
+      // reopens when they are in the tool (a manager who is not has none).
+      const weeks = (await db.select(WEEKS_TABLE, { org_id: ctx.orgId })).map(toWeek);
+      const [me] = await db.select(EMPLOYEES_TABLE, { org_id: ctx.orgId, user_id: ctx.userId });
+      const reopens = me
+        ? (await db.select(REOPENS_TABLE, { org_id: ctx.orgId, employee_id: String(me.id) })).map(toReopen)
+        : [];
+      return { weeks: openWeeks(new Date(), weeks, reopens) };
+    },
+
     async myWeek(input, ctx) {
       // RLS already narrows submissions/marks to the OWNER (private rows); the
       // employee_id / owner filters are context, not security.
@@ -518,7 +547,7 @@ export function createShiftsLogic({
         mark = { id, submissionId: submission.id, templateId: input.templateId, mark: input.mark };
       }
       await db.update(SUBMISSIONS_TABLE, { id: submission.id }, { updated_at: now });
-      return { submissionId: submission.id, mark };
+      return { submissionId: submission.id, mark, updatedAt: now };
     },
 
     async setAnswers(input, ctx) {

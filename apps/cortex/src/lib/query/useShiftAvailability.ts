@@ -11,7 +11,22 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { runIntentAction } from "@/cortex/actions";
-import type { MyWeek, WeekOverview } from "@/tools/shifts/logic";
+import type { MyWeek, OpenWeeks, WeekOverview } from "@/tools/shifts/logic";
+
+export const OPEN_WEEKS_KEY = ["shifts", "openWeeks"] as const;
+
+/** The weeks still open for submitting (the server applies the deadline rule). */
+export function useOpenWeeks() {
+  const query = useQuery({
+    queryKey: OPEN_WEEKS_KEY,
+    queryFn: async (): Promise<OpenWeeks> => {
+      const res = await runIntentAction("shifts.open_weeks", {});
+      if (!res.ok) throw new Error(res.code);
+      return res.data as OpenWeeks;
+    },
+  });
+  return { ...query, openWeeks: query.data?.weeks ?? null };
+}
 
 export const myWeekKey = (weekStart: string) => ["shifts", "myWeek", weekStart] as const;
 

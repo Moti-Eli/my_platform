@@ -7,7 +7,10 @@
  *
  *   manager (org admin)      → the stage-1 sections (Shifts / Employees /
  *                              Positions) + the week's Availability table
- *                              (stage 2), with the floating section bar.
+ *                              (stage 2), with the floating section bar; a
+ *                              manager who is ALSO in the tool gets "My
+ *                              submission" too (their own week, counted in
+ *                              the table like everyone else).
  *   employee in the tool     → their own week (EmployeeWeekScreen), no bar.
  *   neither                  → "you're not in the shifts tool".
  *
@@ -44,8 +47,14 @@ export function FullScreen({
     );
   }
 
+  // `?view=mine` from a manager who is not in the tool falls back to Shifts.
+  const current = section === "mine" && !isEmployee ? "shifts" : section;
+
   let screen;
-  switch (section) {
+  switch (current) {
+    case "mine":
+      screen = <EmployeeWeekScreen week={week} onWeekChange={setWeek} />;
+      break;
     case "positions":
       screen = <PositionsScreen />;
       break;
@@ -75,10 +84,10 @@ export function FullScreen({
       {/* Keyed by section (+ open shift) so per-screen state (open forms,
           armed deletes) resets when switching — but NOT by day, so picking a
           day keeps the day view mounted. */}
-      <div key={`${shiftsHref(section)}|${shiftId ?? ""}`} className="contents">
+      <div key={`${shiftsHref(current)}|${shiftId ?? ""}`} className="contents">
         {screen}
       </div>
-      <ShiftsBar section={section} onChange={go} />
+      <ShiftsBar section={current} onChange={go} showMine={isEmployee} />
     </>
   );
 }

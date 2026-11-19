@@ -27,16 +27,16 @@ import { useI18n } from "@/i18n";
 import { CloseIcon, InfoIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
 import type { AvailabilityMark, ShiftTemplate, Submission } from "../logic";
-import { formatHours, isoDate, isOvernight, weekdayLong } from "../time";
+import { dateOf, formatHours, isLaterThan, isOvernight, weekdayLong } from "../time";
 import { effectiveDeadline } from "../deadline";
 import { useClockFormat } from "../clockFormat";
 import { totalRequired } from "../staffing";
 import { memberName, visibleEmployees, type VisibleEmployee } from "../people";
 import { shiftsOfDay, useShiftRequirements, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { useOrgMembers, useShiftEmployees } from "@/lib/query/useShiftsStaff";
-import { useWeekOverview } from "@/lib/query/useShiftAvailability";
+import { useOpenWeeks, useWeekOverview } from "@/lib/query/useShiftAvailability";
 import { BottomSheet, EmptyCard, SKELETON, ToolHeader } from "./shared";
-import { WeekSwitch, chosenWeekStart, useThisWeek } from "./WeekSwitch";
+import { WeekSwitch, chosenWeek, useThisWeek, weekOptions } from "./WeekSwitch";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
 
@@ -60,8 +60,11 @@ export function AvailabilityScreen({
   const { t, locale } = useI18n();
   const [clockFormat] = useClockFormat(locale);
   const thisWeek = useThisWeek();
-  const weekStart = chosenWeekStart(thisWeek, week);
-  const weekKey = weekStart === null ? null : isoDate(weekStart);
+  // This week and next, plus the weeks after them still open for submitting.
+  const { openWeeks, isError: openWeeksError } = useOpenWeeks();
+  const options = weekOptions(thisWeek, openWeeks, true);
+  const weekKey = chosenWeek(thisWeek, options, week);
+  const weekStart = weekKey === null ? null : dateOf(weekKey);
 
   const templatesQ = useShiftTemplates();
   const { requirements } = useShiftRequirements();
@@ -78,7 +81,8 @@ export function AvailabilityScreen({
     employeesQ.isLoading ||
     membersQ.isLoading ||
     overviewLoading;
-  const failed = templatesQ.isError || employeesQ.isError || membersQ.isError || Boolean(overviewError);
+  const failed =
+    templatesQ.isError || employeesQ.isError || membersQ.isError || openWeeksError || Boolean(overviewError);
 
   // Everyone in the tool (still in the org), joined to their submission.
   const people: Person[] = overview
@@ -106,7 +110,7 @@ export function AvailabilityScreen({
 
   /** The shift changed after this person submitted. */
   const changedAfter = (p: Person, tpl: ShiftTemplate) =>
-    p.submission?.submittedAt != null && tpl.updatedAt > p.submission.submittedAt;
+    p.submission?.submittedAt != null && isLaterThan(tpl.updatedAt, p.submission.submittedAt);
 
   const fmtTime = (d: Date) =>
     new Intl.DateTimeFormat(locale, {
@@ -123,7 +127,7 @@ export function AvailabilityScreen({
   return (
     <>
       <ToolHeader title={t("shifts.availabilityTitle")} subtitle={t("shifts.name")} />
-      <WeekSwitch week={week} weekStart={weekStart} onChange={onWeekChange} />
+      <WeekSwitch thisWeek={thisWeek} options={options} selected={weekKey} onChange={onWeekChange} />
 
       {schemaMissing ? (
         <EmptyCard titleKey="shifts.dbNotReadyTitle" hintKey="shifts.dbNotReadyHint" />
@@ -155,6 +159,10 @@ export function AvailabilityScreen({
                 : t("shifts.noEmployeesInTool")}
             </span>
           </div>
+
+          {templatesQ.templates.length === 0 ? (
+            <EmptyCard titleKey="shifts.noShiftsWeekTitle" hintKey="shifts.noShiftsWeekHint" />
+          ) : null}
 
           <ul className="flex flex-col gap-md">
             {WEEK.map((wd) => {
@@ -306,7 +314,7 @@ function PersonSheet({
 
   const changed = s?.submittedAt
     ? templates
-        .filter((tpl) => tpl.updatedAt > (s.submittedAt as string))
+        .filter((tpl) => isLaterThan(tpl.updatedAt, s.submittedAt as string))
         .map((tpl) => `${tpl.name} (${weekdayLong(tpl.weekday, locale)})`)
     : [];
 

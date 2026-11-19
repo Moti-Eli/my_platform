@@ -2,8 +2,9 @@
 
 /**
  * The employee's screen (stage 2) — "My submission": the week's shifts, day by
- * day, with a switch between this week and the next (decision: two weeks
- * ahead), and the employee's MARKS on them (part 3):
+ * day, with a switch between the next two weeks still OPEN for submitting
+ * (`shifts.open_weeks`; a week whose deadline passed is replaced by the one
+ * after it — decision), and the employee's MARKS on them (part 3):
  *
  *   tap a shift → can → can't (✗) → prefer (★) → can …   saved at once
  *   questions   → the three built-in ones under the table (SubmissionAnswers,
@@ -12,7 +13,7 @@
  *                 after that shows "Update" until pressed again.
  *
  * LOCKED after the week's deadline (deadline.ts: the manager's shift_weeks row,
- * else the Wednesday before at 18:00; a shift_week_reopens row for this employee
+ * else the Thursday before at 18:00; a shift_week_reopens row for this employee
  * reopens it): the rows stop responding and a banner says so. The SERVER
  * enforces the same rule (logic.ts) — this is the UI half.
  *
@@ -23,9 +24,10 @@
  * `schemaMissing`, shown as its own explicit screen — so on a preview it is
  * clear that the database is behind, not that the code is broken.
  *
- * The chosen week lives in the URL (?week=next) via replaceState; the switch and
- * the hydration-safe "this week" live in WeekSwitch.tsx (shared with the
- * manager's table).
+ * The chosen week lives in the URL (?week=<Sunday>) via replaceState; the switch
+ * and the hydration-safe "this week" live in WeekSwitch.tsx (shared with the
+ * manager's table). The lock below still matters: a week can close while the
+ * screen is open.
  */
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,13 +36,22 @@ import { runIntentAction } from "@/cortex/actions";
 import { CloseIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
 import type { AvailabilityMark, Mark, MyWeek } from "../logic";
-import { addDays, formatDayMonth, formatHours, isoDate, isOvernight, weekdayLong } from "../time";
+import {
+  addDays,
+  dateOf,
+  formatDayMonth,
+  formatHours,
+  isLaterThan,
+  isoDate,
+  isOvernight,
+  weekdayLong,
+} from "../time";
 import { effectiveDeadline, isWeekOpenFor } from "../deadline";
 import { useClockFormat } from "../clockFormat";
 import { shiftsOfDay, useShiftTemplates } from "@/lib/query/useShiftTemplates";
-import { myWeekKey, useMyWeek } from "@/lib/query/useShiftAvailability";
+import { myWeekKey, useMyWeek, useOpenWeeks } from "@/lib/query/useShiftAvailability";
 import { SubmissionAnswers } from "./SubmissionAnswers";
-import { WeekSwitch, chosenWeekStart, useThisWeek } from "./WeekSwitch";
+import { WeekSwitch, chosenWeek, useThisWeek, weekOptions } from "./WeekSwitch";
 import { EmptyCard, SKELETON, ToolHeader, WriteErrorBanner, useMounted, type WriteErrorCode } from "./shared";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -61,9 +72,11 @@ export function EmployeeWeekScreen({
   const [clockFormat] = useClockFormat(locale);
   const { templates, isLoading: templatesLoading, isError: templatesError } = useShiftTemplates();
   const thisWeek = useThisWeek();
-
-  const weekStart = chosenWeekStart(thisWeek, week);
-  const weekKey = weekStart === null ? null : isoDate(weekStart);
+  // The next two weeks still open for submitting (server rule); the URL picks one.
+  const { openWeeks, isError: openWeeksError } = useOpenWeeks();
+  const options = weekOptions(thisWeek, openWeeks, false);
+  const weekKey = chosenWeek(thisWeek, options, week);
+  const weekStart = weekKey === null ? null : dateOf(weekKey);
   const today = thisWeek === null ? null : isoDate(new Date());
 
   const { myWeek, isLoading: weekLoading, error: weekError } = useMyWeek(weekKey);
@@ -86,7 +99,7 @@ export function EmployeeWeekScreen({
 
   const submission = myWeek?.submission ?? null;
   const changedSinceSubmit =
-    submission?.submittedAt != null && submission.updatedAt > submission.submittedAt;
+    submission?.submittedAt != null && isLaterThan(submission.updatedAt, submission.submittedAt);
 
   const markOf = (templateId: string): Mark | "can" =>
     myWeek?.marks.find((m) => m.templateId === templateId)?.mark ?? "can";
@@ -124,8 +137,11 @@ export function EmployeeWeekScreen({
     try {
       const res = await runIntentAction("shifts.set_mark", { weekStart: key, templateId, mark: next });
       if (res.ok) {
-        const { submissionId, mark } = res.data as { submissionId: string; mark: AvailabilityMark | null };
-        const stamp = new Date().toISOString();
+        const { submissionId, mark, updatedAt: stamp } = res.data as {
+          submissionId: string;
+          mark: AvailabilityMark | null;
+          updatedAt: string;
+        };
         patchWeek(key, (prev) => ({
           ...prev,
           marks: mark ? [...withoutIt(prev.marks), mark] : withoutIt(prev.marks),
@@ -194,13 +210,15 @@ export function EmployeeWeekScreen({
     <>
       <ToolHeader title={t("shifts.mySubmission")} subtitle={t("shifts.name")} />
 
-      <WeekSwitch week={week} weekStart={weekStart} onChange={onWeekChange} />
+      <WeekSwitch thisWeek={thisWeek} options={options} selected={weekKey} onChange={onWeekChange} />
 
       {schemaMissing ? (
         <EmptyCard titleKey="shifts.dbNotReadyTitle" hintKey="shifts.dbNotReadyHint" />
-      ) : weekError || templatesError ? (
+      ) : weekError || templatesError || openWeeksError ? (
         <EmptyCard titleKey="shifts.loadFailed" />
-      ) : loading || !myWeek ? (
+      ) : options !== null && options.length === 0 ? (
+        <EmptyCard titleKey="shifts.noOpenWeeks" />
+      ) : loading || !myWeek || weekStart === null ? (
         <ul className="flex flex-col gap-xs" aria-hidden="true">
           {[0, 1, 2].map((i) => (
             <li key={i} className={`h-20 ${SKELETON}`} />
@@ -292,8 +310,10 @@ export function EmployeeWeekScreen({
           {/* The built-in questions (part 4); each change saves at once. */}
           {weekKey !== null ? (
             <SubmissionAnswers
-              // Re-key on the saved values so a server change resets the drafts.
-              key={`${submission?.minShifts ?? ""}|${submission?.maxShifts ?? ""}|${submission?.note ?? ""}`}
+              // Fresh drafts per week. NOT keyed on the saved values: a save
+              // landing while the user types in the next field would remount
+              // and wipe what they are typing.
+              key={weekKey}
               weekStart={weekKey}
               submission={submission}
               open={open}

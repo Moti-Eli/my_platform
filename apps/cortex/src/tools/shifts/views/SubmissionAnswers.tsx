@@ -16,7 +16,7 @@
  * Locked (`open === false`) = every control disabled, nothing is sent. The
  * manager's own questions (part 7) will render below these.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
@@ -44,44 +44,49 @@ export function SubmissionAnswers({
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const mounted = useMounted();
-  const [saving, setSaving] = useState(false);
+  // Saves run one after another, never dropped: typing a note and then tapping
+  // a double-shift choice fires two saves back to back (blur, then tap).
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
-  // Local drafts for the typed fields (saved on blur / Enter). The parent keys
-  // this component by the saved values, so a server change (another device, a
-  // refetch) remounts it with fresh drafts — no effect needed.
+  // Local drafts for the typed fields (saved on blur / Enter), seeded once per
+  // week (the parent keys this component by the week).
   const [minDraft, setMinDraft] = useState(numToText(submission?.minShifts));
   const [maxDraft, setMaxDraft] = useState(numToText(submission?.maxShifts));
   const [noteDraft, setNoteDraft] = useState(submission?.note ?? "");
   const [rangeError, setRangeError] = useState<"range" | "minMax" | null>(null);
 
-  async function save(patch: AnswersPatch) {
-    if (!open || saving) return;
-    setSaving(true);
+  function save(patch: AnswersPatch) {
+    if (!open) return;
+    // The catch keeps the chain alive: one rejected save must not block the rest.
+    queue.current = queue.current
+      .then(() => send(patch))
+      .catch(() => {
+        if (mounted.current) onError("failed");
+      });
+  }
+
+  async function send(patch: AnswersPatch) {
     onError(null);
-    try {
-      const res = await runIntentAction("shifts.set_answers", { weekStart, ...patch });
-      if (res.ok) {
-        const { submissionId, updatedAt } = res.data as { submissionId: string; updatedAt: string };
-        queryClient.setQueryData<MyWeek>(myWeekKey(weekStart), (prev) =>
-          prev
-            ? {
-                ...prev,
-                submission: {
-                  ...(prev.submission ?? emptySubmission(submissionId, weekStart)),
-                  ...patch,
-                  updatedAt,
-                },
-              }
-            : prev,
-        );
-      } else if (mounted.current) {
-        onError(res.code);
-        if (res.code === "weekClosed") {
-          void queryClient.invalidateQueries({ queryKey: myWeekKey(weekStart) });
-        }
+    const res = await runIntentAction("shifts.set_answers", { weekStart, ...patch });
+    if (res.ok) {
+      const { submissionId, updatedAt } = res.data as { submissionId: string; updatedAt: string };
+      queryClient.setQueryData<MyWeek>(myWeekKey(weekStart), (prev) =>
+        prev
+          ? {
+              ...prev,
+              submission: {
+                ...(prev.submission ?? emptySubmission(submissionId, weekStart)),
+                ...patch,
+                updatedAt,
+              },
+            }
+          : prev,
+      );
+    } else if (mounted.current) {
+      onError(res.code);
+      if (res.code === "weekClosed") {
+        void queryClient.invalidateQueries({ queryKey: myWeekKey(weekStart) });
       }
-    } finally {
-      if (mounted.current) setSaving(false);
     }
   }
 
@@ -99,17 +104,17 @@ export function SubmissionAnswers({
     }
     setRangeError(null);
     if (min === (submission?.minShifts ?? null) && max === (submission?.maxShifts ?? null)) return;
-    void save({ minShifts: min, maxShifts: max });
+    save({ minShifts: min, maxShifts: max });
   }
 
   function commitNote() {
     const clean = noteDraft.replace(/\s+/g, " ").trim().slice(0, SUBMISSION_NOTE_MAX);
     setNoteDraft(clean);
     if (clean === (submission?.note ?? "")) return;
-    void save({ note: clean });
+    save({ note: clean });
   }
 
-  const disabled = !open || saving;
+  const disabled = !open;
   const dim = !open ? "opacity-[var(--ds-disabled-opacity)]" : "";
 
   return (
@@ -170,7 +175,7 @@ export function SubmissionAnswers({
                 aria-checked={active}
                 disabled={disabled}
                 onClick={() => {
-                  if (!active) void save({ doubleShift: v });
+                  if (!active) save({ doubleShift: v });
                 }}
                 className={`flex h-10 items-center justify-center rounded-pill px-xs type-label interactive motion-safe:active:scale-[0.97] ${
                   active ? "bg-app-coral text-on-fill" : "bg-screen text-ink"

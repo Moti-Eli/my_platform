@@ -23,7 +23,8 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   product prices, WhatsApp order),
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
   with today's shifts; stage 2 in progress: open to every member — an employee
-  sees their own week, a member not in the tool sees why).
+  marks and submits the next two open weeks, the manager sees the availability
+  table by shift; deadline default Thursday 18:00 before the week).
   shopping lists, stage 1 (personal lists: create, items, check off, rename,
   delete, Home card; each list in its own small root org; migrations
   `20261028000001` and `20261028000002` not applied yet).

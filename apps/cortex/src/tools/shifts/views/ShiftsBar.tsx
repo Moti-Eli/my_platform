@@ -4,7 +4,8 @@
  * Floating section switcher — the tasks filter bar's chrome (`sticky bottom-sm`
  * + `mt-auto`, translucent card, backdrop blur; see tasks' FilterBar header for
  * why sticky, not fixed): the hamburger at the edge, a hairline divider, then
- * the tool's sections as segments: Shifts / Employees / Positions / Availability.
+ * the tool's sections as segments: Shifts / Employees / Positions / Availability,
+ * plus "My submission" for a manager who is also an employee in the tool.
  *
  * The hamburger opens a small menu above the bar — the same pattern as the
  * orders bar (things done occasionally, not daily). Today: "Manage org members",
@@ -21,19 +22,25 @@ import type { ShiftsSection } from "../nav";
 /** The staff tool's route (matches `TOOL_VIEWS.staff.route`). */
 const STAFF_ROUTE = "/tools/staff";
 
-const SECTIONS: Array<{ key: ShiftsSection; labelKey: MessageKey }> = [
+const SECTIONS: Array<{ key: ShiftsSection; labelKey: MessageKey; ariaKey?: MessageKey }> = [
   { key: "shifts", labelKey: "shifts.tabShifts" },
   { key: "employees", labelKey: "shifts.tabEmployees" },
   { key: "positions", labelKey: "shifts.tabPositions" },
   { key: "availability", labelKey: "shifts.tabAvailability" },
+  // Short on screen ("Mine") so five segments fit a 360px phone; the full name
+  // is what a screen reader hears.
+  { key: "mine", labelKey: "shifts.tabMine", ariaKey: "shifts.mySubmission" },
 ];
 
 export function ShiftsBar({
   section,
   onChange,
+  showMine,
 }: {
   section: ShiftsSection;
   onChange: (next: ShiftsSection) => void;
+  /** The manager is also an employee in the tool → offer their own week. */
+  showMine: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -80,17 +87,20 @@ export function ShiftsBar({
         </button>
       </div>
       <span className="h-5 w-px shrink-0 bg-hairline" aria-hidden="true" />
-      {SECTIONS.map((s) => {
+      {SECTIONS.filter((s) => s.key !== "mine" || showMine).map((s) => {
         const active = section === s.key;
         return (
           <button
             key={s.key}
             type="button"
             aria-pressed={active}
+            aria-label={s.ariaKey ? t(s.ariaKey) : undefined}
             onClick={() => onChange(s.key)}
-            className={`rounded-pill px-sm py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
-              active ? "bg-app-coral text-on-fill" : "text-muted"
-            }`}
+            // Five segments (with "My submission") only fit a phone with the
+            // tighter padding; labels never wrap.
+            className={`whitespace-nowrap rounded-pill py-2xs type-label interactive motion-safe:active:scale-[0.97] ${
+              showMine ? "px-xs" : "px-sm"
+            } ${active ? "bg-app-coral text-on-fill" : "text-muted"}`}
           >
             {t(s.labelKey)}
           </button>

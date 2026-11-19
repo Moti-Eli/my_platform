@@ -95,6 +95,14 @@ export function createShiftsIntents(logic: ShiftsLogic) {
 
     // --- the employee's week (stage 2) --------------------------------------
     defineIntent({
+      name: "shifts.open_weeks",
+      description:
+        "The next weeks (their Sundays as YYYY-MM-DD, nearest first) still open for submitting availability — a week whose deadline passed is skipped",
+      input: z.object({}),
+      output: z.object({ weeks: z.array(z.string()) }),
+      handler: (input, ctx) => logic.openWeeks(input, ctx),
+    }),
+    defineIntent({
       name: "shifts.my_week",
       description:
         "The current user's availability submission for a week (its Sunday as YYYY-MM-DD): the week's deadline settings, their submission and their marks",
@@ -112,7 +120,7 @@ export function createShiftsIntents(logic: ShiftsLogic) {
       description:
         "Mark one shift in the current user's week as cannot / prefer, or can (removes the mark). Refused after the week's deadline",
       input: weekInput.extend({ templateId: z.string().min(1), mark: z.enum(["can", "cannot", "prefer"]) }),
-      output: z.object({ submissionId: z.string(), mark: availabilityMark.nullable() }),
+      output: z.object({ submissionId: z.string(), mark: availabilityMark.nullable(), updatedAt: z.string() }),
       handler: (input, ctx) => logic.setMark(input, ctx),
     }),
     defineIntent({

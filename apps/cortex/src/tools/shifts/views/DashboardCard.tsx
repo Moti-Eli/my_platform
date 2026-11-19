@@ -78,18 +78,21 @@ export function DashboardCard(_props: ToolViewProps) {
             )}
           </div>
         </div>
-        <button
-          type="button"
-          aria-label={t("shifts.addShiftToday")}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            router.push(`${SHIFTS_ROUTE}${shiftsAddHref(todayWeekday())}`);
-          }}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-coral text-on-fill interactive motion-safe:active:scale-[0.97]"
-        >
-          <PlusIcon width={16} height={16} />
-        </button>
+        {/* "Add shift" is a manager action — an employee's tool has no such screen. */}
+        {access?.isAdmin ? (
+          <button
+            type="button"
+            aria-label={t("shifts.addShiftToday")}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              router.push(`${SHIFTS_ROUTE}${shiftsAddHref(todayWeekday())}`);
+            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-coral text-on-fill interactive motion-safe:active:scale-[0.97]"
+          >
+            <PlusIcon width={16} height={16} />
+          </button>
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

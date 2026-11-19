@@ -141,17 +141,21 @@ all through `runIntent`, the one door.
 - **Shifts (`src/tools/shifts/`), stage 2 — availability.** Open to every org
   member: the page picks the manager screens, the employee's own week, or a
   "you're not in the tool" screen (RLS stays the boundary). Submissions and marks
-  are born `private`, owned by the employee (migrations `20261022000001`–`06`).
+  are born `private`, owned by the employee (migrations `20261028000005`–`10`).
+  The employee is offered the next TWO weeks still open for submitting
+  (`shifts.open_weeks`; a week whose deadline passed is replaced by the one after
+  it); the manager's table shows this week and next plus those open weeks. A
+  manager who is also in the tool gets a "Mine" tab with their own week.
   **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
   server action), not in the database — a deliberate, accepted risk: an employee
   who calls Supabase directly with their own login could change their OWN
   submission after the deadline; they can never see or touch anyone else's. If
   that ever matters, add a `BEFORE INSERT/UPDATE/DELETE` trigger on
   `shift_submissions` / `shift_availability_marks` that checks the week's
-  effective deadline (`shift_weeks` row or the Wednesday-18:00 default, plus
+  effective deadline (`shift_weeks` row or the Thursday-18:00 default, plus
   `shift_week_reopens`) in a new migration; nothing built so far has to change.
   Deadlines are stored as absolute times and shown in the phone's time zone. The
-  DEFAULT deadline (no `shift_weeks` row: the Wednesday before the week, 18:00)
+  DEFAULT deadline (no `shift_weeks` row: the Thursday before the week, 18:00)
   is a wall-clock time, so server and phone compute it in ONE business zone,
   `SHIFTS_TIME_ZONE` in `src/tools/shifts/deadline.ts` — one zone per
   deployment, not per org (known limitation).

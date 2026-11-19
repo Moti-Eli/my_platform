@@ -7,7 +7,8 @@
  * page decides WHAT the member sees:
  *
  *   isAdmin    → the manager screens (from the session).
- *   isEmployee → the user has a shift_employees row in the active org — read
+ *   isEmployee → (asked for everyone; a manager in the tool also gets "My
+ *                submission") the user has a shift_employees row in the active org — read
  *                through the SAME RLS-scoped server client the orders page uses
  *                for the org name (never the admin client; the table is readable
  *                by every org member). A query error fails CLOSED (false).
@@ -23,18 +24,18 @@ import { FullScreen } from "@/tools/shifts/views/FullScreen";
 export default async function ShiftsToolPage() {
   const { userId, orgId, isAdmin } = await requireSession();
 
+  // Asked for managers too: a manager who is also in the tool gets their own
+  // "My submission" section next to the manager screens.
   let isEmployee = false;
-  if (!isAdmin) {
-    const supabase = await createSupabaseServerClient();
-    if (supabase) {
-      const res = await supabase
-        .from("shift_employees")
-        .select("id")
-        .eq("org_id", orgId)
-        .eq("user_id", userId)
-        .limit(1);
-      if (!res.error) isEmployee = (res.data ?? []).length > 0;
-    }
+  const supabase = await createSupabaseServerClient();
+  if (supabase) {
+    const res = await supabase
+      .from("shift_employees")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("user_id", userId)
+      .limit(1);
+    if (!res.error) isEmployee = (res.data ?? []).length > 0;
   }
 
   return <FullScreen userId={userId} orgId={orgId} isAdmin={isAdmin} isEmployee={isEmployee} />;

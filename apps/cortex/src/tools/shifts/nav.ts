@@ -12,8 +12,10 @@
  *   ?view=employees      → employees in the tool
  *   ?view=positions      → job positions
  *   ?view=availability   → (manager) the week's availability table
- *   ?week=next           → next week on the employee's screen / the availability
- *                          table; absent = this week
+ *   ?view=mine           → (manager who is also an employee) their own week
+ *   ?week=<YYYY-MM-DD>   → the chosen week (its Sunday) on the employee's screen /
+ *                          the availability table; absent = the screen's default
+ *                          (the old `?week=next` is still understood)
  *
  * Switching section or opening a shift PUSHES a history entry (back returns).
  * Picking a day or a week REPLACES the current entry — back must not walk
@@ -27,10 +29,11 @@ import { useSearchParams } from "next/navigation";
 /** The tool's route (matches `TOOL_VIEWS.shifts.route`). */
 export const SHIFTS_ROUTE = "/tools/shifts";
 
-export type ShiftsSection = "shifts" | "employees" | "positions" | "availability";
+export type ShiftsSection = "shifts" | "employees" | "positions" | "availability" | "mine";
 
-/** The two weeks an employee can look at (decision: this week and the next). */
-export type WeekChoice = "current" | "next";
+/** The week asked for in the URL: a Sunday ("YYYY-MM-DD"), "next", or null =
+ * the screen's default. Each screen resolves it against the weeks it offers. */
+export type WeekChoice = string | null;
 
 export function shiftsHref(section: ShiftsSection): string {
   return section === "shifts" ? "" : `?view=${section}`;
@@ -53,10 +56,14 @@ export function useShiftsNav() {
   const dayParam = params.get("day");
   const day = dayParam !== null && /^[0-6]$/.test(dayParam) ? Number(dayParam) : null;
   const add = params.get("add") === "1";
-  const week: WeekChoice = params.get("week") === "next" ? "next" : "current";
+  const weekParam = params.get("week");
+  const week: WeekChoice =
+    weekParam === "next" || (weekParam !== null && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) ? weekParam : null;
 
   const section: ShiftsSection =
-    view === "employees" || view === "positions" || view === "availability" ? view : "shifts";
+    view === "employees" || view === "positions" || view === "availability" || view === "mine"
+      ? view
+      : "shifts";
 
   const push = useCallback((query: string) => {
     window.history.pushState(null, "", `${window.location.pathname}${query}`);
@@ -73,7 +80,7 @@ export function useShiftsNav() {
   /** Keeps the section (`view`), replaces the week (no history entry). */
   const setWeek = useCallback((next: WeekChoice) => {
     const params = new URLSearchParams(window.location.search);
-    if (next === "next") params.set("week", "next");
+    if (next) params.set("week", next);
     else params.delete("week");
     const query = params.toString();
     window.history.replaceState(

@@ -77,6 +77,12 @@ export function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Is ISO instant `a` later than `b`? Compared as instants, not strings — the
+ * DB's "+00:00" and JS's "Z" spell the same moment differently. */
+export function isLaterThan(a: string, b: string): boolean {
+  return Date.parse(a) > Date.parse(b);
+}
+
 /** "YYYY-MM-DD" → a local-midnight Date. */
 export function dateOf(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
