@@ -56,5 +56,4 @@ export const STUB_APPS: AppManifest[] = [
   stub("analytics", "spark", "indigo", "operations", "unavailable"),
   stub("marketing", "spark", "coral", "operations", "unavailable"),
   stub("support", "chat", "teal", "operations", "unavailable"),
-  stub("fitness", "spark", "amber", "personal", "unavailable"),
 ];

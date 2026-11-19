@@ -61,6 +61,12 @@ import { createShoppingIntents } from "@/tools/shopping/intents";
 import { createShoppingListeners } from "@/tools/shopping/events";
 import { createShoppingCreateList } from "@/tools/shopping/create-list-logic";
 import { createShoppingDeleteList } from "@/tools/shopping/delete-list-logic";
+import { manifest as trainingManifest } from "@/tools/training/manifest";
+import { createTrainingLogic } from "@/tools/training/logic";
+import { createTrainingIntents } from "@/tools/training/intents";
+import { createTrainingListeners } from "@/tools/training/events";
+import { createTrainingCreatePlan } from "@/tools/training/create-plan-logic";
+import { createTrainingDeletePlan } from "@/tools/training/delete-plan-logic";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/base-url";
@@ -234,6 +240,20 @@ function build(): DataLayer {
   });
   if (!getApp(shoppingManifest.id)) {
     registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));
+  }
+  // Training — training.create_plan is the privileged, server-only seam (root
+  // org + tool install + plan), same shape as shopping.create_list. list_plans
+  // reads the user's memberships through the per-user RLS client.
+  const trainingLogic = createTrainingLogic({
+    db,
+    emit: eventBus.emit,
+    getRls,
+    createPlan: createTrainingCreatePlan({ getRls, service }),
+    // Deleting a plan also hides its org (service client) — same seam.
+    deletePlan: createTrainingDeletePlan({ getRls, service }),
+  });
+  if (!getApp(trainingManifest.id)) {
+    registerApp(trainingManifest, createTrainingIntents(trainingLogic), createTrainingListeners(trainingLogic));
   }
   for (const stub of STUB_APPS) {
     if (!getApp(stub.id)) registerApp(stub);
