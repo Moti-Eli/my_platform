@@ -19,23 +19,49 @@
  *
  * Reads: everyone's submissions and marks in one call (`shifts.week_overview`;
  * RLS lets an org admin read every private row), plus the shared caches for
- * templates, requirements, employees and org members. Read-only here — week
- * settings (deadline, reopen) come in part 6.
+ * templates, requirements, employees and org members.
+ *
+ * Part 6 — the week's settings: the status line reads "Open until …" /
+ * "Closed" / "Reopened until …" (deadline.ts `weekStatus`); the ⚙ beside it
+ * opens WeekSettingsSheet (deadline, close now, reopen for everyone). While the
+ * week is closed, a person's sheet offers "Reopen for this employee" with an
+ * "until"; a running personal reopen shows a small clock by their name.
  */
 import { useState } from "react";
 import { useI18n } from "@/i18n";
-import { CloseIcon, InfoIcon, StarIcon } from "@/components/icons";
+import { ClockIcon, CloseIcon, GearIcon, InfoIcon, StarIcon } from "@/components/icons";
 import type { WeekChoice } from "../nav";
-import type { AvailabilityMark, ShiftTemplate, Submission } from "../logic";
-import { dateOf, formatHours, isLaterThan, isOvernight, weekdayLong } from "../time";
-import { effectiveDeadline } from "../deadline";
+import type { AvailabilityMark, ShiftTemplate, Submission, WeekReopen } from "../logic";
+import { runIntentAction } from "@/cortex/actions";
+import {
+  dateOf,
+  formatHours,
+  fromLocalInput,
+  isLaterThan,
+  isOvernight,
+  toLocalInput,
+  tomorrowAt18,
+  weekdayLong,
+} from "../time";
+import { weekStatus } from "../deadline";
+import { StatusLine, WeekSettingsSheet, useWeekSettingsRefresh } from "./WeekSettingsSheet";
 import { useClockFormat } from "../clockFormat";
 import { totalRequired } from "../staffing";
 import { memberName, visibleEmployees, type VisibleEmployee } from "../people";
 import { shiftsOfDay, useShiftRequirements, useShiftTemplates } from "@/lib/query/useShiftTemplates";
 import { useOrgMembers, useShiftEmployees } from "@/lib/query/useShiftsStaff";
 import { useOpenWeeks, useWeekOverview } from "@/lib/query/useShiftAvailability";
-import { BottomSheet, EmptyCard, SKELETON, ToolHeader } from "./shared";
+import {
+  BottomSheet,
+  EmptyCard,
+  SKELETON,
+  ToolHeader,
+  WriteErrorBanner,
+  inputClass,
+  invalidRing,
+  useMounted,
+  type WriteErrorCode,
+} from "./shared";
 import { WeekSwitch, chosenWeek, useThisWeek, weekOptions } from "./WeekSwitch";
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -121,8 +147,12 @@ export function AvailabilityScreen({
       minute: "2-digit",
     }).format(d);
 
-  const deadline = weekKey !== null && overview ? effectiveDeadline(weekKey, overview.week) : null;
-  const deadlinePassed = deadline !== null && deadline < new Date();
+  const now = new Date();
+  const status = weekKey !== null && overview ? weekStatus(now, weekKey, overview.week) : null;
+  /** A personal reopen still running for this employee (this week). */
+  const activeReopen = (employeeId: string) =>
+    overview?.reopens.find((r) => r.employeeId === employeeId && new Date(r.reopenedUntil) > now) ?? null;
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <>
@@ -141,15 +171,19 @@ export function AvailabilityScreen({
         </ul>
       ) : (
         <>
-          {/* Deadline + who submitted. */}
+          {/* The week's state + its settings (⚙) + who submitted. */}
           <div className="flex items-center justify-between gap-sm rounded-lg bg-card px-md py-sm">
-            <span className={`type-caption ${deadlinePassed ? "text-danger" : "text-muted"}`}>
-              {deadline
-                ? t(deadlinePassed ? "shifts.deadlineWas" : "shifts.deadlineUntil").replace(
-                    "{time}",
-                    fmtTime(deadline),
-                  )
-                : null}
+            <span className="flex min-w-0 items-center gap-xs">
+              <button
+                type="button"
+                aria-label={t("shifts.weekSettings")}
+                aria-haspopup="dialog"
+                onClick={() => setSettingsOpen(true)}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-screen text-ink interactive motion-safe:active:scale-[0.97]"
+              >
+                <GearIcon width={18} height={18} />
+              </button>
+              {status ? <StatusLine status={status} fmtTime={fmtTime} /> : null}
             </span>
             <span className={`shrink-0 type-label ${people.length > 0 ? "text-ink" : "text-muted"}`}>
               {people.length > 0
@@ -235,6 +269,16 @@ export function AvailabilityScreen({
                                       className="flex items-center gap-2xs rounded-pill bg-screen px-sm py-2xs type-caption text-ink interactive motion-safe:active:scale-[0.97]"
                                     >
                                       {p.name}
+                                      {activeReopen(p.employee.id) ? (
+                                        <span
+                                          role="img"
+                                          aria-label={t("shifts.personalReopen")}
+                                          title={t("shifts.personalReopen")}
+                                          className="flex text-app-coral"
+                                        >
+                                          <ClockIcon width={12} height={12} aria-hidden />
+                                        </span>
+                                      ) : null}
                                       {changedAfter(p, tpl) ? (
                                         <span
                                           role="img"
@@ -265,7 +309,18 @@ export function AvailabilityScreen({
               person={openPerson}
               templates={templatesQ.templates}
               fmtTime={fmtTime}
+              weekStart={weekKey}
+              weekClosed={status?.kind === "closed"}
+              reopen={overview.reopens.find((r) => r.employeeId === openPerson.employee.id) ?? null}
               onClose={() => setOpenPerson(null)}
+            />
+          ) : null}
+          {settingsOpen && weekKey !== null ? (
+            <WeekSettingsSheet
+              weekStart={weekKey}
+              week={overview.week}
+              fmtTime={fmtTime}
+              onClose={() => setSettingsOpen(false)}
             />
           ) : null}
         </>
@@ -289,11 +344,19 @@ function PersonSheet({
   person,
   templates,
   fmtTime,
+  weekStart,
+  weekClosed,
+  reopen,
   onClose,
 }: {
   person: Person;
   templates: readonly ShiftTemplate[];
   fmtTime: (d: Date) => string;
+  weekStart: string | null;
+  /** The week is closed for everyone → offer "reopen for this employee". */
+  weekClosed: boolean;
+  /** This employee's reopen row for the week, if any (current or expired). */
+  reopen: WeekReopen | null;
   onClose: () => void;
 }) {
   const { t, locale } = useI18n();
@@ -340,7 +403,96 @@ function PersonSheet({
           <span>{t("shifts.changedShifts").replace("{list}", changed.join(", "))}</span>
         </p>
       ) : null}
+      {weekClosed && weekStart !== null ? (
+        <ReopenForEmployee
+          weekStart={weekStart}
+          employeeId={person.employee.id}
+          reopen={reopen}
+          fmtTime={fmtTime}
+        />
+      ) : null}
     </BottomSheet>
+  );
+}
+
+/** "Reopen for this employee" + "until when" (part 6). Only offered while the
+ * week is closed for everyone; a running reopen is shown and can be moved. */
+function ReopenForEmployee({
+  weekStart,
+  employeeId,
+  reopen,
+  fmtTime,
+}: {
+  weekStart: string;
+  employeeId: string;
+  reopen: WeekReopen | null;
+  fmtTime: (d: Date) => string;
+}) {
+  const { t } = useI18n();
+  const mounted = useMounted();
+  const refresh = useWeekSettingsRefresh();
+  const running = reopen && new Date(reopen.reopenedUntil) > new Date() ? new Date(reopen.reopenedUntil) : null;
+  const [draft, setDraft] = useState(() => toLocalInput(running ?? tomorrowAt18()));
+  const [invalid, setInvalid] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<WriteErrorCode | null>(null);
+
+  async function submit() {
+    const until = fromLocalInput(draft);
+    if (until === null || new Date(until) <= new Date()) {
+      setInvalid(true);
+      return;
+    }
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await runIntentAction("shifts.reopen_employee", { weekStart, employeeId, until });
+      if (!mounted.current) return;
+      if (res.ok) await refresh(weekStart);
+      else setError(res.code);
+    } finally {
+      if (mounted.current) setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-xs border-t border-hairline pt-sm">
+      {running ? (
+        <p className="flex items-center gap-xs type-label text-app-coral">
+          <ClockIcon width={16} height={16} aria-hidden />
+          {t("shifts.reopenedForEmployee").replace("{time}", fmtTime(running))}
+        </p>
+      ) : null}
+      <WriteErrorBanner code={error} />
+      <label className="flex flex-col gap-2xs type-label text-ink">
+        {t("shifts.reopenEmployeeLabel")}
+        <input
+          type="datetime-local"
+          value={draft}
+          disabled={saving}
+          aria-invalid={invalid ? true : undefined}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setInvalid(false);
+          }}
+          className={`${inputClass} ${invalid ? invalidRing : ""}`}
+        />
+        {invalid ? (
+          <span role="alert" className="type-caption text-danger">
+            {t("shifts.mustBeFuture")}
+          </span>
+        ) : null}
+      </label>
+      <button
+        type="button"
+        disabled={saving}
+        onClick={() => void submit()}
+        className="h-11 rounded-pill bg-app-coral px-md type-label text-on-fill interactive motion-safe:active:scale-[0.98]"
+      >
+        {t("shifts.reopenEmployee")}
+      </button>
+    </div>
   );
 }
 

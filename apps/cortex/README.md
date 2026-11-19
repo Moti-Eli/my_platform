@@ -148,6 +148,11 @@ all through `runIntent`, the one door.
   manager who is also in the tool gets a "Mine" tab with their own week. The
   employee has their own floating bar (My submission / Shifts, read-only);
   future employee sections are one entry in `EMPLOYEE_SECTIONS` (ShiftsBar.tsx).
+  Week settings (part 6): the ⚙ on the availability table sets the week's
+  deadline, "close now" and "reopen for everyone" (`shifts.set_week_deadline`);
+  a closed week's person sheet offers "reopen for this employee"
+  (`shifts.reopen_employee`). The table reads open / closed / reopened; a
+  week counts as "reopened" when its deadline is later than the default one.
   **The submission deadline is enforced in tool code only** (`logic.ts`, behind the
   server action), not in the database — a deliberate, accepted risk: an employee
   who calls Supabase directly with their own login could change their OWN

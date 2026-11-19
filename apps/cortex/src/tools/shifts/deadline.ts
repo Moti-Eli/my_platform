@@ -90,6 +90,31 @@ export function isWeekOpenFor(
   return reopen ? now < new Date(reopen.reopenedUntil) : false;
 }
 
+/** A week's state for EVERYONE (per-employee reopens aside), as the manager's
+ * table shows it:
+ *   open      — before the deadline (the default or the manager's);
+ *   reopened  — open with the manager's deadline LATER than the default one
+ *               ("reopen for everyone", or an extension). Nothing records that
+ *               a week was closed before, so a close-then-reopen that stays
+ *               before the default deadline reads as plain "open";
+ *   closed    — the deadline passed. */
+export type WeekStatus =
+  | { kind: "open"; until: Date }
+  | { kind: "reopened"; until: Date }
+  | { kind: "closed"; since: Date };
+
+export function weekStatus(
+  now: Date,
+  weekStart: string,
+  week: { deadlineAt: string } | null | undefined,
+): WeekStatus {
+  const deadline = effectiveDeadline(weekStart, week);
+  if (now >= deadline) return { kind: "closed", since: deadline };
+  return week && deadline > defaultDeadline(weekStart)
+    ? { kind: "reopened", until: deadline }
+    : { kind: "open", until: deadline };
+}
+
 /** The Sunday ("YYYY-MM-DD") of the week `now` falls in, in the business zone. */
 export function currentWeekStart(now: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {

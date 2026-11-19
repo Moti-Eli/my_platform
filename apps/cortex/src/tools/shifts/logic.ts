@@ -188,6 +188,21 @@ export interface WeekOverview {
   week: ShiftWeek | null;
   submissions: Submission[];
   marks: AvailabilityMark[];
+  /** Per-employee reopens for this week (any, current or expired). */
+  reopens: WeekReopen[];
+}
+
+/** The manager's week settings (part 6). "Close now" = now; "reopen for
+ * everyone" = a later instant. One row per week, created on first use. */
+export interface SetWeekDeadlineInput extends WeekInput {
+  /** ISO instant. */
+  deadlineAt: string;
+}
+/** "Reopen for one employee" until a FUTURE instant (moving it if one exists). */
+export interface ReopenEmployeeInput extends WeekInput {
+  employeeId: string;
+  /** ISO instant, later than now. */
+  until: string;
 }
 
 /** The weeks still open for submitting, nearest first (the Sundays, "YYYY-MM-DD"). */
@@ -278,6 +293,8 @@ export interface ShiftsLogic {
   setAnswers(input: SetAnswersInput, ctx: Ctx): Promise<SetAnswersResult>;
   submitWeek(input: WeekInput, ctx: Ctx): Promise<SubmitWeekResult>;
   weekOverview(input: WeekInput, ctx: Ctx): Promise<WeekOverview>;
+  setWeekDeadline(input: SetWeekDeadlineInput, ctx: Ctx): Promise<ShiftWeek>;
+  reopenEmployee(input: ReopenEmployeeInput, ctx: Ctx): Promise<WeekReopen>;
 
   listPositions(input: ListInput, ctx: Ctx): Promise<Position[]>;
   createPosition(input: CreatePositionInput, ctx: Ctx): Promise<{ id: string }>;
@@ -593,7 +610,54 @@ export function createShiftsLogic({
           submissions.map((sub) => db.select(MARKS_TABLE, { submission_id: sub.id })),
         )
       ).flatMap((rows) => rows.map(toMark));
-      return { week: week ? toWeek(week) : null, submissions, marks };
+      const reopens = (
+        await db.select(REOPENS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart })
+      ).map(toReopen);
+      return { week: week ? toWeek(week) : null, submissions, marks, reopens };
+    },
+
+    // --- the manager's week settings (stage 2, part 6) -----------------------
+    // Writes need `shifts.manage` (RLS) — a non-manager's call is denied there.
+    async setWeekDeadline(input, ctx) {
+      const now = new Date().toISOString();
+      const [existing] = await db.select(WEEKS_TABLE, { org_id: ctx.orgId, week_start: input.weekStart });
+      if (existing) {
+        const id = String(existing.id);
+        await db.update(WEEKS_TABLE, { id }, { deadline_at: input.deadlineAt, updated_at: now });
+        return { id, weekStart: input.weekStart, deadlineAt: input.deadlineAt };
+      }
+      const id = safeRandomUUID();
+      await db.insert(WEEKS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        week_start: input.weekStart,
+        deadline_at: input.deadlineAt,
+      });
+      return { id, weekStart: input.weekStart, deadlineAt: input.deadlineAt };
+    },
+
+    async reopenEmployee(input, ctx) {
+      if (!(new Date(input.until) > new Date())) throw new Error("shifts: reopenInPast");
+      const now = new Date().toISOString();
+      const [existing] = await db.select(REOPENS_TABLE, {
+        org_id: ctx.orgId,
+        employee_id: input.employeeId,
+        week_start: input.weekStart,
+      });
+      if (existing) {
+        const id = String(existing.id);
+        await db.update(REOPENS_TABLE, { id }, { reopened_until: input.until, updated_at: now });
+        return { id, employeeId: input.employeeId, weekStart: input.weekStart, reopenedUntil: input.until };
+      }
+      const id = safeRandomUUID();
+      await db.insert(REOPENS_TABLE, {
+        id,
+        ...ownership(ctx, now),
+        employee_id: input.employeeId,
+        week_start: input.weekStart,
+        reopened_until: input.until,
+      });
+      return { id, employeeId: input.employeeId, weekStart: input.weekStart, reopenedUntil: input.until };
     },
 
     // --- positions ----------------------------------------------------------

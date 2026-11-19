@@ -83,6 +83,26 @@ export function isLaterThan(a: string, b: string): boolean {
   return Date.parse(a) > Date.parse(b);
 }
 
+/** A Date as a `<input type="datetime-local">` value ("YYYY-MM-DDTHH:MM", the
+ * phone's local time). */
+export function toLocalInput(d: Date): string {
+  return `${isoDate(d)}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** A datetime-local value → the instant (ISO), or null when empty/invalid. */
+export function fromLocalInput(value: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return null;
+  const d = new Date(value); // no zone suffix → the phone's local time
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Tomorrow at 18:00, the phone's local time — the default "until" for a reopen. */
+export function tomorrowAt18(now: Date = new Date()): Date {
+  const d = addDays(now, 1);
+  d.setHours(18, 0, 0, 0);
+  return d;
+}
+
 /** "YYYY-MM-DD" → a local-midnight Date. */
 export function dateOf(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);

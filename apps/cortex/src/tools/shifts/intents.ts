@@ -44,6 +44,8 @@ const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const shiftName = z.string().trim().min(1).max(SHIFT_NAME_MAX);
 const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const weekInput = z.object({ weekStart: isoDay });
+/** An absolute instant ("2026-11-26T16:00:00.000Z"). */
+const isoInstant = z.string().refine((v) => !Number.isNaN(Date.parse(v)), { message: "not a date-time" });
 const shiftWeek = z.object({ id: z.string(), weekStart: z.string(), deadlineAt: z.string() });
 const weekReopen = z.object({
   id: z.string(),
@@ -150,8 +152,25 @@ export function createShiftsIntents(logic: ShiftsLogic) {
         week: shiftWeek.nullable(),
         submissions: z.array(submission),
         marks: z.array(availabilityMark),
+        reopens: z.array(weekReopen),
       }),
       handler: (input, ctx) => logic.weekOverview(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.set_week_deadline",
+      description:
+        "Manager: set the submission deadline for a week (its Sunday as YYYY-MM-DD). Now = close the week; a later time = reopen it for everyone",
+      input: weekInput.extend({ deadlineAt: isoInstant }),
+      output: shiftWeek,
+      handler: (input, ctx) => logic.setWeekDeadline(input, ctx),
+    }),
+    defineIntent({
+      name: "shifts.reopen_employee",
+      description:
+        "Manager: let ONE employee change their submission for a closed week until a future time",
+      input: weekInput.extend({ employeeId: z.string().min(1), until: isoInstant }),
+      output: weekReopen,
+      handler: (input, ctx) => logic.reopenEmployee(input, ctx),
     }),
     defineIntent({
       name: "shifts.submit_week",

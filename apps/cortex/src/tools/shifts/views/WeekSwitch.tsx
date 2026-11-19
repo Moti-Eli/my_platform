@@ -32,8 +32,11 @@ const plusWeek = (iso: string) => isoDate(addDays(dateOf(iso), 7));
 
 /**
  * The weeks a screen offers, nearest first. `open` = the server's open weeks
- * (null while loading → nothing yet). `withCurrent` (the manager) always keeps
- * this week and next in front.
+ * (null while loading → nothing yet).
+ *   employee (`withCurrent` false) → exactly the open weeks.
+ *   manager  (`withCurrent` true)  → EVERY week from this week to the furthest
+ *     open one, no gaps: a week the manager just closed must stay reachable so
+ *     they can reopen it (it is no longer "open", but it sits before one that is).
  */
 export function weekOptions(
   thisWeek: string | null,
@@ -41,8 +44,11 @@ export function weekOptions(
   withCurrent: boolean,
 ): string[] | null {
   if (thisWeek === null || open === null) return null;
-  const fixed = withCurrent ? [thisWeek, plusWeek(thisWeek)] : [];
-  return [...fixed, ...open.filter((w) => !fixed.includes(w))].sort();
+  if (!withCurrent) return [...open].sort();
+  const last = [plusWeek(thisWeek), ...open].sort().at(-1) ?? thisWeek;
+  const weeks: string[] = [];
+  for (let w = thisWeek; w <= last; w = plusWeek(w)) weeks.push(w);
+  return weeks;
 }
 
 /** The URL's choice resolved against the offered weeks; else the first. */
@@ -80,13 +86,19 @@ export function WeekSwitch({
         ? t("shifts.nextWeek")
         : t("shifts.weekFrom").replace("{date}", formatDayMonth(dateOf(w), locale));
 
+  // Up to three weeks share the row evenly; more scroll sideways (the manager's
+  // list can reach further ahead) instead of squeezing the labels.
+  const scrolls = options.length > 3;
+
   return (
     <>
       <div
         role="tablist"
         aria-label={t("shifts.weeksLabel")}
-        className="grid gap-2xs"
-        style={{ gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))` }}
+        className={scrolls ? "flex gap-2xs overflow-x-auto" : "grid gap-2xs"}
+        style={
+          scrolls ? undefined : { gridTemplateColumns: `repeat(${Math.max(options.length, 1)}, minmax(0, 1fr))` }
+        }
       >
         {options.map((w) => {
           const active = w === selected;
@@ -97,9 +109,9 @@ export function WeekSwitch({
               role="tab"
               aria-selected={active}
               onClick={() => onChange(w)}
-              className={`flex h-10 items-center justify-center whitespace-nowrap rounded-pill px-xs type-label interactive motion-safe:active:scale-[0.97] ${
-                active ? "bg-app-coral text-on-fill" : "bg-card text-ink"
-              }`}
+              className={`flex h-10 items-center justify-center whitespace-nowrap rounded-pill type-label interactive motion-safe:active:scale-[0.97] ${
+                scrolls ? "shrink-0 px-md" : "px-xs"
+              } ${active ? "bg-app-coral text-on-fill" : "bg-card text-ink"}`}
             >
               {label(w)}
             </button>
