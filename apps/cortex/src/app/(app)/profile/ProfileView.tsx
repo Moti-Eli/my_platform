@@ -12,6 +12,9 @@
  * org admin, plus one tag per shift position (the manager's own free-text names,
  * from the shifts tool). Several at once is normal. A small badge on the avatar
  * opens the edit-profile screen (name only for now).
+ *
+ * The large avatar itself is the profile photo control ({@link AvatarPicker}): tap to
+ * choose or remove a photo. The photo also shows in the top bar's small circle.
  */
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -19,6 +22,7 @@ import { Screen } from "@/components/profile/Screen";
 import { ListSection, ListRow, ListAction } from "@/components/profile/SettingsList";
 import { placeholderRoute } from "@/components/profile/placeholders";
 import { signOutAction } from "./actions";
+import { AvatarPicker } from "./AvatarPicker";
 import {
   MenuIcon,
   IdCardIcon,
@@ -85,26 +89,38 @@ interface ProfileViewProps {
   isAdmin: boolean;
   /** The user's shift position names in the active org (shifts tool), in order. */
   positions: string[];
+  /** The signed-in user's id (from requireSession) — the photo's storage folder. */
+  userId: string;
+  /** A short-lived signed URL for the profile photo, or null when there is none. */
+  avatarUrl: string | null;
 }
 
-export function ProfileView({ displayName, email, orgName, isAdmin, positions }: ProfileViewProps) {
+export function ProfileView({
+  displayName,
+  email,
+  orgName,
+  isAdmin,
+  positions,
+  userId,
+  avatarUrl,
+}: ProfileViewProps) {
   const { t } = useI18n();
   // The REAL name now, falling back to the email's local part when display_name
   // is null — never the old static i18n string.
   const name = displayName ?? email.split("@")[0] ?? "";
   const initial = [...name][0] ?? "";
 
-  // Wired to a no-op for now — image upload lands later.
-  const changePhoto = () => {
-    /* placeholder: pick/upload avatar image */
-  };
-
   return (
     <Screen
       center={
         <>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15 type-caption text-accent">
-            {initial}
+          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-accent/15 type-caption text-accent">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL, 28px
+              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initial
+            )}
           </span>
           <span className="type-label text-ink">{name}</span>
         </>
@@ -122,14 +138,7 @@ export function ProfileView({ displayName, email, orgName, isAdmin, positions }:
       {/* Header: large tappable avatar + name + contact placeholder. */}
       <div className="flex flex-col items-center gap-sm pb-xs pt-lg">
         <div className="relative">
-          <button
-            type="button"
-            onClick={changePhoto}
-            aria-label={t("profile.changePhoto")}
-            className="flex h-28 w-28 items-center justify-center rounded-full bg-accent/15 type-display text-accent interactive motion-safe:active:scale-[0.97]"
-          >
-            {initial}
-          </button>
+          <AvatarPicker userId={userId} avatarUrl={avatarUrl} initial={initial} />
           {/* Edit badge — sits on the avatar's bottom inline-end edge. */}
           <Link
             href="/profile/edit"

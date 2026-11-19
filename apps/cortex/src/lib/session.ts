@@ -43,6 +43,7 @@ export interface Session {
  *   app/notifications/page.tsx      -> requireSession()
  *   app/profile/page.tsx            -> requireSession()
  *   app/profile/edit/page.tsx       -> requireSession()
+ *   app/profile/card/page.tsx       -> requireSession()
  *   app/profile/s/[key]/page.tsx    -> requireSession()
  *   app/settings/page.tsx           -> requireSession()
  *   app/settings/appearance/page.tsx-> requireSession()
@@ -59,6 +60,9 @@ export interface Session {
  *                                      memberships query, so zero-org users are
  *                                      forwarded too and requireSession on "/"
  *                                      routes them to /no-organization.
+ *   app/(public)/c/[slug]/page.tsx  -> PUBLIC, no guard by design: a business
+ *                                      card's page, read only through the
+ *                                      get_public_business_card() function.
  *   app/layout.tsx                  -> not a page; renders chrome only and reads
  *                                      no identity. See its note.
  */

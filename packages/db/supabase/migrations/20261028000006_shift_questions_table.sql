@@ -10,7 +10,7 @@
 --   kind: 'yes_no' | 'number' | 'text' (short). No option lists, no conditions.
 --
 -- Questions are never deleted from the UI, only turned OFF (is_active = false):
--- answers are stored on the submission keyed by question id (20261022000004),
+-- answers are stored on the submission keyed by question id (20261028000008),
 -- and an answer must stay readable next to the question it answered. DELETE is
 -- still granted (the standard write path) for cleanup by a manager who knows.
 --

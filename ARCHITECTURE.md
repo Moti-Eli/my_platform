@@ -1061,8 +1061,9 @@ more than one maintainer, so applying migrations can't depend on one person's
 laptop and its local `.env`. Keeping it manual, and not run on merge, means a
 schema change is always a deliberate step: the dry run shows exactly what is
 pending first. The environment gate means any collaborator can prepare and
-trigger a run, but production changes only with the owner's approval. Repository
+trigger a run, but production changes only with a reviewer's approval. Repository
 secrets would not do this: any workflow pushed on a branch could read them.
+(Who the reviewers are changed in #39.)
 
 ---
 
@@ -1098,8 +1099,75 @@ already forbids reading another tool's tables directly.
 
 ---
 
+## 36. Profile Photos: Private Bucket, Signed URLs, One Object per User
+
+**Decision:** Profile photos live in a private Supabase Storage bucket,
+`avatars`, one object per user at `<user id>/avatar`. Storage policies let a
+user write only their own folder and read their own photo plus those of people
+they share an active org with. `public.users.avatar_path` stores the path (not a
+URL), with a CHECK that pins it to the row's own folder. Pages sign a
+short-lived URL per view. The browser shrinks the image before upload.
+
+**Reasoning:** A public bucket would hand out permanent links anyone can
+forward. The read rule matches the existing `users` read policy, so who can see
+your photo is who can already see your name.
+
+## 37. Business Cards: Personal, Public by Link, Read Through One Function
+
+**Decision:** A business card belongs to a person, not an organization:
+`public.business_cards` has `owner_id` and no `org_id`/`visibility`, so it is
+not a Cortex tool table. It is owner-only through RLS with column-limited
+insert and update; the slug in its public link is a random 16-hex code that only
+the database default sets. The public page `/c/<slug>` grants anon NOTHING on the
+table and reads through one security-definer function,
+`get_public_business_card(slug)`, which returns one card's display fields and
+never its id or owner. Card images live in a separate public-read bucket,
+`card-images`, under the card id, writable only into a card you own. QR codes use
+two theme-independent tokens (`code-ink` / `code-paper`) so they stay
+dark-on-light.
+
+**Reasoning:** A person's card goes with them across orgs (a waiter who is also
+an artist). A direct anon SELECT on the table would let anyone holding the public
+key list every card and phone number; a by-slug function gives the page exactly
+one card. The private profile-photo bucket stays private; a card image is public
+by design.
+
+## 38. A Shopping List Is a Small Root Organization
+
+**Decision (Moti):** Every shopping list lives in its OWN root organization (no
+`parent_id`), created with `createOrganizationForCurrentUser` (`@platform/auth`),
+one list per org (`shopping_lists_org_id_key`, migration `20261028000001`).
+Sharing a list (stage 2) means adding a membership to that org; no list row
+changes. NOT a child org as in the candidates invite flow (#31): a child org is
+read by its parent's members, so the owner's workplace would see their home list.
+The org's name is `<list name> · <6 random chars>`, to pass the per-user
+duplicate-name guard; the user sees the list name stored in `shopping_lists`.
+
+**Reasoning:** The access model is locked: org-tree membership blocks every read
+and write, and a record grant can only name someone already in the tree, so a
+list shared with people outside the owner's orgs cannot sit in any of them. Born
+in its own org from stage 1, a list never has to move, which matters because
+`org_id` and `visibility` are immutable.
+
+---
+
 ## Future Considerations
 
 - **When to split:** If a business domain grows large enough (100+ engineers), consider a multi-monorepo strategy where that domain gets its own repo.
 - **Performance optimization:** As the monorepo grows, Turborepo's remote caching can be leveraged for CI/CD speedup.
 - **API versioning:** Core business logic should be versioned when breaking changes occur to avoid cascading updates.
+
+---
+
+## 39. shivi586 Leads Day-to-Day: Merges, Migrations and Settings
+
+**Decision (Moti):** shivi586 is the lead maintainer. They merge PRs to `main`,
+approve `production` migration runs (a required reviewer next to the owner) and
+may change repo settings. `main` needs a PR and the green `Lint · Typecheck ·
+Build` check, not a human approval. This replaces the owner-only rule of #33 and
+the old CLAUDE.md.
+
+**Reasoning:** The owner has stepped back and shivi586 does most of the work, so
+waiting on the owner for every merge and migration only blocked progress. The PR
++ CI gate and the manual, dry-run-first migration workflow keep the safety that
+does not depend on a person.

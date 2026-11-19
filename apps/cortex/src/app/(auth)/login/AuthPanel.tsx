@@ -15,9 +15,16 @@ import { SignupForm } from "./SignupForm";
  * a mode switch, not navigation — there is no other URL) styled with `.interactive`
  * and a quiet type-label / text-muted look, no bespoke pressable styling.
  */
-export function AuthPanel({ notice }: { notice?: MessageKey | null }) {
+export function AuthPanel({
+  notice,
+  initialMode = "login",
+}: {
+  notice?: MessageKey | null;
+  /** Which form opens first (`/login?mode=signup` → signup). */
+  initialMode?: "login" | "signup";
+}) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">(initialMode);
 
   return (
     <div className="flex flex-col gap-lg">

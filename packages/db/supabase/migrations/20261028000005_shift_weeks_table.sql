@@ -20,7 +20,7 @@
 --
 -- "Close now" = set deadline_at to now; "reopen for everyone" = move
 -- deadline_at later. One column, no extra state. Reopening for ONE employee is
--- a separate table (20261022000006): the manager may not write an employee's
+-- a separate table (20261028000010): the manager may not write an employee's
 -- private submission row, so that setting cannot live on it.
 --
 -- The deadline is ENFORCED IN TOOL CODE (the server action is the only write
@@ -32,9 +32,9 @@
 -- immutability trigger from birth. Does NOT touch anon or service_role.
 --
 -- Also here (metadata only): the shifts manifest copy in app_definitions drops
--- `requiresAdmin` — since stage 2 part 1 the tool is open to every member, and
--- the code manifest (apps/cortex/src/tools/shifts/manifest.ts) already has it
--- removed. The code registry stays the source of truth; this keeps the display
+-- `requiresAdmin` — from stage 2 the tool is open to every member; the code
+-- manifest (apps/cortex/src/tools/shifts/manifest.ts) drops it in the stage-2
+-- code PR (#12). Nothing reads this key from app_definitions at runtime. The code registry stays the source of truth; this keeps the display
 -- copy honest.
 -- =============================================================================
 

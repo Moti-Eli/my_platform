@@ -11,8 +11,9 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
 ## 📋 Current Status
 
 - **Shell:** tab bar, AI sheet and urgency bell (placeholders), catalog,
-  profile (status tags from the tools, name edit), settings (language, theme,
-  version), PWA install and offline shell.
+  profile (status tags from the tools, name edit, photo upload, business card
+  with a public page + QR), settings (language, theme, version), PWA install and
+  offline shell.
 - **Auth & tenancy:** Supabase login, multi-org with org switching, RBAC
   (roles → permissions), row-level access (`visibility` + `record_grants`)
   enforced by Postgres RLS.
@@ -23,6 +24,10 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   shifts (positions, employees, weekly shifts, staffing requirements, Home card
   with today's shifts; stage 2 in progress: open to every member — an employee
   sees their own week, a member not in the tool sees why).
+  shopping lists, stage 1 (personal lists: create, items, check off, rename,
+  delete, Home card; each list in its own small root org; migrations
+  `20261028000001` and `20261028000002` not applied yet).
+  Personal training: in progress, stage 1 tables only (migrations not applied yet).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There
@@ -102,16 +107,17 @@ phone app).
 - `apply` checked → `supabase db push` applies the pending migrations.
 
 The job runs in the `production` GitHub Environment (Settings → Environments):
-required reviewer = the repo owner, deployment branches = `main`, and the three
+required reviewers = shivi586 and the repo owner, deployment branches = `main`, and the three
 secrets `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`
 stored as **environment** secrets. Any collaborator can start a run, but it waits
-for the owner's approval. It never runs on push or merge, so a schema change can't
+for a reviewer's approval. It never runs on push or merge, so a schema change can't
 ship by accident. See ARCHITECTURE.md #33.
 
-**Who deploys:** collaborators open PRs and get Vercel previews. Only the repo
-owner approves and merges to `main` (which is the production deploy) and
-approves migration runs. This is enforced by branch protection on `main` and by
-the `production` environment.
+**Who deploys:** shivi586 is the lead maintainer and merges to `main` (which is
+the production deploy) and approves migration runs; the repo owner (Moti-Eli) can
+too. Every change still goes through a PR with a green CI and a Vercel preview;
+branch protection on `main` requires the CI check, not a human approval. See
+ARCHITECTURE.md #39.
 
 ## 🔐 Secrets & Environment
 

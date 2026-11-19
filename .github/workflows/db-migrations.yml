@@ -9,8 +9,8 @@ name: DB Migrations
 #
 # The job runs in the `production` GitHub Environment. Configure it in
 # Settings → Environments → production with:
-#   - Required reviewers: the repo owner, so every run waits for their approval
-#     (whoever pressed the button)
+#   - Required reviewers: shivi586 (lead maintainer) and the repo owner, so every
+#     run waits for an approval (ARCHITECTURE.md #39)
 #   - Deployment branches: `main` only
 #   - The three secrets below as ENVIRONMENT secrets, not repository secrets.
 #     Repository secrets are readable by any workflow a collaborator pushes on a

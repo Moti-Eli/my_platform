@@ -2,7 +2,7 @@
 -- Migration: `shift_employees` — a composite-FK target that pins the USER
 -- =============================================================================
 --
--- Stage 2's submission rows (20261022000004) are PRIVATE and owned by the
+-- Stage 2's submission rows (20261028000008) are PRIVATE and owned by the
 -- employee: owner_id must be the very user the employee_id row points at. No
 -- policy can check that without a new function, and stage 2 adds none. The DB
 -- can still refuse a mismatch with a plain COMPOSITE FOREIGN KEY:
