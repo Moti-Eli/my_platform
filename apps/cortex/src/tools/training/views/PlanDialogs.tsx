@@ -19,6 +19,7 @@ import { runIntentAction } from "@/cortex/actions";
 import { TRAINING_PLAN_KEY } from "@/lib/query/useTrainingPlan";
 import { TRAINING_PLANS_KEY } from "@/lib/query/useTrainingPlans";
 import { PLAN_NAME_MAX, type DeletePlanResult, type Plan } from "../logic";
+import { PlanFields, type PlanDraft } from "./PlanFields";
 import {
   Dialog,
   FieldLabel,
@@ -110,6 +111,61 @@ export function RenamePlanModal({ plan, onClose }: { plan: Plan; onClose: () => 
           </span>
         ) : null}
       </label>
+      <FormActions submitLabel={t("training.save")} onCancel={onClose} submitting={submitting} />
+    </Modal>
+  );
+}
+
+/** Edit name, description and workouts per week (training.update_plan). */
+export function EditPlanModal({ plan, onClose }: { plan: Plan; onClose: () => void }) {
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
+  const mounted = useMounted();
+  const [draft, setDraft] = useState<PlanDraft>({
+    name: plan.name,
+    description: plan.description,
+    frequencyPerWeek: plan.frequencyPerWeek,
+  });
+  const [showRequired, setShowRequired] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (submitting) return;
+    const name = draft.name.trim();
+    if (!name) {
+      setShowRequired(true);
+      return;
+    }
+    const next = { name, description: draft.description.trim(), frequencyPerWeek: draft.frequencyPerWeek };
+    setSubmitting(true);
+    setWriteError(null);
+    const res = await runIntentAction("training.update_plan", { id: plan.id, ...next });
+    if (!mounted.current) return;
+    setSubmitting(false);
+    if (!res.ok) {
+      setWriteError(res.code);
+      return;
+    }
+    queryClient.setQueryData<Plan | null>(TRAINING_PLAN_KEY, (prev) =>
+      prev ? { ...prev, ...next } : prev,
+    );
+    void queryClient.invalidateQueries({ queryKey: TRAINING_PLANS_KEY });
+    onClose();
+  }
+
+  return (
+    <Modal title={t("training.editPlan")} onClose={onClose} onSubmit={submit}>
+      <WriteErrorBanner code={writeError} />
+      <PlanFields
+        value={draft}
+        onChange={(next) => {
+          setDraft(next);
+          if (next.name.trim()) setShowRequired(false);
+        }}
+        showRequired={showRequired}
+      />
       <FormActions submitLabel={t("training.save")} onCancel={onClose} submitting={submitting} />
     </Modal>
   );

@@ -7,6 +7,8 @@
 import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import {
+  DAY_NAME_MAX,
+  DAY_TYPES,
   FREQUENCY_MAX,
   FREQUENCY_MIN,
   PLAN_DESCRIPTION_MAX,
@@ -26,6 +28,18 @@ const plan = z.object({
 const planName = z.string().trim().min(1).max(PLAN_NAME_MAX);
 const planDescription = z.string().trim().max(PLAN_DESCRIPTION_MAX);
 const frequency = z.number().int().min(FREQUENCY_MIN).max(FREQUENCY_MAX).nullable();
+const id = z.object({ id: z.string() });
+const ids = z.object({ ids: z.array(z.string()).max(200) });
+
+const dayType = z.enum(DAY_TYPES);
+const dayName = z.string().trim().min(1).max(DAY_NAME_MAX);
+const day = z.object({
+  id: z.string(),
+  planId: z.string(),
+  name: z.string(),
+  dayType,
+  sortOrder: z.number(),
+});
 
 export function createTrainingIntents(logic: TrainingLogic) {
   return [
@@ -80,6 +94,43 @@ export function createTrainingIntents(logic: TrainingLogic) {
         z.object({ error: z.enum(["notOwner", "lastOrg", "otherMembers", "hideFailed"]) }),
       ]),
       handler: (input, ctx) => logic.deletePlan(input, ctx),
+    }),
+
+    // --- days ---------------------------------------------------------------
+    defineIntent({
+      name: "training.list_days",
+      description: "List the training days of the current organization's workout plan, in order",
+      input: z.object({}),
+      output: z.array(day),
+      handler: (input, ctx) => logic.listDays(input, ctx),
+    }),
+    defineIntent({
+      name: "training.add_day",
+      description: "Add a training day (name and type: strength or cardio) at the end of the plan",
+      input: z.object({ planId: z.string(), name: dayName, dayType }),
+      output: day,
+      handler: (input, ctx) => logic.addDay(input, ctx),
+    }),
+    defineIntent({
+      name: "training.update_day",
+      description: "Change a training day's name and type",
+      input: z.object({ id: z.string(), name: dayName, dayType }),
+      output: id,
+      handler: (input, ctx) => logic.updateDay(input, ctx),
+    }),
+    defineIntent({
+      name: "training.delete_day",
+      description: "Delete a training day with all its exercises",
+      input: id,
+      output: id,
+      handler: (input, ctx) => logic.deleteDay(input, ctx),
+    }),
+    defineIntent({
+      name: "training.reorder_days",
+      description: "Set the order of the plan's training days (the full list of day ids, first to last)",
+      input: ids,
+      output: ids,
+      handler: (input, ctx) => logic.reorderDays(input, ctx),
     }),
   ];
 }

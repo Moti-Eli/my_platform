@@ -10,7 +10,13 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n, type MessageKey } from "@/i18n";
 import type { IntentResult } from "@/cortex/actions";
-import { ChevronIcon, InfoIcon } from "@/components/icons";
+import {
+  ChevronDownIcon,
+  ChevronIcon,
+  CloseIcon,
+  ComposeIcon,
+  InfoIcon,
+} from "@/components/icons";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -209,6 +215,95 @@ export function Dialog({
 export function matchesSearch(text: string, query: string): boolean {
   const q = query.trim().toLocaleLowerCase();
   return q === "" || text.toLocaleLowerCase().includes(q);
+}
+
+/** Move a row one step up (-1) or down (+1); null when it can't move. */
+export function moved<T>(list: T[], index: number, step: -1 | 1): T[] | null {
+  const target = index + step;
+  if (target < 0 || target >= list.length) return null;
+  const next = list.slice();
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item as T);
+  return next;
+}
+
+const iconButton =
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-hairline text-muted interactive motion-safe:active:scale-[0.97] disabled:opacity-40";
+
+/**
+ * Row trailing actions: move up / move down, edit, then a two-tap delete
+ * (arm → confirm). Same chrome as shopping's RowActions.
+ */
+export function RowActions({
+  onMoveUp,
+  onMoveDown,
+  onEdit,
+  confirming,
+  onArmDelete,
+  onConfirmDelete,
+  disabled,
+}: {
+  onMoveUp: (() => void) | null;
+  onMoveDown: (() => void) | null;
+  onEdit: () => void;
+  confirming: boolean;
+  onArmDelete: () => void;
+  onConfirmDelete: () => void;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className="flex shrink-0 items-center gap-2xs">
+      <button
+        type="button"
+        aria-label={t("training.moveUp")}
+        onClick={onMoveUp ?? undefined}
+        disabled={disabled || !onMoveUp}
+        className={iconButton}
+      >
+        <ChevronDownIcon width={16} height={16} className="rotate-180" />
+      </button>
+      <button
+        type="button"
+        aria-label={t("training.moveDown")}
+        onClick={onMoveDown ?? undefined}
+        disabled={disabled || !onMoveDown}
+        className={iconButton}
+      >
+        <ChevronDownIcon width={16} height={16} />
+      </button>
+      <button
+        type="button"
+        aria-label={t("training.edit")}
+        onClick={onEdit}
+        disabled={disabled}
+        className={iconButton}
+      >
+        <ComposeIcon width={16} height={16} />
+      </button>
+      {confirming ? (
+        <button
+          type="button"
+          aria-label={t("training.confirmDelete")}
+          onClick={onConfirmDelete}
+          disabled={disabled}
+          className="shrink-0 rounded-pill bg-danger px-sm py-2xs type-caption text-on-fill interactive motion-safe:active:scale-[0.97]"
+        >
+          {t("training.confirmDelete")}
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={t("training.delete")}
+          onClick={onArmDelete}
+          disabled={disabled}
+          className={iconButton}
+        >
+          <CloseIcon width={16} height={16} />
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** Primary + cancel buttons for a modal. */

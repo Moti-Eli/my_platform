@@ -15,7 +15,7 @@
  */
 import { getUserOrganizations } from "@platform/auth";
 import type { SupabaseClient } from "@platform/db";
-import type { Ctx, CortexDb, DbRow } from "@platform/cortex-core";
+import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
 export const PLANS_TABLE = "workout_plans";
 
@@ -68,6 +68,40 @@ export type DeletePlanResult =
   | { deleted: true }
   | { error: "notOwner" | "lastOrg" | "otherMembers" | "hideFailed" };
 
+// --- days ---------------------------------------------------------------------
+export const DAYS_TABLE = "plan_days";
+/** Mirrors plan_days.name CHECK (1–50). */
+export const DAY_NAME_MAX = 50;
+/** Mirrors plan_days.day_type CHECK. */
+export const DAY_TYPES = ["strength", "cardio"] as const;
+export type DayType = (typeof DAY_TYPES)[number];
+
+export interface Day {
+  id: string;
+  planId: string;
+  name: string;
+  dayType: DayType;
+  sortOrder: number;
+}
+
+export interface AddDayInput {
+  planId: string;
+  name: string;
+  dayType: DayType;
+}
+export interface UpdateDayInput {
+  id: string;
+  name: string;
+  dayType: DayType;
+}
+export interface DeleteDayInput {
+  id: string;
+}
+/** The full new order, first to last. Each row gets sort_order = its index. */
+export interface ReorderInput {
+  ids: string[];
+}
+
 export interface TrainingLogic {
   /** The active org's plan, or null when the active org is not a plan org. */
   getPlan(input: Record<string, never>, ctx: Ctx): Promise<Plan | null>;
@@ -77,6 +111,45 @@ export interface TrainingLogic {
   /** Name, description and frequency (the plan row only; the org never changes). */
   updatePlan(input: UpdatePlanInput, ctx: Ctx): Promise<{ id: string }>;
   deletePlan(input: DeletePlanInput, ctx: Ctx): Promise<DeletePlanResult>;
+
+  /** The active org's training days (its one plan's), in display order. */
+  listDays(input: Record<string, never>, ctx: Ctx): Promise<Day[]>;
+  addDay(input: AddDayInput, ctx: Ctx): Promise<Day>;
+  updateDay(input: UpdateDayInput, ctx: Ctx): Promise<{ id: string }>;
+  /** Deletes the day and (FK cascade) its exercises. */
+  deleteDay(input: DeleteDayInput, ctx: Ctx): Promise<{ id: string }>;
+  reorderDays(input: ReorderInput, ctx: Ctx): Promise<{ ids: string[] }>;
+}
+
+/** Display order: sort_order, then creation (ties after an old insert). */
+function bySortOrder(a: DbRow, b: DbRow): number {
+  const d = Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0);
+  return d !== 0 ? d : String(a.created_at).localeCompare(String(b.created_at));
+}
+
+/** The next sort_order in a set of rows: max + 1 (0 for an empty set). */
+function nextSortOrder(rows: DbRow[]): number {
+  return rows.reduce((max, r) => Math.max(max, Number(r.sort_order ?? 0) + 1), 0);
+}
+
+function toDay(row: DbRow): Day {
+  return {
+    id: String(row.id),
+    planId: String(row.plan_id),
+    name: String(row.name),
+    dayType: row.day_type === "cardio" ? "cardio" : "strength",
+    sortOrder: Number(row.sort_order ?? 0),
+  };
+}
+
+/** Write sort_order = index for each id, within the active org. */
+async function writeOrder(db: CortexDb, table: string, ids: string[], ctx: Ctx): Promise<void> {
+  const now = new Date().toISOString();
+  await Promise.all(
+    ids.map((id, index) =>
+      db.update(table, { id, org_id: ctx.orgId }, { sort_order: index, updated_at: now }),
+    ),
+  );
 }
 
 type Emit = (type: string, payload: unknown, ctx: Ctx) => Promise<void>;
@@ -156,5 +229,51 @@ export function createTrainingLogic({
     },
 
     deletePlan,
+
+    // --- days -----------------------------------------------------------------
+    async listDays(_input, ctx) {
+      const rows = await db.select(DAYS_TABLE, { org_id: ctx.orgId });
+      return rows.sort(bySortOrder).map(toDay);
+    },
+
+    async addDay(input, ctx) {
+      // org_id is the active org; the composite FK (plan_id, org_id) refuses a
+      // day whose plan is in another org. New days go last.
+      const existing = await db.select(DAYS_TABLE, { org_id: ctx.orgId });
+      const id = safeRandomUUID();
+      const now = new Date().toISOString();
+      const sortOrder = nextSortOrder(existing);
+      await db.insert(DAYS_TABLE, {
+        id,
+        owner_id: ctx.userId,
+        org_id: ctx.orgId,
+        plan_id: input.planId,
+        name: input.name,
+        day_type: input.dayType,
+        sort_order: sortOrder,
+        created_at: now,
+        updated_at: now,
+      });
+      return { id, planId: input.planId, name: input.name, dayType: input.dayType, sortOrder };
+    },
+
+    async updateDay(input, ctx) {
+      await db.update(
+        DAYS_TABLE,
+        { id: input.id, org_id: ctx.orgId },
+        { name: input.name, day_type: input.dayType, updated_at: new Date().toISOString() },
+      );
+      return { id: input.id };
+    },
+
+    async deleteDay(input, ctx) {
+      await db.delete(DAYS_TABLE, { id: input.id, org_id: ctx.orgId });
+      return { id: input.id };
+    },
+
+    async reorderDays(input, ctx) {
+      await writeOrder(db, DAYS_TABLE, input.ids, ctx);
+      return { ids: input.ids };
+    },
   };
 }
