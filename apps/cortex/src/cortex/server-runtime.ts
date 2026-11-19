@@ -66,6 +66,7 @@ import { createTrainingLogic } from "@/tools/training/logic";
 import { createTrainingIntents } from "@/tools/training/intents";
 import { createTrainingListeners } from "@/tools/training/events";
 import { createTrainingCreatePlan } from "@/tools/training/create-plan-logic";
+import { createTrainingDeletePlan } from "@/tools/training/delete-plan-logic";
 import { STUB_APPS } from "@/tools/stub-apps";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getBaseUrl } from "@/lib/base-url";
@@ -248,6 +249,8 @@ function build(): DataLayer {
     emit: eventBus.emit,
     getRls,
     createPlan: createTrainingCreatePlan({ getRls, service }),
+    // Deleting a plan also hides its org (service client) — same seam.
+    deletePlan: createTrainingDeletePlan({ getRls, service }),
   });
   if (!getApp(trainingManifest.id)) {
     registerApp(trainingManifest, createTrainingIntents(trainingLogic), createTrainingListeners(trainingLogic));

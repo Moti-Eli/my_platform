@@ -17,11 +17,15 @@ import {
 const plan = z.object({
   id: z.string(),
   orgId: z.string(),
+  ownerId: z.string(),
   name: z.string(),
   description: z.string(),
   frequencyPerWeek: z.number().int().nullable(),
   createdAt: z.string(),
 });
+const planName = z.string().trim().min(1).max(PLAN_NAME_MAX);
+const planDescription = z.string().trim().max(PLAN_DESCRIPTION_MAX);
+const frequency = z.number().int().min(FREQUENCY_MIN).max(FREQUENCY_MAX).nullable();
 
 export function createTrainingIntents(logic: TrainingLogic) {
   return [
@@ -47,13 +51,35 @@ export function createTrainingIntents(logic: TrainingLogic) {
       name: "training.create_plan",
       description:
         "Create a new workout plan (name, optional description and workouts per week) in its own small organization and return the plan and organization ids",
-      input: z.object({
-        name: z.string().trim().min(1).max(PLAN_NAME_MAX),
-        description: z.string().trim().max(PLAN_DESCRIPTION_MAX),
-        frequencyPerWeek: z.number().int().min(FREQUENCY_MIN).max(FREQUENCY_MAX).nullable(),
-      }),
+      input: z.object({ name: planName, description: planDescription, frequencyPerWeek: frequency }),
       output: z.object({ planId: z.string(), orgId: z.string() }),
       handler: (input, ctx) => logic.createPlan(input, ctx),
+    }),
+    defineIntent({
+      name: "training.update_plan",
+      description: "Change the workout plan's name, description and workouts per week",
+      input: z.object({
+        id: z.string(),
+        name: planName,
+        description: planDescription,
+        frequencyPerWeek: frequency,
+      }),
+      output: z.object({ id: z.string() }),
+      handler: (input, ctx) => logic.updatePlan(input, ctx),
+    }),
+    // Owner only. Deletes the plan with its days and exercises, then hides its
+    // org. Refused — with the plan left intact — when the caller is not the
+    // owner, the org is their last, or it has other members.
+    defineIntent({
+      name: "training.delete_plan",
+      description:
+        "Delete the workout plan with all its days and exercises and hide its organization (owner only)",
+      input: z.object({ id: z.string() }),
+      output: z.union([
+        z.object({ deleted: z.literal(true) }),
+        z.object({ error: z.enum(["notOwner", "lastOrg", "otherMembers", "hideFailed"]) }),
+      ]),
+      handler: (input, ctx) => logic.deletePlan(input, ctx),
     }),
   ];
 }

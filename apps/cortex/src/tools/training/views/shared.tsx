@@ -45,15 +45,24 @@ export function useFrequencyLabel() {
         : t("training.frequencyMany").replace("{count}", String(n));
 }
 
-/** Back button + title (+ optional subtitle). */
-export function ToolHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+/** Back button + title (+ optional subtitle). `onBack` steps up one level
+ *  inside the tool; without it, back leaves the tool (router.back()). */
+export function ToolHeader({
+  title,
+  subtitle,
+  onBack,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+}) {
   const { t, dir } = useI18n();
   const router = useRouter();
   return (
     <div className="flex items-center gap-xs">
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => (onBack ? onBack() : router.back())}
         aria-label={t("common.back")}
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card text-ink interactive motion-safe:active:scale-[0.97]"
       >
@@ -154,6 +163,52 @@ export function Modal({
       </form>
     </div>
   );
+}
+
+/**
+ * Same overlay chrome as {@link Modal}, but the panel is a plain <div> — for a
+ * confirmation (no form).
+ */
+export function Dialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="ds-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-scrim p-md"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="ds-panel flex max-h-full w-[min(100%,24rem)] flex-col gap-sm overflow-y-auto rounded-xl bg-card p-lg shadow-lifted"
+      >
+        <h2 className="type-heading text-ink">{title}</h2>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Case-insensitive "does `text` contain the search query" (empty query = all). */
+export function matchesSearch(text: string, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase();
+  return q === "" || text.toLocaleLowerCase().includes(q);
 }
 
 /** Primary + cancel buttons for a modal. */

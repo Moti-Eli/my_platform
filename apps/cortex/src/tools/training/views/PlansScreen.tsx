@@ -13,14 +13,17 @@ import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
 import { useTrainingPlans } from "@/lib/query/useTrainingPlans";
 import type { Plan } from "../logic";
 import { TRAINING_ROUTE } from "../nav";
-import { AddButton, EmptyCard, SKELETON, useFrequencyLabel } from "./shared";
+import { AddButton, EmptyCard, SKELETON, matchesSearch, useFrequencyLabel } from "./shared";
 
 export function PlansScreen({
   activeOrgId,
+  search,
   onOpenActive,
   onNewPlan,
 }: {
   activeOrgId: string;
+  /** The bar's search text — filters by plan name and description. */
+  search: string;
   /** Open the active org's plan without switching org. */
   onOpenActive: () => void;
   onNewPlan: () => void;
@@ -58,9 +61,14 @@ export function PlansScreen({
     );
   }
 
+  const shown = plans.filter(
+    (p) => matchesSearch(p.name, search) || matchesSearch(p.description, search),
+  );
+  if (shown.length === 0) return <EmptyCard titleKey="training.noResults" />;
+
   return (
     <ul className="flex flex-col gap-xs">
-      {plans.map((plan) => {
+      {shown.map((plan) => {
         const active = plan.orgId === activeOrgId;
         const freq = frequencyLabel(plan.frequencyPerWeek);
         return (

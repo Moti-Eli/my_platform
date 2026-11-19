@@ -241,6 +241,9 @@ function build(): Runtime {
     createPlan: () => {
       throw new Error("training.create_plan runs server-side only");
     },
+    deletePlan: () => {
+      throw new Error("training.delete_plan runs server-side only");
+    },
   });
   if (!getApp(trainingManifest.id)) {
     registerApp(trainingManifest, createTrainingIntents(trainingLogic), createTrainingListeners(trainingLogic));
