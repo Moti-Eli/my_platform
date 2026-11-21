@@ -26,7 +26,9 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   shopping lists, stage 1 (personal lists: create, items, check off, rename,
   delete, Home card; each list in its own small root org; migrations
   `20261028000001` and `20261028000002` not applied yet).
-  Personal training: in progress, stage 1 tables only (migrations not applied yet).
+  Personal training: in progress, stage 1 (plans each in their own small root
+  org: My plans, create, edit, rename, owner-only delete; training days and
+  exercises with add/edit/delete/reorder; Home card with the day count).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).
 - **CI:** lint, typecheck and build on every push to `main` and every PR. There

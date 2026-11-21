@@ -32,6 +32,8 @@ import shiftsHe from "@/tools/shifts/i18n/he.json";
 import shiftsEn from "@/tools/shifts/i18n/en.json";
 import shoppingHe from "@/tools/shopping/i18n/he.json";
 import shoppingEn from "@/tools/shopping/i18n/en.json";
+import trainingHe from "@/tools/training/i18n/he.json";
+import trainingEn from "@/tools/training/i18n/en.json";
 
 const he = {
   login: {
@@ -185,7 +187,6 @@ const he = {
     analytics: "אנליטיקה",
     marketing: "שיווק",
     support: "תמיכה",
-    fitness: "כושר",
     comingSoon: "בקרוב",
     unavailable: "לא זמין",
     adminOnly: "מנהל",
@@ -365,6 +366,7 @@ const he = {
   orders: ordersHe,
   shifts: shiftsHe,
   shopping: shoppingHe,
+  training: trainingHe,
 } as const;
 
 /** The canonical message shape (derived from `he`). */
@@ -509,7 +511,6 @@ const en: Messages = {
     analytics: "Analytics",
     marketing: "Marketing",
     support: "Support",
-    fitness: "Fitness",
     comingSoon: "Coming soon",
     unavailable: "Unavailable",
     adminOnly: "Admin only",
@@ -684,6 +685,7 @@ const en: Messages = {
   orders: ordersEn,
   shifts: shiftsEn,
   shopping: shoppingEn,
+  training: trainingEn,
 };
 
 export const dictionaries: Record<Locale, Messages> = { he, en };

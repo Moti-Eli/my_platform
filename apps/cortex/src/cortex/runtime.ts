@@ -76,6 +76,10 @@ import { manifest as shoppingManifest } from "@/tools/shopping/manifest";
 import { createShoppingLogic } from "@/tools/shopping/logic";
 import { createShoppingIntents } from "@/tools/shopping/intents";
 import { createShoppingListeners } from "@/tools/shopping/events";
+import { manifest as trainingManifest } from "@/tools/training/manifest";
+import { createTrainingLogic } from "@/tools/training/logic";
+import { createTrainingIntents } from "@/tools/training/intents";
+import { createTrainingListeners } from "@/tools/training/events";
 import { STUB_APPS } from "@/tools/stub-apps";
 
 export interface Runtime {
@@ -224,6 +228,25 @@ function build(): Runtime {
   });
   if (!getApp(shoppingManifest.id)) {
     registerApp(shoppingManifest, createShoppingIntents(shoppingLogic), createShoppingListeners(shoppingLogic));
+  }
+  // Training — create_plan provisions an org (service client) and list_plans
+  // reads memberships (RLS client), so both run SERVER-SIDE ONLY; this client
+  // runtime only registers the tool so it can be listed — throwing stubs.
+  const trainingLogic = createTrainingLogic({
+    db,
+    emit: eventBus.emit,
+    getRls: () => {
+      throw new Error("training.list_plans runs server-side only");
+    },
+    createPlan: () => {
+      throw new Error("training.create_plan runs server-side only");
+    },
+    deletePlan: () => {
+      throw new Error("training.delete_plan runs server-side only");
+    },
+  });
+  if (!getApp(trainingManifest.id)) {
+    registerApp(trainingManifest, createTrainingIntents(trainingLogic), createTrainingListeners(trainingLogic));
   }
 
   // TEMP: register the placeholder apps as real registry entries (no intents),
