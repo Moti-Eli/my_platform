@@ -115,7 +115,6 @@ export function DayScreen({ day, search }: { day: Day; search: string }) {
     const next = moved(exercises, index, step);
     if (!next) return;
     setWriteError(null);
-    const before = all;
     const order = new Map(next.map((e, i) => [e.id, i]));
     // Other days' rows keep their place; this day's rows take the new order.
     setAll((prev) => {
@@ -125,7 +124,8 @@ export function DayScreen({ day, search }: { day: Day; search: string }) {
     });
     const res = await runIntentAction("training.reorder_exercises", { ids: next.map((e) => e.id) });
     if (!res.ok) {
-      setAll(() => before);
+      // Several row writes; some may have landed — re-read the real order.
+      void queryClient.invalidateQueries({ queryKey: TRAINING_EXERCISES_KEY });
       setWriteError(res.code);
     }
   }

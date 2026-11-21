@@ -92,11 +92,12 @@ export function PlanScreen({
     const next = moved(days, index, step);
     if (!next) return;
     setWriteError(null);
-    const before = days;
     setDays(() => next.map((d, i) => ({ ...d, sortOrder: i })));
     const res = await runIntentAction("training.reorder_days", { ids: next.map((d) => d.id) });
     if (!res.ok) {
-      setDays(() => before);
+      // The reorder is several row writes; some may have landed. Re-read the
+      // real order instead of restoring a snapshot that may no longer be true.
+      void queryClient.invalidateQueries({ queryKey: TRAINING_DAYS_KEY });
       setWriteError(res.code);
     }
   }

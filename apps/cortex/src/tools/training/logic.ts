@@ -225,12 +225,28 @@ function toDay(row: DbRow): Day {
   };
 }
 
-/** Write sort_order = index for each id, within the active org. */
+/**
+ * UPDATE that must hit a row. `db.update` returns the updated rows; zero rows
+ * means the id is stale (deleted meanwhile), in another org, or RLS refused —
+ * reported as a failure, never as a success the screen would then show.
+ */
+async function updateOne(
+  db: CortexDb,
+  table: string,
+  match: Record<string, string>,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const rows = await db.update(table, match, patch);
+  if (rows.length === 0) throw new Error(`${table}: no row matched the update`);
+}
+
+/** Write sort_order = index for each id, within the active org. Each write must
+ *  hit its row (a stale id fails the whole call; the screen then re-reads). */
 async function writeOrder(db: CortexDb, table: string, ids: string[], ctx: Ctx): Promise<void> {
   const now = new Date().toISOString();
   await Promise.all(
     ids.map((id, index) =>
-      db.update(table, { id, org_id: ctx.orgId }, { sort_order: index, updated_at: now }),
+      updateOne(db, table, { id, org_id: ctx.orgId }, { sort_order: index, updated_at: now }),
     ),
   );
 }
@@ -298,7 +314,8 @@ export function createTrainingLogic({
     createPlan,
 
     async updatePlan(input, ctx) {
-      await db.update(
+      await updateOne(
+        db,
         PLANS_TABLE,
         { id: input.id, org_id: ctx.orgId },
         {
@@ -341,7 +358,8 @@ export function createTrainingLogic({
     },
 
     async updateDay(input, ctx) {
-      await db.update(
+      await updateOne(
+        db,
         DAYS_TABLE,
         { id: input.id, org_id: ctx.orgId },
         { name: input.name, day_type: input.dayType, updated_at: new Date().toISOString() },
@@ -388,7 +406,8 @@ export function createTrainingLogic({
 
     async updateExercise(input, ctx) {
       const { id, ...fields } = input;
-      await db.update(
+      await updateOne(
+        db,
         EXERCISES_TABLE,
         { id, org_id: ctx.orgId },
         { ...exerciseColumns(fields), updated_at: new Date().toISOString() },

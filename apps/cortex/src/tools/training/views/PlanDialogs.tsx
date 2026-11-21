@@ -177,6 +177,11 @@ export function DeletePlanDialog({ plan, onClose }: { plan: Plan; onClose: () =>
   const [submitting, setSubmitting] = useState(false);
   const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
   const [refusal, setRefusal] = useState<MessageKey | null>(null);
+  // `hideFailed` is NOT a refusal: the plan, days and exercises ARE deleted
+  // (only the org stays visible). After the message, closing leaves for "/" —
+  // a full load — so no screen keeps showing the deleted plan from the cache.
+  const [deletedAnyway, setDeletedAnyway] = useState(false);
+  const close = deletedAnyway ? () => window.location.assign("/") : onClose;
 
   async function confirm() {
     if (submitting) return;
@@ -195,6 +200,7 @@ export function DeletePlanDialog({ plan, onClose }: { plan: Plan; onClose: () =>
       if (!mounted.current) return;
       setSubmitting(false);
       setRefusal(REFUSAL_KEY[result.error]);
+      if (result.error === "hideFailed") setDeletedAnyway(true);
       return;
     }
     // FULL load (as the org switcher): the hidden org drops out of the session,
@@ -203,7 +209,7 @@ export function DeletePlanDialog({ plan, onClose }: { plan: Plan; onClose: () =>
   }
 
   return (
-    <Dialog title={t("training.deletePlanTitle")} onClose={onClose}>
+    <Dialog title={t("training.deletePlanTitle")} onClose={close}>
       <WriteErrorBanner code={writeError} />
       {refusal ? (
         <p role="alert" className="rounded-md bg-danger/10 px-sm py-xs type-label text-danger">
@@ -227,7 +233,7 @@ export function DeletePlanDialog({ plan, onClose }: { plan: Plan; onClose: () =>
         )}
         <button
           type="button"
-          onClick={onClose}
+          onClick={close}
           disabled={submitting}
           className="flex-1 rounded-md bg-hairline py-sm type-label text-ink interactive motion-safe:active:scale-[0.97]"
         >

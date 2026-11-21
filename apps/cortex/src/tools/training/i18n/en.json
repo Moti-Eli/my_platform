@@ -1,7 +1,6 @@
 {
   "name": "Personal training",
   "myPlans": "My plans",
-  "myPlansHint": "All your workout plans",
   "noPlansTitle": "No plans yet",
   "noPlansHint": "Create your first workout plan — a name, a description and workouts per week.",
   "noPlanHere": "No plan here",
