@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * The list's ☰ menu (header action) — the orders bar's menu chrome, opening
- * below the button. Two actions:
+ * The list's two occasional actions, opened from the ☰ menu in the floating
+ * bar (ShoppingBar.tsx):
  *
  *   Rename list — the list's name in `shopping_lists` only; the org's name
  *                 (`<list name> · <6 chars>`) never changes.
@@ -16,7 +16,6 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n, type MessageKey } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
-import { MenuIcon } from "@/components/icons";
 import { SHOPPING_LIST_KEY } from "@/lib/query/useShoppingList";
 import { LIST_NAME_MAX, type DeleteListResult, type List } from "../logic";
 import {
@@ -36,66 +35,7 @@ const REFUSAL_KEY: Record<Extract<DeleteListResult, { error: string }>["error"],
   hideFailed: "shopping.deleteHideFailed",
 };
 
-export function ListMenu({ list }: { list: List }) {
-  const { t } = useI18n();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [renaming, setRenaming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label={t("shopping.menu")}
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((v) => !v)}
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full interactive motion-safe:active:scale-[0.97] ${
-          menuOpen ? "bg-app-amber/15 text-app-amber" : "bg-card text-ink"
-        }`}
-      >
-        <MenuIcon width={18} height={18} />
-      </button>
-      {menuOpen ? (
-        <>
-          {/* Tap-anywhere-else closes the menu. Below the menu, above the page. */}
-          <div className="fixed inset-0 z-40" aria-hidden="true" onClick={() => setMenuOpen(false)} />
-          <div
-            role="menu"
-            className="absolute end-0 top-full z-50 mt-xs flex min-w-max flex-col rounded-lg border border-hairline bg-card p-2xs shadow-lifted"
-          >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setRenaming(true);
-              }}
-              className="rounded-md px-sm py-xs text-start type-label text-ink interactive"
-            >
-              {t("shopping.renameList")}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                setDeleting(true);
-              }}
-              className="rounded-md px-sm py-xs text-start type-label text-danger interactive"
-            >
-              {t("shopping.deleteList")}
-            </button>
-          </div>
-        </>
-      ) : null}
-
-      {renaming ? <RenameListModal list={list} onClose={() => setRenaming(false)} /> : null}
-      {deleting ? <DeleteListDialog list={list} onClose={() => setDeleting(false)} /> : null}
-    </div>
-  );
-}
-
-function RenameListModal({ list, onClose }: { list: List; onClose: () => void }) {
+export function RenameListModal({ list, onClose }: { list: List; onClose: () => void }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
   const mounted = useMounted();
@@ -156,7 +96,7 @@ function RenameListModal({ list, onClose }: { list: List; onClose: () => void })
   );
 }
 
-function DeleteListDialog({ list, onClose }: { list: List; onClose: () => void }) {
+export function DeleteListDialog({ list, onClose }: { list: List; onClose: () => void }) {
   const { t } = useI18n();
   const mounted = useMounted();
   const [submitting, setSubmitting] = useState(false);
