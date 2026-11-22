@@ -27,8 +27,10 @@ permission-aware core. Built with Turborepo + pnpm, Next.js, and Supabase.
   delete, Home card; each list in its own small root org; migrations
   `20261028000001` and `20261028000002` applied) — stage 2 in progress: "My
   lists" (every list the user is in, across their orgs; a list opens in place,
-  no org switch; items A–Z) and a floating bar on the list (☰ rename/delete,
-  ＋ add row, 🔍 search, ✓ show/hide bought).
+  no org switch; items A–Z; also the Home card), a floating bar on the list
+  (☰ rename/type/delete, ＋ add row, 🔍 search, ✓ show/hide bought), and
+  personal list types with a colour and a filter (migration `20261123000001`
+  NOT applied yet — until then the lists show without types).
   Personal training: in progress, stage 1 tables only (migrations applied).
 - **Database:** 51+ migrations in `packages/db/supabase/migrations`, applied with
   the manual **DB Migrations** workflow (see below).

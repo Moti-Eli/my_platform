@@ -148,10 +148,8 @@ the list's org. The org's name is `<list name> · <6 random chars>` to pass the
 per-user duplicate-name guard; the user sees the list name stored in the table,
 not the org's name. See ARCHITECTURE.md #38.
 
-- **1 (tables): IN PROGRESS** (`claude/cortex-shopping-lists-p354ax`). Migration
-  `20261028000001` (`shopping_lists`, `shopping_list_items`) is NOT applied yet:
-  dry-run + apply via the DB Migrations workflow after merge. Catalog entry,
-  screens and permission key come later.
+- **1 (tables): DONE** (#15). Migration `20261028000001` (`shopping_lists`,
+  `shopping_list_items`) applied.
 - Open for stage 2: who may delete a whole list — only its owner, or every
   member? Today every member of the list's org may (no member but the owner
   exists in stage 1).
@@ -164,26 +162,39 @@ not the org's name. See ARCHITECTURE.md #38.
   not cascade to tool rows.
 - Note for stage 2: hiding an org is refused when it is the user's last org or
   when it has other members (then only "leave" is possible).
-- **1 (registration): IN PROGRESS.** Tool registered in both runtimes,
+- **1 (registration): DONE** (#15). Tool registered in both runtimes,
   `shopping.create_list` (root org + tool install + list, compensating on
-  failure), catalog seed `20261028000002` NOT applied yet.
-- **1 (screens, part 1): IN PROGRESS.** `/tools/shopping`: in a list's org it
+  failure), catalog seed `20261028000002` applied.
+- **1 (screens, part 1): DONE** (#15; stage 2 replaces it with "My lists"). `/tools/shopping`: in a list's org it
   shows the list name; in any other org "no list here" + "new list", whose modal
   runs `shopping.create_list` and switches to the new org.
-- **1 (screens, part 2 — items): IN PROGRESS.** The list screen: items to buy,
+- **1 (screens, part 2 — items): DONE** (#15). The list screen: items to buy,
   then the checked-off ones; the circle ticks / unticks, ✎ edits inline, ✕ is a
   two-tap delete; a floating bar adds name + quantity.
-- **1 (screens, part 3 — ☰ menu): IN PROGRESS.** Rename list (the list's name
+- **1 (screens, part 3 — ☰ menu): DONE** (#15; stage 2 moves ☰ into the bar). Rename list (the list's name
   only, never the org's) and delete list. `shopping.delete_list` first
   pre-checks the two hide refusals (last org / other members) so a refusal
   leaves the list intact, then deletes the list (items cascade), then hides the
   org, then a full load to "/" falls back to the user's first org. If the hide
   still fails after the pre-check passed, the list is already gone and the
   screen says the org must be hidden from the Organizations screen.
-- **1 (screens, part 4 — Home card): IN PROGRESS.** In a list's org: the list
-  name, how many items are left to buy and those items; tapping opens the list.
-  In any other org: "New list", opening the same modal (portalled out of Home's
-  card link). Stage 1 is complete once this lands.
+- **1 (screens, part 4 — Home card): DONE** (#15). Stage 1 complete; migrations
+  `20261028000001` and `20261028000002` applied.
+- **2 (stage 2): IN PROGRESS** (`feat/shopping-stage-2`, not pushed yet).
+  - Floating bar on a list: ☰ (rename / list type / delete), ＋ (the bar becomes
+    the add row), 🔍 (search), ✓ (show / hide bought). Fixed: the add field was
+    crushed (`max-w-md` = 16px here, since `md` is also a spacing step).
+  - "My lists": every list the user is in, across all their orgs; a list opens in
+    place (`?list=<id>`), no org switch; items A–Z. Its own bar: 🔍 and 🏷.
+    ARCHITECTURE.md #40.
+  - Home card = "My lists" in small: up to 4 lists (most left to buy first), a
+    row opens its list, ＋ creates one.
+  - Personal list types (name + colour token), a list's type, filter by type.
+    Migration `20261123000001` written and checked on a local Postgres, NOT
+    applied; until it is, the screens show the lists without types.
+    ARCHITECTURE.md #41.
+  - Open: renaming / removing a type; hiding list orgs from the org switcher (a
+    shell change); sharing a list by invite.
 
 ### Personal training
 
