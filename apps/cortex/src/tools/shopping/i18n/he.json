@@ -1,5 +1,11 @@
 {
   "name": "רשימות קניות",
+  "myListsTitle": "הרשימות שלי",
+  "noListsTitle": "עוד אין לך רשימות",
+  "noListsHint": "צרו רשימה — לבית, לעבודה או לאירוע.",
+  "listEmpty": "רשימה ריקה",
+  "listNotFoundTitle": "הרשימה לא נמצאה",
+  "listNotFoundHint": "ייתכן שהיא נמחקה, או שכבר אינך חבר בה.",
   "noListTitle": "אין כאן רשימה",
   "noListHint": "צרו רשימה חדשה — לבית, למשרד או לאירוע.",
   "newList": "רשימה חדשה",

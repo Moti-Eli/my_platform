@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * The list screen (stage 1, items part): the items still to buy, then — under
- * their own heading — the items already checked off. Rows follow orders'
+ * The list screen: the items still to buy, then — under their own heading —
+ * the items already checked off, each A–Z by name (stage 2). The list is read
+ * by id, opened in place from "My lists" (no org switch). Rows follow orders'
  * product rows: the circle + name ticks / unticks the item; ✎ edits it inline;
  * ✕ is a two-tap delete.
  *
@@ -18,7 +19,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import { CheckIcon } from "@/components/icons";
-import { SHOPPING_ITEMS_KEY, useShoppingItems } from "@/lib/query/useShoppingItems";
+import { listItemsKey, useListItems } from "@/lib/query/useShoppingItems";
+import { SHOPPING_LISTS_KEY } from "@/lib/query/useShoppingList";
 import type { Item, List } from "../logic";
 import { ShoppingBar } from "./ShoppingBar";
 import { DeleteListDialog, RenameListModal } from "./ListDialogs";
@@ -28,7 +30,8 @@ import { EmptyCard, RowActions, SKELETON, WriteErrorBanner, type WriteErrorCode 
 export function ListScreen({ list }: { list: List }) {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
-  const { toBuy: allToBuy, bought: allBought, isLoading, isError } = useShoppingItems();
+  // This list's items, A–Z (by id — the list may sit in any of the user's orgs).
+  const { toBuy: allToBuy, bought: allBought, isLoading, isError } = useListItems(list.id);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
@@ -46,8 +49,11 @@ export function ListScreen({ list }: { list: List }) {
   const toBuy = allToBuy.filter(matches);
   const bought = allBought.filter(matches);
 
-  const patchCache = (fn: (prev: Item[]) => Item[]) =>
-    queryClient.setQueryData<Item[]>(SHOPPING_ITEMS_KEY, (prev) => fn(prev ?? []));
+  // Patch this list's items; "My lists" counts are refreshed when it is next shown.
+  const patchCache = (fn: (prev: Item[]) => Item[]) => {
+    queryClient.setQueryData<Item[]>(listItemsKey(list.id), (prev) => fn(prev ?? []));
+    void queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_KEY });
+  };
 
   async function addItem(draft: { name: string; quantity: string }): Promise<boolean> {
     setWriteError(null);

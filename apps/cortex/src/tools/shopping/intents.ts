@@ -8,7 +8,8 @@ import { z } from "zod";
 import { defineIntent } from "@platform/cortex-core";
 import { ITEM_NAME_MAX, LIST_NAME_MAX, QUANTITY_MAX, type ShoppingLogic } from "./logic";
 
-const list = z.object({ id: z.string(), name: z.string() });
+const list = z.object({ id: z.string(), name: z.string(), orgId: z.string() });
+const listSummary = list.extend({ toBuy: z.number(), total: z.number() });
 const item = z.object({
   id: z.string(),
   name: z.string(),
@@ -22,16 +23,25 @@ const id = z.object({ id: z.string() });
 
 export function createShoppingIntents(logic: ShoppingLogic) {
   return [
-    // READ. The active org's list — null when the active org is not a list org.
+    // READ. Every list the user can read, across all their organizations.
+    defineIntent({
+      name: "shopping.list_lists",
+      description:
+        "List all of the user's shopping lists (created or shared with them), with how many items are left to buy",
+      input: z.object({}),
+      output: z.array(listSummary),
+      handler: (input, ctx) => logic.listLists(input, ctx),
+    }),
+    // READ. One list by id; with no id, the active org's list (null when none).
     defineIntent({
       name: "shopping.get_list",
-      description: "Get the shopping list of the current organization, or null if it has none",
-      input: z.object({}),
+      description: "Get one shopping list by id, or the current organization's list when no id is given",
+      input: z.object({ id: z.string().min(1).optional() }),
       output: list.nullable(),
       handler: (input, ctx) => logic.getList(input, ctx),
     }),
     // Creates the list's own root organization, installs this tool there and
-    // inserts the list. The caller then switches to the returned org.
+    // inserts the list. The screen then opens it in place (no org switch).
     defineIntent({
       name: "shopping.create_list",
       description:
@@ -64,8 +74,9 @@ export function createShoppingIntents(logic: ShoppingLogic) {
     // --- items ----------------------------------------------------------------
     defineIntent({
       name: "shopping.list_items",
-      description: "List the items on the current organization's shopping list",
-      input: z.object({}),
+      description:
+        "List the items on one shopping list (by listId), or on the current organization's list when no listId is given",
+      input: z.object({ listId: z.string().min(1).optional() }),
       output: z.array(item),
       handler: (input, ctx) => logic.listItems(input, ctx),
     }),

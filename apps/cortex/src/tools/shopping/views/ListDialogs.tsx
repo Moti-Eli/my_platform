@@ -7,8 +7,9 @@
  *   Rename list — the list's name in `shopping_lists` only; the org's name
  *                 (`<list name> · <6 chars>`) never changes.
  *   Delete list — after a confirmation, `shopping.delete_list`: the list and its
- *                 items, then its org is hidden, then a full load to "/" — the
- *                 session falls back to the user's first org (their main one).
+ *                 items, then its org is hidden, then a full load back to "My
+ *                 lists" (if that org was active, the session falls back to the
+ *                 user's first org).
  *                 When the org is the user's last, or has other members, nothing
  *                 is deleted and the dialog says why.
  */
@@ -16,7 +17,8 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useI18n, type MessageKey } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
-import { SHOPPING_LIST_KEY } from "@/lib/query/useShoppingList";
+import { SHOPPING_LISTS_KEY, shoppingListKey } from "@/lib/query/useShoppingList";
+import { SHOPPING_ROUTE } from "../nav";
 import { LIST_NAME_MAX, type DeleteListResult, type List } from "../logic";
 import {
   Dialog,
@@ -70,9 +72,10 @@ export function RenameListModal({ list, onClose }: { list: List; onClose: () => 
       setWriteError(res.code);
       return;
     }
-    queryClient.setQueryData<List | null>(SHOPPING_LIST_KEY, (prev) =>
+    queryClient.setQueryData<List | null>(shoppingListKey(list.id), (prev) =>
       prev ? { ...prev, name: trimmed } : prev,
     );
+    void queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_KEY });
     onClose();
   }
 
@@ -122,9 +125,10 @@ export function DeleteListDialog({ list, onClose }: { list: List; onClose: () =>
       setRefusal(REFUSAL_KEY[result.error]);
       return;
     }
-    // FULL load (as the org switcher): the hidden org drops out of the session,
-    // which falls back to the user's first org.
-    window.location.assign("/");
+    // FULL load back to "My lists": the list's org is now hidden, so if it was
+    // the active org the session falls back to the user's first one, and no
+    // cached row of the deleted list survives.
+    window.location.assign(SHOPPING_ROUTE);
   }
 
   return (

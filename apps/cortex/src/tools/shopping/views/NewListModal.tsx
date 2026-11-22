@@ -3,18 +3,15 @@
 /**
  * "New list" modal — one field, the list name. "Create" runs
  * `shopping.create_list` (which creates the list's own org and installs the tool
- * there), then switches to that org and lands in the new list.
- *
- * The switch is the same as the org switcher's: set ORG_COOKIE, then a FULL
- * document load (never router.push) — the react-query cache is not org-scoped,
- * so a soft navigation would keep the previous org's rows on screen.
+ * there), refreshes "My lists" and hands the new id back, so the screen opens
+ * the list IN PLACE — no org switch, no reload (stage 2).
  */
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
-import { ORG_COOKIE, setPreferenceCookie } from "@/lib/cookies";
+import { SHOPPING_LISTS_KEY } from "@/lib/query/useShoppingList";
 import { LIST_NAME_MAX } from "../logic";
-import { SHOPPING_ROUTE } from "../nav";
 import {
   FormActions,
   Modal,
@@ -24,8 +21,16 @@ import {
   type WriteErrorCode,
 } from "./shared";
 
-export function NewListModal({ onClose }: { onClose: () => void }) {
+export function NewListModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  /** The new list's id — the caller opens it. */
+  onCreated: (listId: string) => void;
+}) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const mounted = useMounted();
   const inputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
@@ -54,9 +59,10 @@ export function NewListModal({ onClose }: { onClose: () => void }) {
       setSubmitting(false);
       return;
     }
-    const { orgId } = res.data as { listId: string; orgId: string };
-    setPreferenceCookie(ORG_COOKIE, orgId);
-    window.location.assign(SHOPPING_ROUTE);
+    const { listId } = res.data as { listId: string; orgId: string };
+    await queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_KEY });
+    if (!mounted.current) return;
+    onCreated(listId);
   }
 
   return (

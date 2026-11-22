@@ -1,5 +1,11 @@
 {
   "name": "Shopping lists",
+  "myListsTitle": "My lists",
+  "noListsTitle": "No lists yet",
+  "noListsHint": "Create a list — for home, work or an event.",
+  "listEmpty": "Empty list",
+  "listNotFoundTitle": "List not found",
+  "listNotFoundHint": "It may have been deleted, or you are no longer on it.",
   "noListTitle": "No list here",
   "noListHint": "Create a new list — for home, the office or an event.",
   "newList": "New list",

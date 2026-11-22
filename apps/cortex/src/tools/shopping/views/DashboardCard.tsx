@@ -10,7 +10,10 @@
  *   - a list org    → the list's name, how many items are left to buy, and those
  *                     items (scrolling inside the card). Tapping opens the list.
  *   - any other org → "New list", which opens the same NewListModal as the full
- *                     screen.
+ *                     screen; once created, the tool opens on the new list.
+ *
+ * (Stage 2 moves the card to "My lists" in a later step; until then it keeps
+ * the active-org reads, `useShoppingList` / `useShoppingItems`.)
  *
  * STATES, MODELLED EXPLICITLY: loading → skeleton; error → a muted "couldn't
  * load" line, never silently blank. Reads the SAME shared caches as the full
@@ -25,11 +28,13 @@
  */
 import { useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useShoppingList } from "@/lib/query/useShoppingList";
 import { useShoppingItems } from "@/lib/query/useShoppingItems";
+import { listHref } from "../nav";
 import { NewListModal } from "./NewListModal";
 import { SKELETON } from "./shared";
 
@@ -37,6 +42,7 @@ import { SKELETON } from "./shared";
 // derives identity from the session cookie.
 export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const listQ = useShoppingList();
   const list = listQ.list;
   const [creating, setCreating] = useState(false);
@@ -96,7 +102,10 @@ export function DashboardCard(_props: ToolViewProps) {
               onKeyDown={(e) => e.stopPropagation()}
               className="contents"
             >
-              <NewListModal onClose={() => setCreating(false)} />
+              <NewListModal
+                onClose={() => setCreating(false)}
+                onCreated={(id) => router.push(listHref(id))}
+              />
             </div>,
             document.body,
           )

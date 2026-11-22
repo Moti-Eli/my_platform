@@ -3,17 +3,20 @@
 /**
  * Shopping full screen (Standard §2 `views/FullScreen.tsx`, §8).
  *
- * Every list lives in its own org (ARCHITECTURE.md #38), so the screen depends on
- * the ACTIVE org:
- *   - a list org     → the list screen; its actions (☰ rename / delete, add,
- *                      search, bought) live in the floating bar (ShoppingBar)
- *   - any other org  → "no list here" + "new list", which opens NewListModal
+ * Every list lives in its own org (ARCHITECTURE.md #38), but the screen no
+ * longer depends on the ACTIVE org (stage 2):
+ *   - (default)    → "My lists": every list the user is in, across their orgs,
+ *                    with ＋ (new list) in the header
+ *   - ?list=<id>   → that list, opened in place — no org switch, no reload; its
+ *                    actions live in the floating bar (ShoppingBar)
  */
 import { useState } from "react";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
-import { useShoppingList } from "@/lib/query/useShoppingList";
+import { useShoppingListById } from "@/lib/query/useShoppingList";
+import { useShoppingNav } from "../nav";
 import { ListScreen } from "./ListScreen";
+import { MyListsScreen } from "./MyListsScreen";
 import { NewListModal } from "./NewListModal";
 import { AddButton, EmptyCard, SKELETON, ToolHeader } from "./shared";
 
@@ -21,18 +24,46 @@ import { AddButton, EmptyCard, SKELETON, ToolHeader } from "./shared";
 // derives identity from the session cookie.
 export function FullScreen(_props: ToolViewProps) {
   const { t } = useI18n();
-  const { list, isLoading, isError } = useShoppingList();
+  const { listId, openList } = useShoppingNav();
   const [creating, setCreating] = useState(false);
 
   return (
     <>
-      <ToolHeader
-        title={list ? list.name : t("shopping.name")}
-        subtitle={list ? t("shopping.name") : undefined}
-      />
+      {listId ? (
+        // Keyed by the list, so per-list state (search, open rows) resets.
+        <OpenList key={listId} listId={listId} />
+      ) : (
+        <>
+          <ToolHeader
+            title={t("shopping.myListsTitle")}
+            subtitle={t("shopping.name")}
+            action={<AddButton label={t("shopping.newList")} onClick={() => setCreating(true)} />}
+          />
+          <MyListsScreen onOpen={openList} onCreate={() => setCreating(true)} />
+        </>
+      )}
 
-      {creating ? <NewListModal onClose={() => setCreating(false)} /> : null}
+      {creating ? (
+        <NewListModal
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            openList(id);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
 
+/** One list, by id: its header and the list screen. */
+function OpenList({ listId }: { listId: string }) {
+  const { t } = useI18n();
+  const { list, isLoading, isError } = useShoppingListById(listId);
+
+  return (
+    <>
+      <ToolHeader title={list ? list.name : t("shopping.name")} subtitle={list ? t("shopping.name") : undefined} />
       {isLoading ? (
         <div className={`h-32 w-full ${SKELETON}`} aria-hidden="true" />
       ) : isError ? (
@@ -40,11 +71,7 @@ export function FullScreen(_props: ToolViewProps) {
       ) : list ? (
         <ListScreen list={list} />
       ) : (
-        <EmptyCard
-          titleKey="shopping.noListTitle"
-          hintKey="shopping.noListHint"
-          action={<AddButton label={t("shopping.newList")} onClick={() => setCreating(true)} />}
-        />
+        <EmptyCard titleKey="shopping.listNotFoundTitle" hintKey="shopping.listNotFoundHint" />
       )}
     </>
   );
