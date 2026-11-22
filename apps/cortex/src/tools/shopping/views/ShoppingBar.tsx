@@ -24,7 +24,7 @@
  * for fixed children, so such a scrim would cover only the bar.
  */
 import { useEffect, useRef, useState } from "react";
-import { useI18n } from "@/i18n";
+import { useI18n, type MessageKey } from "@/i18n";
 import { CheckIcon, CloseIcon, MenuIcon, PlusIcon, SearchIcon } from "@/components/icons";
 import { ITEM_NAME_MAX, QUANTITY_MAX } from "../logic";
 
@@ -81,6 +81,7 @@ export function ShoppingBar({
   if (mode === "search") {
     return (
       <SearchRow
+        placeholderKey="shopping.searchPlaceholder"
         value={search}
         onChange={onSearchChange}
         onClose={() => {
@@ -246,12 +247,57 @@ function AddRow({
   );
 }
 
-/** 🔍 · field · ✕ — the bar as the search row (filters the list as you type). */
+/**
+ * The floating bar on "My lists" — the same chrome as the list's bar. Today one
+ * control: 🔍, which turns the bar into a search row filtering the lists by
+ * name. (No ☰ until it has a real item — "manage types" comes with the types
+ * step, and 🏷 with it.)
+ */
+export function ListsBar({
+  search,
+  onSearchChange,
+}: {
+  search: string;
+  onSearchChange: (next: string) => void;
+}) {
+  const { t } = useI18n();
+  const [searching, setSearching] = useState(search !== "");
+
+  if (searching) {
+    return (
+      <SearchRow
+        placeholderKey="shopping.searchListsPlaceholder"
+        value={search}
+        onChange={onSearchChange}
+        onClose={() => {
+          onSearchChange("");
+          setSearching(false);
+        }}
+      />
+    );
+  }
+  return (
+    <div className={`${capsule} w-fit`}>
+      <button
+        type="button"
+        aria-label={t("shopping.searchLists")}
+        onClick={() => setSearching(true)}
+        className={`${iconButton} text-muted`}
+      >
+        <SearchIcon width={18} height={18} />
+      </button>
+    </div>
+  );
+}
+
+/** 🔍 · field · ✕ — the bar as a search row (filters as you type). */
 function SearchRow({
+  placeholderKey,
   value,
   onChange,
   onClose,
 }: {
+  placeholderKey: MessageKey;
   value: string;
   onChange: (next: string) => void;
   onClose: () => void;
@@ -271,8 +317,8 @@ function SearchRow({
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={t("shopping.searchPlaceholder")}
-        aria-label={t("shopping.search")}
+        placeholder={t(placeholderKey)}
+        aria-label={t(placeholderKey)}
         className="min-w-0 flex-1 bg-transparent py-2xs type-label text-ink outline-none placeholder:text-muted"
       />
       <button

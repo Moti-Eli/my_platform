@@ -1,6 +1,9 @@
 {
   "name": "רשימות קניות",
   "myListsTitle": "הרשימות שלי",
+  "searchLists": "חיפוש רשימות",
+  "searchListsPlaceholder": "חיפוש רשימה לפי שם",
+  "noListMatches": "לא נמצאו רשימות",
   "noListsTitle": "עוד אין לך רשימות",
   "noListsHint": "צרו רשימה — לבית, לעבודה או לאירוע.",
   "listEmpty": "רשימה ריקה",

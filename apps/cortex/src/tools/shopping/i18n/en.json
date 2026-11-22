@@ -1,6 +1,9 @@
 {
   "name": "Shopping lists",
   "myListsTitle": "My lists",
+  "searchLists": "Search lists",
+  "searchListsPlaceholder": "Find a list by name",
+  "noListMatches": "No lists found",
   "noListsTitle": "No lists yet",
   "noListsHint": "Create a list — for home, work or an event.",
   "listEmpty": "Empty list",

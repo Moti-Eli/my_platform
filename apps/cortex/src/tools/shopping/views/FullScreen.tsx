@@ -18,7 +18,7 @@ import { useShoppingNav } from "../nav";
 import { ListScreen } from "./ListScreen";
 import { MyListsScreen } from "./MyListsScreen";
 import { NewListModal } from "./NewListModal";
-import { AddButton, EmptyCard, SKELETON, ToolHeader } from "./shared";
+import { EmptyCard, IconAddButton, SKELETON, ToolHeader } from "./shared";
 
 // userId/orgId arrive as props but are NOT sent to the action — the server
 // derives identity from the session cookie.
@@ -37,7 +37,7 @@ export function FullScreen(_props: ToolViewProps) {
           <ToolHeader
             title={t("shopping.myListsTitle")}
             subtitle={t("shopping.name")}
-            action={<AddButton label={t("shopping.newList")} onClick={() => setCreating(true)} />}
+            action={<IconAddButton label={t("shopping.newList")} onClick={() => setCreating(true)} />}
           />
           <MyListsScreen onOpen={openList} onCreate={() => setCreating(true)} />
         </>

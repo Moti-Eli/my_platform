@@ -10,7 +10,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n, type MessageKey } from "@/i18n";
 import type { IntentResult } from "@/cortex/actions";
-import { ChevronIcon, CloseIcon, ComposeIcon, InfoIcon } from "@/components/icons";
+import { ChevronIcon, CloseIcon, ComposeIcon, InfoIcon, PlusIcon } from "@/components/icons";
 
 /** The failure codes a write can come back with (from {@link IntentResult}). */
 export type WriteErrorCode = Extract<IntentResult, { ok: false }>["code"];
@@ -74,6 +74,24 @@ export function AddButton({ label, onClick }: { label: string; onClick: () => vo
       className="shrink-0 rounded-pill bg-app-amber px-md py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
     >
       {label}
+    </button>
+  );
+}
+
+/**
+ * Header "add" as a round ＋ — the filled circle in the tool's accent that the
+ * orders / tasks Home cards use, at the header's 40px button size. `label` is
+ * what a screen reader hears.
+ */
+export function IconAddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-app-amber text-on-fill interactive motion-safe:active:scale-[0.97]"
+    >
+      <PlusIcon width={20} height={20} />
     </button>
   );
 }
