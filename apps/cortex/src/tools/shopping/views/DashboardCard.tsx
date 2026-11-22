@@ -13,6 +13,7 @@
  *   - more lists than that → "and N more" (tapping the card opens "My lists")
  *   - no lists → an explicit line
  *   - ＋ → the same NewListModal as the full screen; then the new list opens
+ *   - each row starts with the user's type colour, while types are available
  *
  * STATES, MODELLED EXPLICITLY: loading → skeleton; error → a muted "couldn't
  * load" line, never silently blank.
@@ -31,9 +32,11 @@ import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { CheckIcon, PlusIcon } from "@/components/icons";
 import { useShoppingLists } from "@/lib/query/useShoppingList";
+import { useShoppingTypes } from "@/lib/query/useShoppingTypes";
 import type { ListSummary } from "../logic";
 import { listHref } from "../nav";
 import { NewListModal } from "./NewListModal";
+import { TypeDot } from "./TypeViews";
 import { SKELETON } from "./shared";
 
 /** How many lists the card shows. */
@@ -50,6 +53,7 @@ export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
   const router = useRouter();
   const { lists, isLoading, isError } = useShoppingLists();
+  const typesQ = useShoppingTypes();
   const [creating, setCreating] = useState(false);
 
   const shown = forCard(lists).slice(0, MAX_ROWS);
@@ -112,6 +116,8 @@ export function DashboardCard(_props: ToolViewProps) {
                     }}
                     className="flex w-full items-center justify-between gap-sm py-xs text-start interactive"
                   >
+                    {/* The user's type colour (only while types are available). */}
+                    {typesQ.available ? <TypeDot color={typesQ.typeOf(l.id)?.color ?? null} /> : null}
                     <span className="min-w-0 flex-1 truncate type-body text-ink">{l.name}</span>
                     <span
                       className={`shrink-0 type-label ${l.toBuy > 0 ? "text-app-amber" : "text-muted"}`}

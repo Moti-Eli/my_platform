@@ -5,8 +5,8 @@
  * blur), held by ListScreen's bottom dock (`sticky bottom-sm` + `mt-auto`), in
  * the tool's amber. It is the list's main place for actions. At rest:
  *
- *   ☰  menu    — opens above the bar: Rename list, Delete list (moved here from
- *                the header).
+ *   ☰  menu    — opens above the bar: Rename list, List type (while types are
+ *                available), Delete list.
  *   ＋  add     — the bar itself turns into the add row: ✕ · name · quantity · +.
  *                It stays open until ✕, so items go in one after another (Enter
  *                adds too; the fields clear and focus returns to the name).
@@ -23,10 +23,13 @@
  * full-screen `fixed` scrim: backdrop-blur makes the bar the containing block
  * for fixed children, so such a scrim would cover only the bar.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type SVGProps } from "react";
+import { createPortal } from "react-dom";
 import { useI18n, type MessageKey } from "@/i18n";
 import { CheckIcon, CloseIcon, MenuIcon, PlusIcon, SearchIcon } from "@/components/icons";
-import { ITEM_NAME_MAX, QUANTITY_MAX } from "../logic";
+import { ITEM_NAME_MAX, QUANTITY_MAX, type ListType } from "../logic";
+import { typeColorClasses } from "../typeColors";
+import { NewTypeModal, TypeDot } from "./TypeViews";
 
 type Mode = "rest" | "add" | "search";
 
@@ -44,6 +47,7 @@ export function ShoppingBar({
   onToggleBought,
   onRename,
   onDelete,
+  onSetType,
 }: {
   /** Resolves true when the item was added (the fields then clear). */
   onAdd: (draft: { name: string; quantity: string }) => Promise<boolean>;
@@ -54,6 +58,8 @@ export function ShoppingBar({
   onToggleBought: () => void;
   onRename: () => void;
   onDelete: () => void;
+  /** "List type" in the menu — omitted while types are unavailable. */
+  onSetType?: () => void;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>(search !== "" ? "search" : "rest");
@@ -111,6 +117,19 @@ export function ShoppingBar({
             >
               {t("shopping.renameList")}
             </button>
+            {onSetType ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSetType();
+                }}
+                className="rounded-md px-sm py-xs text-start type-label text-ink interactive"
+              >
+                {t("shopping.listType")}
+              </button>
+            ) : null}
             <button
               type="button"
               role="menuitem"
@@ -248,22 +267,36 @@ function AddRow({
 }
 
 /**
- * The floating bar on "My lists" — the same chrome as the list's bar. Today one
- * control: 🔍, which turns the bar into a search row filtering the lists by
- * name. (No ☰ until it has a real item — "manage types" comes with the types
- * step, and 🏷 with it.)
+ * The floating bar on "My lists" — the same chrome as the list's bar:
+ *
+ *   🔍 search — the bar turns into a search row filtering the lists by name.
+ *   🏷 types  — the bar turns into the types filter row: All / each of MY types
+ *               / No type, and ＋ to create a type. Only while types are
+ *               available (tables migrated); ✕ clears the filter.
+ *
+ * (No ☰ yet — nothing real to put in it; "manage types" would be its first
+ * item once types can be renamed / removed.)
  */
 export function ListsBar({
   search,
   onSearchChange,
+  types,
+  typeFilter,
+  onTypeFilterChange,
 }: {
   search: string;
   onSearchChange: (next: string) => void;
+  /** The user's types, or null while types are unavailable — then no 🏷. */
+  types: readonly ListType[] | null;
+  typeFilter: TypeFilter;
+  onTypeFilterChange: (next: TypeFilter) => void;
 }) {
   const { t } = useI18n();
-  const [searching, setSearching] = useState(search !== "");
+  const [mode, setMode] = useState<"rest" | "search" | "types">(
+    search !== "" ? "search" : typeFilter !== "all" ? "types" : "rest",
+  );
 
-  if (searching) {
+  if (mode === "search") {
     return (
       <SearchRow
         placeholderKey="shopping.searchListsPlaceholder"
@@ -271,7 +304,20 @@ export function ListsBar({
         onChange={onSearchChange}
         onClose={() => {
           onSearchChange("");
-          setSearching(false);
+          setMode("rest");
+        }}
+      />
+    );
+  }
+  if (mode === "types" && types) {
+    return (
+      <TypeFilterRow
+        types={types}
+        value={typeFilter}
+        onChange={onTypeFilterChange}
+        onClose={() => {
+          onTypeFilterChange("all");
+          setMode("rest");
         }}
       />
     );
@@ -281,12 +327,139 @@ export function ListsBar({
       <button
         type="button"
         aria-label={t("shopping.searchLists")}
-        onClick={() => setSearching(true)}
+        onClick={() => setMode("search")}
         className={`${iconButton} text-muted`}
       >
         <SearchIcon width={18} height={18} />
       </button>
+      {types ? (
+        <button
+          type="button"
+          aria-label={t("shopping.filterByType")}
+          onClick={() => setMode("types")}
+          className={`${iconButton} text-muted`}
+        >
+          <TagIcon width={18} height={18} />
+        </button>
+      ) : null}
     </div>
+  );
+}
+
+/** "All" / one type / "No type" — the lists filter on "My lists". */
+export type TypeFilter = "all" | "none" | string;
+
+/**
+ * ✕ · All · each type · No type · ＋ — the bar as the types filter row. The
+ * chips scroll sideways when there are many; ＋ creates a type (NewTypeModal).
+ */
+function TypeFilterRow({
+  types,
+  value,
+  onChange,
+  onClose,
+}: {
+  types: readonly ListType[];
+  value: TypeFilter;
+  onChange: (next: TypeFilter) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const [creating, setCreating] = useState(false);
+  const chip = (active: boolean, filled: string) =>
+    `flex h-8 shrink-0 items-center gap-2xs rounded-pill px-sm type-label interactive motion-safe:active:scale-[0.97] ${
+      active ? filled : "text-ink"
+    }`;
+
+  return (
+    <div className={`${capsule} w-[min(100%,28rem)]`}>
+      <button
+        type="button"
+        aria-label={t("shopping.closeTypeFilter")}
+        onClick={onClose}
+        className={`${iconButton} text-muted`}
+      >
+        <CloseIcon width={14} height={14} />
+      </button>
+      <div role="radiogroup" aria-label={t("shopping.filterByType")} className="flex min-w-0 flex-1 gap-2xs overflow-x-auto">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === "all"}
+          onClick={() => onChange("all")}
+          className={chip(value === "all", "bg-app-amber text-on-fill")}
+        >
+          {t("shopping.allTypes")}
+        </button>
+        {types.map((ty) => (
+          <button
+            key={ty.id}
+            type="button"
+            role="radio"
+            aria-checked={value === ty.id}
+            onClick={() => onChange(ty.id)}
+            className={chip(value === ty.id, typeColorClasses(ty.color).filled)}
+          >
+            {value === ty.id ? null : <TypeDot color={ty.color} size="h-2.5 w-2.5" />}
+            {ty.name}
+          </button>
+        ))}
+        {types.length > 0 ? (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === "none"}
+            onClick={() => onChange("none")}
+            className={chip(value === "none", typeColorClasses(null).filled)}
+          >
+            {t("shopping.noType")}
+          </button>
+        ) : null}
+      </div>
+      <button
+        type="button"
+        aria-label={t("shopping.newType")}
+        onClick={() => setCreating(true)}
+        className={`${iconButton} bg-app-amber text-on-fill`}
+      >
+        <PlusIcon width={16} height={16} />
+      </button>
+      {/* PORTALLED out of the bar: its backdrop-blur would make it the
+          containing block of the modal's `fixed inset-0` scrim. */}
+      {creating && typeof document !== "undefined"
+        ? createPortal(
+            <NewTypeModal
+              onClose={() => setCreating(false)}
+              onCreated={(created) => {
+                setCreating(false);
+                onChange(created.id);
+              }}
+            />,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
+/** A tag (🏷) in the app icon set's style — stroke, currentColor. Local to the
+ * tool: nothing else needs it yet. */
+function TagIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      focusable={false}
+      {...props}
+    >
+      <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.6 7.6a1 1 0 0 1 0 1.4l-7.7 7.7a1 1 0 0 1-1.4 0l-7.6-7.6a1 1 0 0 1-.3-.7Z" />
+      <circle cx="8" cy="8" r="1.4" />
+    </svg>
   );
 }
 

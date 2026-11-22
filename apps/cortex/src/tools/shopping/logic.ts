@@ -20,6 +20,12 @@ import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/c
 
 export const LISTS_TABLE = "shopping_lists";
 export const ITEMS_TABLE = "shopping_list_items";
+// Personal list types (migration 20261123000001) — owner-only, no org_id.
+export const TYPES_TABLE = "shopping_list_types";
+export const TYPE_LINKS_TABLE = "shopping_list_type_links";
+
+/** Mirrors shopping_list_types.name CHECK (1–40 after trimming). */
+export const TYPE_NAME_MAX = 40;
 
 /** Mirrors shopping_lists.name CHECK (1–100). */
 export const LIST_NAME_MAX = 100;
@@ -40,6 +46,37 @@ export interface ListSummary extends List {
   /** Items not checked off yet. */
   toBuy: number;
   total: number;
+}
+
+/** One of the user's OWN list types: a name and a colour TOKEN name. */
+export interface ListType {
+  id: string;
+  name: string;
+  /** An accent token name (amber, green…); the screen maps unknown ones to neutral. */
+  color: string;
+  position: number;
+}
+
+/**
+ * The user's types and which type each of their lists carries. `available`
+ * is false while the types tables are not in the database yet — the screens
+ * then show the lists without types instead of failing.
+ */
+export interface ListTypes {
+  available: boolean;
+  types: ListType[];
+  /** listId → typeId (only the lists that have one). */
+  links: Record<string, string>;
+}
+
+export interface CreateTypeInput {
+  name: string;
+  color: string;
+}
+/** typeId null = the list has no type (for this user). */
+export interface SetListTypeInput {
+  listId: string;
+  typeId: string | null;
 }
 
 export interface GetListInput {
@@ -112,6 +149,27 @@ export interface ShoppingLogic {
   updateItem(input: UpdateItemInput, ctx: Ctx): Promise<{ id: string }>;
   setChecked(input: SetCheckedInput, ctx: Ctx): Promise<{ id: string }>;
   deleteItem(input: DeleteItemInput, ctx: Ctx): Promise<{ id: string }>;
+
+  /** The user's own types + their list→type links; `available` false when the
+   *  tables are not migrated yet. */
+  listTypes(input: Record<string, never>, ctx: Ctx): Promise<ListTypes>;
+  createType(input: CreateTypeInput, ctx: Ctx): Promise<ListType>;
+  setListType(input: SetListTypeInput, ctx: Ctx): Promise<{ listId: string }>;
+}
+
+/** PostgREST / Postgres wording for "this table does not exist (yet)". */
+function isMissingTable(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /could not find the table|schema cache|relation .* does not exist/i.test(message);
+}
+
+function toType(row: DbRow): ListType {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    color: String(row.color),
+    position: Number(row.position ?? 0),
+  };
 }
 
 type Emit = (type: string, payload: unknown, ctx: Ctx) => Promise<void>;
@@ -220,6 +278,59 @@ export function createShoppingLogic({
     async deleteItem(input, _ctx) {
       await db.delete(ITEMS_TABLE, { id: input.id });
       return { id: input.id };
+    },
+
+    // --- personal list types (stage 2) ---------------------------------------
+    // Owner-only RLS on both tables; the owner_id filters below are context.
+    async listTypes(_input, ctx) {
+      try {
+        const types = (await db.select(TYPES_TABLE, { owner_id: ctx.userId }))
+          .map(toType)
+          .sort((a, b) => a.position - b.position);
+        const links: Record<string, string> = {};
+        for (const row of await db.select(TYPE_LINKS_TABLE, { owner_id: ctx.userId })) {
+          links[String(row.list_id)] = String(row.type_id);
+        }
+        return { available: true, types, links };
+      } catch (err) {
+        // Not migrated yet: the screens show plain lists instead of failing.
+        if (isMissingTable(err)) return { available: false, types: [], links: {} };
+        throw err;
+      }
+    },
+
+    async createType(input, ctx) {
+      // Appended after the user's last type. A duplicate name is refused by the
+      // DB (unique per user, ignoring case); the screen checks first.
+      const existing = await db.select(TYPES_TABLE, { owner_id: ctx.userId });
+      const position = existing.reduce((max, r) => Math.max(max, Number(r.position ?? 0) + 1), 0);
+      const id = safeRandomUUID();
+      await db.insert(TYPES_TABLE, {
+        id,
+        owner_id: ctx.userId,
+        name: input.name,
+        color: input.color,
+        position,
+      });
+      return { id, name: input.name, color: input.color, position };
+    },
+
+    async setListType(input, ctx) {
+      // One link per (user, list): none → delete; else update or insert. The
+      // INSERT policy also requires the list to be readable by the user.
+      const match = { owner_id: ctx.userId, list_id: input.listId };
+      const [existing] = await db.select(TYPE_LINKS_TABLE, match);
+      if (input.typeId === null) {
+        if (existing) await db.delete(TYPE_LINKS_TABLE, match);
+      } else if (existing) {
+        await db.update(TYPE_LINKS_TABLE, match, {
+          type_id: input.typeId,
+          updated_at: new Date().toISOString(),
+        });
+      } else {
+        await db.insert(TYPE_LINKS_TABLE, { ...match, type_id: input.typeId });
+      }
+      return { listId: input.listId };
     },
   };
 }

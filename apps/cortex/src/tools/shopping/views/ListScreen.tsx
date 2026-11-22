@@ -22,8 +22,10 @@ import { CheckIcon } from "@/components/icons";
 import { listItemsKey, useListItems } from "@/lib/query/useShoppingItems";
 import { SHOPPING_LISTS_KEY } from "@/lib/query/useShoppingList";
 import type { Item, List } from "../logic";
+import { useShoppingTypes } from "@/lib/query/useShoppingTypes";
 import { ShoppingBar } from "./ShoppingBar";
 import { DeleteListDialog, RenameListModal } from "./ListDialogs";
+import { ListTypeDialog } from "./TypeViews";
 import { ItemForm } from "./ItemForm";
 import { EmptyCard, RowActions, SKELETON, WriteErrorBanner, type WriteErrorCode } from "./shared";
 
@@ -39,6 +41,9 @@ export function ListScreen({ list }: { list: List }) {
   const [showBought, setShowBought] = useState(true);
   const [renaming, setRenaming] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [settingType, setSettingType] = useState(false);
+  // "List type" is offered only while types are available (tables migrated).
+  const typesAvailable = useShoppingTypes().available;
 
   // The search filters both sections, by name or quantity, ignoring case.
   const needle = search.trim().toLocaleLowerCase(locale);
@@ -201,10 +206,12 @@ export function ListScreen({ list }: { list: List }) {
           onToggleBought={() => setShowBought((v) => !v)}
           onRename={() => setRenaming(true)}
           onDelete={() => setDeleting(true)}
+          onSetType={typesAvailable ? () => setSettingType(true) : undefined}
         />
       </div>
 
       {renaming ? <RenameListModal list={list} onClose={() => setRenaming(false)} /> : null}
+      {settingType ? <ListTypeDialog listId={list.id} onClose={() => setSettingType(false)} /> : null}
       {deleting ? <DeleteListDialog list={list} onClose={() => setDeleting(false)} /> : null}
     </>
   );
