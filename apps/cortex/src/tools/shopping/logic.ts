@@ -13,8 +13,8 @@
  * list opens by its id, without switching the active org. RLS is the
  * enforcement point (`auth_user_can_read` / `can_write`: a member of the list's
  * org). A new item takes its LIST's org, never the active one (the composite FK
- * (list_id, org_id) requires it). The active-org reads (`getList` / `listItems`
- * with no id) remain for the Home card until it moves to "My lists".
+ * (list_id, org_id) requires it). Nothing reads "the active org's list" any
+ * more — the Home card shows "My lists" too.
  */
 import { safeRandomUUID, type Ctx, type CortexDb, type DbRow } from "@platform/cortex-core";
 
@@ -42,13 +42,11 @@ export interface ListSummary extends List {
   total: number;
 }
 
-/** No id = the active org's list (the Home card); an id = that list. */
 export interface GetListInput {
-  id?: string;
+  id: string;
 }
-/** No listId = the active org's items (the Home card); a listId = that list's. */
 export interface ListItemsInput {
-  listId?: string;
+  listId: string;
 }
 
 export interface Item {
@@ -103,12 +101,12 @@ export interface CreateListResult {
 export interface ShoppingLogic {
   /** Every list the user can read, across all their orgs, with item counts. */
   listLists(input: Record<string, never>, ctx: Ctx): Promise<ListSummary[]>;
-  /** One list by id, or the active org's list when no id; null when none. */
+  /** One list by id; null when the user cannot read it. */
   getList(input: GetListInput, ctx: Ctx): Promise<List | null>;
   createList(input: CreateListInput, ctx: Ctx): Promise<CreateListResult>;
   renameList(input: RenameListInput, ctx: Ctx): Promise<{ id: string }>;
   deleteList(input: DeleteListInput, ctx: Ctx): Promise<DeleteListResult>;
-  /** One list's items, or the active org's when no listId. */
+  /** One list's items. */
   listItems(input: ListItemsInput, ctx: Ctx): Promise<Item[]>;
   addItem(input: AddItemInput, ctx: Ctx): Promise<{ id: string; createdAt: string }>;
   updateItem(input: UpdateItemInput, ctx: Ctx): Promise<{ id: string }>;
@@ -158,10 +156,9 @@ export function createShoppingLogic({
       });
     },
 
-    async getList(input, ctx) {
-      const rows = await db.select(LISTS_TABLE, input.id ? { id: input.id } : { org_id: ctx.orgId });
-      const first = rows[0];
-      return first ? toList(first) : null;
+    async getList(input, _ctx) {
+      const [row] = await db.select(LISTS_TABLE, { id: input.id });
+      return row ? toList(row) : null;
     },
     createList,
 
@@ -177,11 +174,8 @@ export function createShoppingLogic({
 
     deleteList,
 
-    async listItems(input, ctx) {
-      const rows = await db.select(
-        ITEMS_TABLE,
-        input.listId ? { list_id: input.listId } : { org_id: ctx.orgId },
-      );
+    async listItems(input, _ctx) {
+      const rows = await db.select(ITEMS_TABLE, { list_id: input.listId });
       return rows.map(toItem);
     },
 

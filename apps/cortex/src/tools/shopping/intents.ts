@@ -32,11 +32,11 @@ export function createShoppingIntents(logic: ShoppingLogic) {
       output: z.array(listSummary),
       handler: (input, ctx) => logic.listLists(input, ctx),
     }),
-    // READ. One list by id; with no id, the active org's list (null when none).
+    // READ. One list by id (null when the user cannot read it).
     defineIntent({
       name: "shopping.get_list",
-      description: "Get one shopping list by id, or the current organization's list when no id is given",
-      input: z.object({ id: z.string().min(1).optional() }),
+      description: "Get one of the user's shopping lists by id",
+      input: z.object({ id: z.string().min(1) }),
       output: list.nullable(),
       handler: (input, ctx) => logic.getList(input, ctx),
     }),
@@ -74,9 +74,8 @@ export function createShoppingIntents(logic: ShoppingLogic) {
     // --- items ----------------------------------------------------------------
     defineIntent({
       name: "shopping.list_items",
-      description:
-        "List the items on one shopping list (by listId), or on the current organization's list when no listId is given",
-      input: z.object({ listId: z.string().min(1).optional() }),
+      description: "List the items on one shopping list (by listId)",
+      input: z.object({ listId: z.string().min(1) }),
       output: z.array(item),
       handler: (input, ctx) => logic.listItems(input, ctx),
     }),

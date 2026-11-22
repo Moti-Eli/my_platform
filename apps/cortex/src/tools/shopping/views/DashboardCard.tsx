@@ -5,23 +5,21 @@
  * app-amber identity accent, same chrome and fixed height (~1/3 of the visible
  * viewport, from `--app-vh`) as the orders card.
  *
- * Every list lives in its own org (ARCHITECTURE.md #38), so the card depends on
- * the ACTIVE org:
- *   - a list org    → the list's name, how many items are left to buy, and those
- *                     items (scrolling inside the card). Tapping opens the list.
- *   - any other org → "New list", which opens the same NewListModal as the full
- *                     screen; once created, the tool opens on the new list.
- *
- * (Stage 2 moves the card to "My lists" in a later step; until then it keeps
- * the active-org reads, `useShoppingList` / `useShoppingItems`.)
+ * "My lists" in small (stage 2, decision 5A) — the same read as the tool's main
+ * screen, so it looks the same in EVERY org the tool is on, not only in a list
+ * org:
+ *   - up to MAX_ROWS lists, the ones with the most left to buy first (then by
+ *     name), each with how many items are left; a row opens that list in place
+ *   - more lists than that → "and N more" (tapping the card opens "My lists")
+ *   - no lists → an explicit line
+ *   - ＋ → the same NewListModal as the full screen; then the new list opens
  *
  * STATES, MODELLED EXPLICITLY: loading → skeleton; error → a muted "couldn't
- * load" line, never silently blank. Reads the SAME shared caches as the full
- * screen, so the card and the tool never disagree.
+ * load" line, never silently blank.
  *
- * TAPS: Home wraps this card in a `<Link>` to the tool. The "New list" button
- * calls BOTH `preventDefault` (what stops the ancestor `<a>`) and
- * `stopPropagation`. The modal is PORTALLED to <body> so its clicks are not
+ * TAPS: Home wraps this card in a `<Link>` to the tool. ＋ and each row call BOTH
+ * `preventDefault` (what stops the ancestor `<a>`) and `stopPropagation`, and
+ * navigate themselves. The modal is PORTALLED to <body> so its clicks are not
  * inside the `<a>` in the DOM, and wrapped in a stopPropagation so React's
  * synthetic bubbling (which follows the React tree through a portal) never
  * reaches the Link's onClick either.
@@ -32,20 +30,30 @@ import { useRouter } from "next/navigation";
 import type { ToolViewProps } from "@/tools";
 import { useI18n } from "@/i18n";
 import { CheckIcon, PlusIcon } from "@/components/icons";
-import { useShoppingList } from "@/lib/query/useShoppingList";
-import { useShoppingItems } from "@/lib/query/useShoppingItems";
+import { useShoppingLists } from "@/lib/query/useShoppingList";
+import type { ListSummary } from "../logic";
 import { listHref } from "../nav";
 import { NewListModal } from "./NewListModal";
 import { SKELETON } from "./shared";
+
+/** How many lists the card shows. */
+const MAX_ROWS = 4;
+
+/** Most left to buy first; ties keep the hook's A–Z order (sort is stable). */
+function forCard(lists: readonly ListSummary[]): ListSummary[] {
+  return [...lists].sort((a, b) => b.toBuy - a.toBuy);
+}
 
 // userId/orgId arrive as props but are never sent anywhere: the server action
 // derives identity from the session cookie.
 export function DashboardCard(_props: ToolViewProps) {
   const { t } = useI18n();
   const router = useRouter();
-  const listQ = useShoppingList();
-  const list = listQ.list;
+  const { lists, isLoading, isError } = useShoppingLists();
   const [creating, setCreating] = useState(false);
+
+  const shown = forCard(lists).slice(0, MAX_ROWS);
+  const more = lists.length - shown.length;
 
   return (
     <div
@@ -58,40 +66,74 @@ export function DashboardCard(_props: ToolViewProps) {
             <CheckIcon width={20} height={20} />
           </span>
           <div className="flex min-w-0 flex-col">
-            {list ? (
-              <span className="truncate type-label text-muted">{t("shopping.name")}</span>
-            ) : null}
-            <span className="truncate type-heading text-ink">
-              {list ? list.name : t("shopping.name")}
-            </span>
+            <span className="truncate type-label text-muted">{t("shopping.name")}</span>
+            <span className="truncate type-heading text-ink">{t("shopping.myListsTitle")}</span>
           </div>
         </div>
-        {!listQ.isLoading && !listQ.isError && !list ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setCreating(true);
-            }}
-            className="flex shrink-0 items-center gap-2xs rounded-pill bg-app-amber px-sm py-xs type-label text-on-fill interactive motion-safe:active:scale-[0.97]"
-          >
-            <PlusIcon width={14} height={14} aria-hidden />
-            {t("shopping.newList")}
-          </button>
-        ) : null}
+        <button
+          type="button"
+          aria-label={t("shopping.newList")}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setCreating(true);
+          }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-app-amber text-on-fill interactive motion-safe:active:scale-[0.97]"
+        >
+          <PlusIcon width={16} height={16} />
+        </button>
       </div>
 
       {/* The scrolling region — the only part that grows past the fixed height. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {listQ.isLoading ? (
-          <span className={`block h-4 w-32 ${SKELETON}`} aria-hidden="true" />
-        ) : listQ.isError ? (
+        {isLoading ? (
+          <ul className="flex flex-col divide-y divide-hairline" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="py-sm">
+                <span className={`block h-4 w-32 ${SKELETON}`} />
+              </li>
+            ))}
+          </ul>
+        ) : isError ? (
           <p className="type-label text-muted">{t("shopping.loadFailed")}</p>
-        ) : list ? (
-          <ToBuy />
+        ) : lists.length === 0 ? (
+          <p className="type-label text-muted">{t("shopping.noListsTitle")}</p>
         ) : (
-          <p className="type-label text-muted">{t("shopping.noListTitle")}</p>
+          <>
+            <ul className="flex flex-col divide-y divide-hairline">
+              {shown.map((l) => (
+                <li key={l.id}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      router.push(listHref(l.id));
+                    }}
+                    className="flex w-full items-center justify-between gap-sm py-xs text-start interactive"
+                  >
+                    <span className="min-w-0 flex-1 truncate type-body text-ink">{l.name}</span>
+                    <span
+                      className={`shrink-0 type-label ${l.toBuy > 0 ? "text-app-amber" : "text-muted"}`}
+                    >
+                      {l.total === 0
+                        ? t("shopping.listEmpty")
+                        : l.toBuy === 0
+                          ? t("shopping.allBought")
+                          : t("shopping.toBuyShort").replace("{count}", String(l.toBuy))}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {more > 0 ? (
+              <p className="pt-2xs type-caption text-muted">
+                {more === 1
+                  ? t("shopping.moreListsOne")
+                  : t("shopping.moreListsMany").replace("{count}", String(more))}
+              </p>
+            ) : null}
+          </>
         )}
       </div>
 
@@ -111,47 +153,5 @@ export function DashboardCard(_props: ToolViewProps) {
           )
         : null}
     </div>
-  );
-}
-
-/** "N left to buy" + those items. Only mounted in a list org. */
-function ToBuy() {
-  const { t } = useI18n();
-  const { toBuy, isLoading, isError } = useShoppingItems();
-
-  if (isLoading) {
-    return (
-      <ul className="flex flex-col divide-y divide-hairline" aria-hidden="true">
-        {[0, 1, 2].map((i) => (
-          <li key={i} className="py-sm">
-            <span className={`block h-4 w-28 ${SKELETON}`} />
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (isError) return <p className="type-label text-muted">{t("shopping.loadFailed")}</p>;
-  if (toBuy.length === 0) {
-    return <p className="type-label text-muted">{t("shopping.nothingLeft")}</p>;
-  }
-
-  return (
-    <>
-      <p className="pb-2xs type-label text-ink">
-        {toBuy.length === 1
-          ? t("shopping.leftToBuyOne")
-          : t("shopping.leftToBuyMany").replace("{count}", String(toBuy.length))}
-      </p>
-      <ul className="flex flex-col divide-y divide-hairline">
-        {toBuy.map((item) => (
-          <li key={item.id} className="flex items-center justify-between gap-sm py-xs">
-            <span className="min-w-0 flex-1 truncate type-body text-ink">{item.name}</span>
-            {item.quantity ? (
-              <span className="shrink-0 type-label text-muted">{item.quantity}</span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </>
   );
 }

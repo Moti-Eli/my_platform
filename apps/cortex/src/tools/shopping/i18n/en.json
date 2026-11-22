@@ -7,10 +7,11 @@
   "noListsTitle": "No lists yet",
   "noListsHint": "Create a list — for home, work or an event.",
   "listEmpty": "Empty list",
+  "toBuyShort": "{count} to buy",
+  "moreListsOne": "and 1 more list",
+  "moreListsMany": "and {count} more lists",
   "listNotFoundTitle": "List not found",
   "listNotFoundHint": "It may have been deleted, or you are no longer on it.",
-  "noListTitle": "No list here",
-  "noListHint": "Create a new list — for home, the office or an event.",
   "newList": "New list",
   "newListTitle": "New list",
   "listName": "List name",
@@ -54,7 +55,6 @@
   "noMatches": "No items found",
   "showBought": "Show what's bought",
   "hideBought": "Hide what's bought",
-  "nothingLeft": "Nothing left to buy",
   "leftToBuyOne": "1 item left to buy",
   "leftToBuyMany": "{count} items left to buy"
 }

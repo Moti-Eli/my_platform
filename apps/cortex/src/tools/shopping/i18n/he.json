@@ -7,10 +7,11 @@
   "noListsTitle": "עוד אין לך רשימות",
   "noListsHint": "צרו רשימה — לבית, לעבודה או לאירוע.",
   "listEmpty": "רשימה ריקה",
+  "toBuyShort": "{count} לקנות",
+  "moreListsOne": "ועוד רשימה אחת",
+  "moreListsMany": "ועוד {count} רשימות",
   "listNotFoundTitle": "הרשימה לא נמצאה",
   "listNotFoundHint": "ייתכן שהיא נמחקה, או שכבר אינך חבר בה.",
-  "noListTitle": "אין כאן רשימה",
-  "noListHint": "צרו רשימה חדשה — לבית, למשרד או לאירוע.",
   "newList": "רשימה חדשה",
   "newListTitle": "רשימה חדשה",
   "listName": "שם הרשימה",
@@ -54,7 +55,6 @@
   "noMatches": "לא נמצאו פריטים",
   "showBought": "הצג את מה שנקנה",
   "hideBought": "הסתר את מה שנקנה",
-  "nothingLeft": "אין מה לקנות",
   "leftToBuyOne": "נשאר פריט אחד לקנות",
   "leftToBuyMany": "נשארו {count} פריטים לקנות"
 }
