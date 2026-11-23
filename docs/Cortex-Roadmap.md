@@ -180,7 +180,7 @@ not the org's name. See ARCHITECTURE.md #38.
   screen says the org must be hidden from the Organizations screen.
 - **1 (screens, part 4 — Home card): DONE** (#15). Stage 1 complete; migrations
   `20261028000001` and `20261028000002` applied.
-- **2 (stage 2): IN PROGRESS** (`feat/shopping-stage-2`, not pushed yet).
+- **2 (stage 2): IN REVIEW** (`feat/shopping-stage-2`, PR to `main`).
   - Floating bar on a list: ☰ (rename / list type / delete), ＋ (the bar becomes
     the add row), 🔍 (search), ✓ (show / hide bought). Fixed: the add field was
     crushed (`max-w-md` = 16px here, since `md` is also a spacing step).
