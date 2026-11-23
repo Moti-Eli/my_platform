@@ -1,35 +1,38 @@
 "use client";
 
 /**
- * react-query hook for the items on the ACTIVE org's shopping list. Same shape as
- * the shifts hooks: the queryFn calls the SERVER action and turns a `!res.ok`
- * into a thrown Error so `isError` is real. Screens reconcile this cache entry
- * with `setQueryData` after their own writes.
- *
- * Returned in the order they were added (oldest first), split into the items
- * still to buy and the ones already checked off.
+ * react-query hook for one shopping list's items. Same shape as the shifts
+ * hooks: the queryFn calls the SERVER action and turns a `!res.ok` into a thrown
+ * Error so `isError` is real. The list screen reconciles the cache with
+ * `setQueryData` after its own writes.
  */
 import { useQuery } from "@tanstack/react-query";
+import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import type { Item } from "@/tools/shopping/logic";
 
-export const SHOPPING_ITEMS_KEY = ["shopping", "items"] as const;
+export const listItemsKey = (listId: string) => ["shopping", "items", listId] as const;
 
-export function sortItems(list: readonly Item[]): Item[] {
-  return [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-}
-
-export function useShoppingItems() {
+/**
+ * One list's items (opened in place from "My lists"), sorted A–Z by name in the
+ * user's language, split into to-buy and bought.
+ */
+export function useListItems(listId: string) {
+  const { locale } = useI18n();
   const query = useQuery({
-    queryKey: SHOPPING_ITEMS_KEY,
+    queryKey: listItemsKey(listId),
     queryFn: async (): Promise<Item[]> => {
-      const res = await runIntentAction("shopping.list_items", {});
+      const res = await runIntentAction("shopping.list_items", { listId });
       if (!res.ok) throw new Error(res.code);
       return res.data as Item[];
     },
   });
-  const items = sortItems(query.data ?? []);
-  const toBuy = items.filter((i) => !i.checked);
-  const bought = items.filter((i) => i.checked);
-  return { ...query, toBuy, bought };
+  const items = [...(query.data ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name, locale, { sensitivity: "base", numeric: true }),
+  );
+  return {
+    ...query,
+    toBuy: items.filter((i) => !i.checked),
+    bought: items.filter((i) => i.checked),
+  };
 }

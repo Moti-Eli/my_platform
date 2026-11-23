@@ -1,10 +1,15 @@
 "use client";
 
 /**
- * The list screen (stage 1, items part): the items still to buy, then — under
- * their own heading — the items already checked off. Rows follow orders'
+ * The list screen: the items still to buy, then — under their own heading —
+ * the items already checked off, each A–Z by name (stage 2). The list is read
+ * by id, opened in place from "My lists" (no org switch). Rows follow orders'
  * product rows: the circle + name ticks / unticks the item; ✎ edits it inline;
- * ✕ is a two-tap delete. The floating add bar sits in the bottom dock.
+ * ✕ is a two-tap delete.
+ *
+ * The floating bar (ShoppingBar) in the bottom dock is the screen's main place
+ * for actions: ☰ (rename / delete list), ＋ (the bar becomes the add row),
+ * 🔍 (filter the list by name or quantity) and ✓ (show / hide "Bought").
  *
  * Every write reconciles the shared items cache with `setQueryData`. Ticking is
  * optimistic (the row moves at once) and is put back if the write fails.
@@ -14,22 +19,46 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { runIntentAction } from "@/cortex/actions";
 import { CheckIcon } from "@/components/icons";
-import { SHOPPING_ITEMS_KEY, useShoppingItems } from "@/lib/query/useShoppingItems";
+import { listItemsKey, useListItems } from "@/lib/query/useShoppingItems";
+import { SHOPPING_LISTS_KEY } from "@/lib/query/useShoppingList";
 import type { Item, List } from "../logic";
-import { AddItemBar } from "./AddItemBar";
+import { useShoppingTypes } from "@/lib/query/useShoppingTypes";
+import { ShoppingBar } from "./ShoppingBar";
+import { DeleteListDialog, RenameListModal } from "./ListDialogs";
+import { ListTypeDialog } from "./TypeViews";
 import { ItemForm } from "./ItemForm";
 import { EmptyCard, RowActions, SKELETON, WriteErrorBanner, type WriteErrorCode } from "./shared";
 
 export function ListScreen({ list }: { list: List }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
-  const { toBuy, bought, isLoading, isError } = useShoppingItems();
+  // This list's items, A–Z (by id — the list may sit in any of the user's orgs).
+  const { toBuy: allToBuy, bought: allBought, isLoading, isError } = useListItems(list.id);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [writeError, setWriteError] = useState<WriteErrorCode | null>(null);
+  const [search, setSearch] = useState("");
+  const [showBought, setShowBought] = useState(true);
+  const [renaming, setRenaming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [settingType, setSettingType] = useState(false);
+  // "List type" is offered only while types are available (tables migrated).
+  const typesAvailable = useShoppingTypes().available;
 
-  const patchCache = (fn: (prev: Item[]) => Item[]) =>
-    queryClient.setQueryData<Item[]>(SHOPPING_ITEMS_KEY, (prev) => fn(prev ?? []));
+  // The search filters both sections, by name or quantity, ignoring case.
+  const needle = search.trim().toLocaleLowerCase(locale);
+  const matches = (i: Item) =>
+    needle === "" ||
+    i.name.toLocaleLowerCase(locale).includes(needle) ||
+    i.quantity.toLocaleLowerCase(locale).includes(needle);
+  const toBuy = allToBuy.filter(matches);
+  const bought = allBought.filter(matches);
+
+  // Patch this list's items; "My lists" counts are refreshed when it is next shown.
+  const patchCache = (fn: (prev: Item[]) => Item[]) => {
+    queryClient.setQueryData<Item[]>(listItemsKey(list.id), (prev) => fn(prev ?? []));
+    void queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_KEY });
+  };
 
   async function addItem(draft: { name: string; quantity: string }): Promise<boolean> {
     setWriteError(null);
@@ -146,16 +175,18 @@ export function ListScreen({ list }: { list: List }) {
         </ul>
       ) : isError ? (
         <EmptyCard titleKey="shopping.loadFailed" />
-      ) : toBuy.length === 0 && bought.length === 0 ? (
+      ) : allToBuy.length === 0 && allBought.length === 0 ? (
         <EmptyCard titleKey="shopping.emptyItemsTitle" hintKey="shopping.emptyItemsHint" />
+      ) : needle !== "" && toBuy.length === 0 && bought.length === 0 ? (
+        <p className="py-sm type-label text-muted">{t("shopping.noMatches")}</p>
       ) : (
         <>
           {toBuy.length > 0 ? (
             <ul className="flex flex-col divide-y divide-hairline">{toBuy.map(row)}</ul>
-          ) : (
+          ) : needle === "" ? (
             <p className="py-sm type-label text-muted">{t("shopping.allBought")}</p>
-          )}
-          {bought.length > 0 ? (
+          ) : null}
+          {showBought && bought.length > 0 ? (
             <section className="flex flex-col gap-2xs pt-md">
               <h2 className="type-label text-muted">{t("shopping.boughtHeading")}</h2>
               <ul className="flex flex-col divide-y divide-hairline">{bought.map(row)}</ul>
@@ -166,8 +197,22 @@ export function ListScreen({ list }: { list: List }) {
 
       {/* The bottom dock — orders' `sticky bottom-sm` + `mt-auto`. */}
       <div className="sticky bottom-sm z-40 mt-auto flex shrink-0 flex-col items-center gap-xs">
-        <AddItemBar onAdd={addItem} />
+        <ShoppingBar
+          onAdd={addItem}
+          search={search}
+          onSearchChange={setSearch}
+          boughtCount={allBought.length}
+          showBought={showBought}
+          onToggleBought={() => setShowBought((v) => !v)}
+          onRename={() => setRenaming(true)}
+          onDelete={() => setDeleting(true)}
+          onSetType={typesAvailable ? () => setSettingType(true) : undefined}
+        />
       </div>
+
+      {renaming ? <RenameListModal list={list} onClose={() => setRenaming(false)} /> : null}
+      {settingType ? <ListTypeDialog listId={list.id} onClose={() => setSettingType(false)} /> : null}
+      {deleting ? <DeleteListDialog list={list} onClose={() => setDeleting(false)} /> : null}
     </>
   );
 }

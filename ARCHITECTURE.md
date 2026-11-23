@@ -1171,3 +1171,36 @@ the old CLAUDE.md.
 waiting on the owner for every merge and migration only blocked progress. The PR
 + CI gate and the manual, dry-run-first migration workflow keep the safety that
 does not depend on a person.
+
+## 40. Shopping Reads Lists Across All of the User's Orgs
+
+**Decision:** The shopping tool's main screen, "My lists", and its Home card read
+every list the user can read — the lists of EVERY org they are a member of,
+created or shared — by querying `shopping_lists` with NO org filter. A list
+opens by its id (`?list=<id>`), without switching the active org; a new item
+takes its LIST's org (the composite FK requires it) and deleting a list hides
+the list's own org, never the active one. The locked read/write rules
+(`auth_user_can_read` / `auth_user_can_write`, #11) are unchanged.
+
+**Reasoning:** Every list is its own org (#38), so "only the active org" meant
+one list at a time and an org switch (a full reload) to see another. The
+active-org restriction was never security — it was the tool's own query filter;
+RLS already returns exactly the rows of the user's orgs, so dropping the filter
+widens nothing.
+
+## 41. Shopping List Types Are Personal (No org_id)
+
+**Decision:** A user's list types (name + colour) and "my type for this list"
+are PERSONAL rows: `shopping_list_types` and `shopping_list_type_links`
+(migration `20261123000001`) carry `owner_id` and no `org_id` / `visibility`,
+owner-only RLS, anon revoked, column-limited writes — the business-card shape
+(#37). A link points only at one of the user's own types (composite FK) and only
+at a list they can read. Two people sharing a list each see it in their own type
+and colour. The colour is stored as an accent TOKEN NAME (amber, green…), never a
+colour value; the app maps names to classes and falls back to neutral.
+
+**Reasoning:** A type groups lists from many orgs (#40), so no single org can own
+it; and a shared list must not impose one person's categories on another.
+Storing token names keeps theming in the design system and lets the palette grow
+without a migration. The screens treat the types as optional: until the
+migration is applied they show the lists without types instead of failing.
